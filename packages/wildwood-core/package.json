@@ -21,10 +21,12 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
+    "@vitest/coverage-v8": "^4.0.18",
     "msw": "^2.12.10",
     "tsup": "^8.4.0",
     "typescript": "^5.7.0",

@@ -5,6 +5,7 @@ import type {
   AISession,
   AISessionSummary,
   AIConfiguration,
+  TTSVoice,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood';
 
@@ -17,9 +18,13 @@ export interface UseAIReturn {
   getSession: (sessionId: string) => Promise<AISession | null>;
   createSession: (configName: string, title?: string) => Promise<AISession | null>;
   deleteSession: (sessionId: string) => Promise<void>;
+  endSession: (sessionId: string) => Promise<boolean>;
   renameSession: (sessionId: string, title: string) => Promise<void>;
-  getConfigurations: () => Promise<AIConfiguration[]>;
+  getConfigurations: (configurationType?: string) => Promise<AIConfiguration[]>;
   getConfiguration: (name: string) => Promise<AIConfiguration | null>;
+  getTTSVoices: () => Promise<TTSVoice[]>;
+  getTTSVoicesForConfiguration: (configurationId: string) => Promise<TTSVoice[]>;
+  synthesizeSpeech: (text: string, voice: string, speed?: number, configurationId?: string) => Promise<{ audioBase64: string; contentType: string } | null>;
 }
 
 export function useAI(): UseAIReturn {
@@ -63,30 +68,45 @@ export function useAI(): UseAIReturn {
     await getSessions();
   }, [client, getSessions]);
 
+  const endSession = useCallback(async (sessionId: string) => {
+    return client.ai.endSession(sessionId);
+  }, [client]);
+
   const renameSession = useCallback(async (sessionId: string, title: string) => {
     await client.ai.renameSession(sessionId, title);
     await getSessions();
   }, [client, getSessions]);
 
-  const getConfigurations = useCallback(async () => {
-    return client.ai.getConfigurations();
+  const getConfigurations = useCallback(async (configurationType?: string) => {
+    return client.ai.getConfigurations(configurationType);
   }, [client]);
 
   const getConfiguration = useCallback(async (name: string) => {
     return client.ai.getConfiguration(name);
   }, [client]);
 
+  const getTTSVoices = useCallback(async () => {
+    return client.ai.getTTSVoices();
+  }, [client]);
+
+  const getTTSVoicesForConfiguration = useCallback(async (configurationId: string) => {
+    return client.ai.getTTSVoicesForConfiguration(configurationId);
+  }, [client]);
+
+  const synthesizeSpeech = useCallback(async (
+    text: string,
+    voice: string,
+    speed?: number,
+    configurationId?: string,
+  ) => {
+    return client.ai.synthesizeSpeech(text, voice, speed, configurationId);
+  }, [client]);
+
   return {
-    sessions,
-    loading,
-    error,
+    sessions, loading, error,
     sendMessage,
-    getSessions,
-    getSession,
-    createSession,
-    deleteSession,
-    renameSession,
-    getConfigurations,
-    getConfiguration,
+    getSessions, getSession, createSession, deleteSession, endSession, renameSession,
+    getConfigurations, getConfiguration,
+    getTTSVoices, getTTSVoicesForConfiguration, synthesizeSpeech,
   };
 }

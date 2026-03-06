@@ -31,6 +31,8 @@ export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
 export { useAppTier } from './hooks/useAppTier';
 export type { UseAppTierReturn } from './hooks/useAppTier';
+export { useCaptcha } from './hooks/useCaptcha';
+export type { UseCaptchaReturn } from './hooks/useCaptcha';
 export { useWildwoodComponent } from './hooks/useWildwoodComponent';
 export type { UseWildwoodComponentReturn } from './hooks/useWildwoodComponent';
 export { usePlatformDetection } from './hooks/usePlatformDetection';

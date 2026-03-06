@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type {
   MessageThread,
   SecureMessage,
@@ -9,13 +9,18 @@ import type {
   TypingIndicator,
   OnlineStatus,
   UserStatus,
+  SignalRConnectionState,
 } from '@wildwood/core';
+import { createSignalRManager } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
 export interface UseMessagingReturn {
   threads: MessageThread[];
   loading: boolean;
   error: string | null;
+  connectionState: SignalRConnectionState;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
   getThreads: () => Promise<MessageThread[]>;
   getThread: (threadId: string) => Promise<MessageThread | null>;
   createThread: (participantIds: string[], subject: string) => Promise<MessageThread>;
@@ -36,6 +41,9 @@ export interface UseMessagingReturn {
   downloadAttachment: (attachmentId: string) => Promise<ArrayBuffer>;
   updateOnlineStatus: (status: UserStatus, statusMessage?: string) => Promise<boolean>;
   getOnlineStatuses: () => Promise<OnlineStatus[]>;
+  onMessage: (handler: (message: SecureMessage) => void) => () => void;
+  onTyping: (handler: (indicator: TypingIndicator) => void) => () => void;
+  onStatusChange: (handler: (status: OnlineStatus) => void) => () => void;
 }
 
 export function useMessaging(): UseMessagingReturn {
@@ -43,8 +51,65 @@ export function useMessaging(): UseMessagingReturn {
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<SignalRConnectionState>('disconnected');
+  const signalRRef = useRef<ReturnType<typeof createSignalRManager> | null>(null);
 
   const appId = client.config.appId ?? '';
+
+  // Initialize SignalR manager on mount
+  useEffect(() => {
+    const baseUrl = client.config.baseUrl?.replace(/\/$/, '') ?? '';
+    const manager = createSignalRManager({
+      hubUrl: `${baseUrl}/hubs/messaging`,
+      getAccessToken: async () => {
+        const token = client.session.accessToken;
+        return token ?? null;
+      },
+      autoReconnect: true,
+    });
+
+    const unsubState = manager.onStateChange(setConnectionState);
+    signalRRef.current = manager;
+
+    return () => {
+      unsubState();
+      manager.disconnect();
+      signalRRef.current = null;
+    };
+  }, [client]);
+
+  const connect = useCallback(async () => {
+    await signalRRef.current?.connect();
+  }, []);
+
+  const disconnect = useCallback(async () => {
+    await signalRRef.current?.disconnect();
+  }, []);
+
+  // Real-time event subscriptions
+  const onMessage = useCallback((handler: (message: SecureMessage) => void) => {
+    const mgr = signalRRef.current;
+    if (!mgr) return () => {};
+    const wrappedHandler = (...args: unknown[]) => handler(args[0] as SecureMessage);
+    mgr.on('ReceiveMessage', wrappedHandler);
+    return () => mgr.off('ReceiveMessage', wrappedHandler);
+  }, []);
+
+  const onTyping = useCallback((handler: (indicator: TypingIndicator) => void) => {
+    const mgr = signalRRef.current;
+    if (!mgr) return () => {};
+    const wrappedHandler = (...args: unknown[]) => handler(args[0] as TypingIndicator);
+    mgr.on('TypingIndicator', wrappedHandler);
+    return () => mgr.off('TypingIndicator', wrappedHandler);
+  }, []);
+
+  const onStatusChange = useCallback((handler: (status: OnlineStatus) => void) => {
+    const mgr = signalRRef.current;
+    if (!mgr) return () => {};
+    const wrappedHandler = (...args: unknown[]) => handler(args[0] as OnlineStatus);
+    mgr.on('UserStatusChanged', wrappedHandler);
+    return () => mgr.off('UserStatusChanged', wrappedHandler);
+  }, []);
 
   const getThreads = useCallback(async () => {
     setLoading(true);
@@ -140,7 +205,8 @@ export function useMessaging(): UseMessagingReturn {
   }, [client, appId]);
 
   return {
-    threads, loading, error,
+    threads, loading, error, connectionState,
+    connect, disconnect,
     getThreads, getThread, createThread, getMessages,
     sendMessage, editMessage, deleteMessage,
     reactToMessage, removeReaction,
@@ -148,5 +214,6 @@ export function useMessaging(): UseMessagingReturn {
     searchUsers, getCompanyAppUsers, searchMessages,
     startTyping, stopTyping, getTypingIndicators,
     downloadAttachment, updateOnlineStatus, getOnlineStatuses,
+    onMessage, onTyping, onStatusChange,
   };
 }

@@ -4,6 +4,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
+    "test:coverage": "pnpm --filter @wildwood/core --filter @wildwood/react run test:coverage",
     "lint": "pnpm -r run lint",
     "clean": "pnpm -r exec rm -rf dist",
     "changeset": "changeset",
