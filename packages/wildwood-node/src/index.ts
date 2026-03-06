@@ -5,6 +5,9 @@ export type { AuthMiddlewareOptions, WildwoodUser } from './middleware/authMiddl
 export { createProxyMiddleware } from './middleware/proxyMiddleware.js';
 export type { ProxyMiddlewareOptions } from './middleware/proxyMiddleware.js';
 
+export { createRateLimitMiddleware } from './middleware/rateLimitMiddleware.js';
+export type { RateLimitOptions } from './middleware/rateLimitMiddleware.js';
+
 // Utils
 export { decodeToken, isTokenExpired, validateTokenClaims, extractRoles } from './utils/tokenValidator.js';
 export type { TokenPayload, TokenValidationOptions } from './utils/tokenValidator.js';

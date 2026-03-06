@@ -65,6 +65,12 @@ export { SubscriptionManagerComponent } from './components/SubscriptionManagerCo
 export type { SubscriptionManagerComponentProps } from './components/SubscriptionManagerComponent';
 export { TokenRegistrationComponent } from './components/TokenRegistrationComponent';
 export type { TokenRegistrationComponentProps } from './components/TokenRegistrationComponent';
+export { AIProxyComponent } from './components/AIProxyComponent';
+export type { AIProxyComponentProps } from './components/AIProxyComponent';
+export { ErrorBoundary } from './components/ErrorBoundary';
+export type { ErrorBoundaryProps } from './components/ErrorBoundary';
+export { LoadingSpinner } from './components/LoadingSpinner';
+export type { LoadingSpinnerProps } from './components/LoadingSpinner';
 
 // Styles
 export { defaultTheme, themes } from './styles/theme';

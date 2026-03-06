@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createAuthMiddleware,
   createProxyMiddleware,
+  createRateLimitMiddleware,
   createAdminClient,
   AdminClient,
   decodeToken,
@@ -17,6 +18,10 @@ describe('public exports', () => {
 
   it('exports createProxyMiddleware as a function', () => {
     expect(typeof createProxyMiddleware).toBe('function');
+  });
+
+  it('exports createRateLimitMiddleware as a function', () => {
+    expect(typeof createRateLimitMiddleware).toBe('function');
   });
 
   it('exports createAdminClient as a function', () => {
