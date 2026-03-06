@@ -11,4 +11,18 @@ export type { TokenPayload, TokenValidationOptions } from './utils/tokenValidato
 
 // Admin
 export { AdminClient, createAdminClient } from './admin/adminClient.js';
-export type { AdminClientOptions } from './admin/adminClient.js';
+export type {
+  AdminClientOptions,
+  PagedResult,
+  AuditLogQuery,
+  AuditLogEntry,
+  CreateAuditLogRequest,
+  ErrorLogQuery,
+  ErrorLogEntry,
+  SendSmsToUserRequest,
+  SendSmsToPhoneRequest,
+  SmsLogQuery,
+  SmsLogEntry,
+  Role,
+  EncryptionStatus,
+} from './admin/adminClient.js';
