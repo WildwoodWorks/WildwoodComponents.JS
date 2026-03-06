@@ -36,5 +36,18 @@
     "@wildwood/core": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"
   },
+  "keywords": ["wildwood", "react", "hooks", "components", "authentication", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wildwood-platform/wildwood-js.git",
+    "directory": "packages/wildwood-react"
+  },
+  "homepage": "https://github.com/wildwood-platform/wildwood-js/tree/master/packages/wildwood-react#readme",
+  "bugs": {
+    "url": "https://github.com/wildwood-platform/wildwood-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }
