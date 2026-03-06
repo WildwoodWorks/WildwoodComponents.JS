@@ -1,16 +1,55 @@
+import { useState } from 'react';
 import { TokenRegistrationComponent } from '@wildwood/react';
+import type { AuthenticationResponse } from '@wildwood/core';
+import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function TokenRegistrationTest() {
-  return (
-    <div className="page">
-      <h1>Token Registration</h1>
-      <p>Register a new account using an invitation token.</p>
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [lastResponse, setLastResponse] = useState<AuthenticationResponse | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
+  return (
+    <ComponentTestPage
+      title="Token Registration"
+      description="Register a new account using an invitation token."
+      settings={{
+        registrationToken: { type: 'text', value: registrationToken },
+      }}
+      onSettingChange={(key, value) => {
+        if (key === 'registrationToken') setRegistrationToken(value as string);
+      }}
+    >
       <TokenRegistrationComponent
         appId="d6e61c7a-eec5-4164-a004-9b99eb5eb6de"
-        onRegistrationSuccess={(resp) => console.log('Registration success:', resp)}
-        onRegistrationError={(err) => console.error('Registration error:', err)}
+        registrationToken={registrationToken || undefined}
+        onRegistrationSuccess={(resp) => {
+          setLastResponse(resp);
+          setLastError(null);
+          console.log('Registration success:', resp);
+        }}
+        onRegistrationError={(err) => {
+          setLastError(err);
+          console.error('Registration error:', err);
+        }}
       />
-    </div>
+
+      {lastResponse && (
+        <div className="status-card" style={{ marginTop: 16 }}>
+          <h3>Registration Successful</h3>
+          <dl>
+            <dt>Email</dt>
+            <dd>{lastResponse.email}</dd>
+            <dt>Name</dt>
+            <dd>{lastResponse.firstName} {lastResponse.lastName}</dd>
+          </dl>
+        </div>
+      )}
+
+      {lastError && (
+        <div className="ww-alert ww-alert-danger" style={{ marginTop: 16 }}>
+          {lastError}
+        </div>
+      )}
+    </ComponentTestPage>
   );
 }
