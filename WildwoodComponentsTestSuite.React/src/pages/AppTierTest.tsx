@@ -1,14 +1,39 @@
+import { useState } from 'react';
 import { AppTierComponent } from '@wildwood/react';
+import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function AppTierTest() {
-  return (
-    <div className="page">
-      <h1>App Tier Component</h1>
-      <p>Browse tiers, view current subscription, and change plans.</p>
+  const [autoLoad, setAutoLoad] = useState(true);
+  const [lastTierId, setLastTierId] = useState<string | null>(null);
 
+  return (
+    <ComponentTestPage
+      title="App Tier Component"
+      description="Browse tiers, view current subscription, compare features, and change plans."
+      settings={{
+        autoLoad: { type: 'boolean', value: autoLoad },
+      }}
+      onSettingChange={(key, value) => {
+        if (key === 'autoLoad') setAutoLoad(value as boolean);
+      }}
+    >
       <AppTierComponent
-        onTierChanged={(tierId) => console.log('Tier changed to:', tierId)}
+        autoLoad={autoLoad}
+        onTierChanged={(tierId) => {
+          setLastTierId(tierId);
+          console.log('Tier changed to:', tierId);
+        }}
       />
-    </div>
+
+      {lastTierId && (
+        <div className="status-card" style={{ marginTop: 16 }}>
+          <h3>Tier Changed</h3>
+          <dl>
+            <dt>New Tier ID</dt>
+            <dd style={{ fontSize: 12 }}>{lastTierId}</dd>
+          </dl>
+        </div>
+      )}
+    </ComponentTestPage>
   );
 }
