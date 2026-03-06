@@ -1,5 +1,8 @@
 # @wildwood/node
 
+[![npm version](https://img.shields.io/npm/v/@wildwood/node.svg)](https://www.npmjs.com/package/@wildwood/node)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@wildwood/node)](https://bundlephobia.com/package/@wildwood/node)
+
 Server-side SDK for the Wildwood API platform. Express middleware and admin utilities.
 
 ## Installation

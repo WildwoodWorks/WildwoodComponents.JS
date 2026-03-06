@@ -1,5 +1,8 @@
 # @wildwood/react
 
+[![npm version](https://img.shields.io/npm/v/@wildwood/react.svg)](https://www.npmjs.com/package/@wildwood/react)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@wildwood/react)](https://bundlephobia.com/package/@wildwood/react)
+
 React hooks and components for the Wildwood API platform. Thin UI layer over `@wildwood/core`.
 
 ## Installation

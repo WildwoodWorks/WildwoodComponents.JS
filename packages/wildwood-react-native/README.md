@@ -1,5 +1,8 @@
 # @wildwood/react-native
 
+[![npm version](https://img.shields.io/npm/v/@wildwood/react-native.svg)](https://www.npmjs.com/package/@wildwood/react-native)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@wildwood/react-native)](https://bundlephobia.com/package/@wildwood/react-native)
+
 React Native components and hooks for the Wildwood API platform. Native UI rendering with the same hook API as `@wildwood/react`.
 
 ## Installation

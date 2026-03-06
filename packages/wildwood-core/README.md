@@ -1,5 +1,8 @@
 # @wildwood/core
 
+[![npm version](https://img.shields.io/npm/v/@wildwood/core.svg)](https://www.npmjs.com/package/@wildwood/core)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@wildwood/core)](https://bundlephobia.com/package/@wildwood/core)
+
 Pure TypeScript SDK for the Wildwood API platform. Framework-agnostic — works in browsers and Node.js.
 
 ## Installation
