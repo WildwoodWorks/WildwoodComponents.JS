@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "packages/wildwood-core/src/index.ts",
+    "packages/wildwood-react/src/index.ts",
+    "packages/wildwood-node/src/index.ts"
+  ],
+  "tsconfig": "tsconfig.typedoc.json",
+  "out": "docs/api",
+  "name": "Wildwood JS SDK",
+  "entryPointStrategy": "expand",
+  "exclude": ["**/__tests__/**", "**/*.test.*", "**/*.stories.*"],
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "githubPages": false,
+  "readme": "none"
+}

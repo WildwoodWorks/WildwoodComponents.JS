@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "noEmit": true
+  },
+  "include": [
+    "packages/wildwood-core/src",
+    "packages/wildwood-react/src",
+    "packages/wildwood-node/src"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/__tests__",
+    "**/*.test.*",
+    "**/*.stories.*"
+  ]
+}
