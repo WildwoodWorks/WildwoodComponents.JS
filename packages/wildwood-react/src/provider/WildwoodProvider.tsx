@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { createWildwoodClient, type WildwoodConfig } from '@wildwood/core';
@@ -23,9 +25,5 @@ export function WildwoodProvider({ config, children }: WildwoodProviderProps) {
     };
   }, [client]);
 
-  return (
-    <WildwoodContext.Provider value={client}>
-      {children}
-    </WildwoodContext.Provider>
-  );
+  return <WildwoodContext.Provider value={client}>{children}</WildwoodContext.Provider>;
 }

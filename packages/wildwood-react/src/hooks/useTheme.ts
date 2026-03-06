@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import type { ThemeName } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
@@ -17,9 +19,12 @@ export function useTheme(): UseThemeReturn {
     });
   }, [client]);
 
-  const setTheme = useCallback(async (newTheme: ThemeName) => {
-    await client.theme.setTheme(newTheme);
-  }, [client]);
+  const setTheme = useCallback(
+    async (newTheme: ThemeName) => {
+      await client.theme.setTheme(newTheme);
+    },
+    [client],
+  );
 
   return { theme, setTheme };
 }

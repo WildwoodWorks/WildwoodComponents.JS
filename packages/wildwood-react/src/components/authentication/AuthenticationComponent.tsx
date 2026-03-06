@@ -69,7 +69,7 @@ export function AuthenticationComponent({
 
   // Config
   const [authConfig, setAuthConfig] = useState<AuthenticationConfiguration | null>(null);
-  const [captchaConfig, setCaptchaConfig] = useState<CaptchaConfiguration | null>(null);
+  const [_captchaConfig, setCaptchaConfig] = useState<CaptchaConfiguration | null>(null);
   const [providers, setProviders] = useState<AuthProvider[]>([]);
 
   // Login form
@@ -128,36 +128,42 @@ export function AuthenticationComponent({
   };
 
   // Complete auth flow (called after all checks pass)
-  const completeAuth = useCallback(async (response: AuthenticationResponse) => {
-    await client.session.login(response);
-    onAuthenticationSuccess?.(response);
-  }, [client, onAuthenticationSuccess]);
+  const completeAuth = useCallback(
+    async (response: AuthenticationResponse) => {
+      await client.session.login(response);
+      onAuthenticationSuccess?.(response);
+    },
+    [client, onAuthenticationSuccess],
+  );
 
   // Process auth response, checking for 2FA/password reset/disclaimers
-  const processAuthResponse = useCallback(async (response: AuthenticationResponse) => {
-    if (response.requiresTwoFactor) {
-      setPendingAuth(response);
-      setTwoFactorSessionId(response.twoFactorSessionId ?? '');
-      setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
-      setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
-      setView('twoFactor');
-      return;
-    }
+  const processAuthResponse = useCallback(
+    async (response: AuthenticationResponse) => {
+      if (response.requiresTwoFactor) {
+        setPendingAuth(response);
+        setTwoFactorSessionId(response.twoFactorSessionId ?? '');
+        setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
+        setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
+        setView('twoFactor');
+        return;
+      }
 
-    if (response.requiresPasswordReset) {
-      setPendingAuth(response);
-      setView('passwordReset');
-      return;
-    }
+      if (response.requiresPasswordReset) {
+        setPendingAuth(response);
+        setView('passwordReset');
+        return;
+      }
 
-    if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
-      setPendingAuth(response);
-      setView('disclaimers');
-      return;
-    }
+      if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
+        setPendingAuth(response);
+        setView('disclaimers');
+        return;
+      }
 
-    await completeAuth(response);
-  }, [completeAuth]);
+      await completeAuth(response);
+    },
+    [completeAuth],
+  );
 
   // ---------------------------------------------------------------------------
   // Login
@@ -222,11 +228,7 @@ export function AuthenticationComponent({
     setIsLoading(true);
 
     try {
-      const result = await client.auth.verifyTwoFactorRecoveryCode(
-        twoFactorSessionId,
-        recoveryCode,
-        '',
-      );
+      const result = await client.auth.verifyTwoFactorRecoveryCode(twoFactorSessionId, recoveryCode, '');
 
       if (result.success && result.authResponse) {
         await processAuthResponse(result.authResponse);
@@ -316,13 +318,20 @@ export function AuthenticationComponent({
   const resolveTitle = () => {
     if (title) return title;
     switch (view) {
-      case 'login': return 'Sign In';
-      case 'register': return 'Create Account';
-      case 'twoFactor': return 'Two-Factor Verification';
-      case 'passwordReset': return 'Reset Password';
-      case 'forgotPassword': return 'Forgot Password';
-      case 'disclaimers': return 'Terms & Conditions';
-      default: return 'Sign In';
+      case 'login':
+        return 'Sign In';
+      case 'register':
+        return 'Create Account';
+      case 'twoFactor':
+        return 'Two-Factor Verification';
+      case 'passwordReset':
+        return 'Reset Password';
+      case 'forgotPassword':
+        return 'Forgot Password';
+      case 'disclaimers':
+        return 'Terms & Conditions';
+      default:
+        return 'Sign In';
     }
   };
 
@@ -381,12 +390,8 @@ export function AuthenticationComponent({
 
               <div className="ww-form-group ww-form-check">
                 <label>
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  {' '}Remember me
+                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />{' '}
+                  Remember me
                 </label>
               </div>
 
@@ -397,7 +402,9 @@ export function AuthenticationComponent({
               {/* Social/OAuth providers */}
               {providers.length > 0 && (
                 <div className="ww-social-auth-providers">
-                  <div className="ww-divider"><span>or continue with</span></div>
+                  <div className="ww-divider">
+                    <span>or continue with</span>
+                  </div>
                   {providers.map((provider) => (
                     <button
                       key={provider.name}
@@ -420,7 +427,10 @@ export function AuthenticationComponent({
                   <button
                     type="button"
                     className="ww-btn-link"
-                    onClick={() => { clearMessages(); setView('forgotPassword'); }}
+                    onClick={() => {
+                      clearMessages();
+                      setView('forgotPassword');
+                    }}
                   >
                     Forgot password?
                   </button>
@@ -429,7 +439,10 @@ export function AuthenticationComponent({
                   <button
                     type="button"
                     className="ww-btn-link"
-                    onClick={() => { clearMessages(); setView('register'); }}
+                    onClick={() => {
+                      clearMessages();
+                      setView('register');
+                    }}
                   >
                     Don't have an account? Sign up
                   </button>
@@ -442,14 +455,17 @@ export function AuthenticationComponent({
           {view === 'register' && (
             <div className="ww-register-section">
               <p className="ww-text-muted">
-                Use the <code>TokenRegistrationComponent</code> for invitation-based registration,
-                or contact your administrator for account access.
+                Use the <code>TokenRegistrationComponent</code> for invitation-based registration, or contact your
+                administrator for account access.
               </p>
               <div className="ww-auth-footer">
                 <button
                   type="button"
                   className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); }}
+                  onClick={() => {
+                    clearMessages();
+                    setView('login');
+                  }}
                 >
                   Already have an account? Sign in
                 </button>
@@ -468,7 +484,10 @@ export function AuthenticationComponent({
                       key={method.providerType}
                       type="button"
                       className={`ww-btn ww-btn-outline ${selectedTwoFactorMethod === method.providerType ? 'ww-active' : ''}`}
-                      onClick={() => { setSelectedTwoFactorMethod(method.providerType); setShowRecoveryInput(false); }}
+                      onClick={() => {
+                        setSelectedTwoFactorMethod(method.providerType);
+                        setShowRecoveryInput(false);
+                      }}
                     >
                       {method.icon && <span className={method.icon} />}
                       {method.name}
@@ -502,8 +521,8 @@ export function AuthenticationComponent({
                         type="checkbox"
                         checked={rememberDevice}
                         onChange={(e) => setRememberDevice(e.target.checked)}
-                      />
-                      {' '}Trust this device for 30 days
+                      />{' '}
+                      Trust this device for 30 days
                     </label>
                   </div>
 
@@ -512,12 +531,7 @@ export function AuthenticationComponent({
                   </button>
 
                   {selectedTwoFactorMethod.toLowerCase().includes('email') && (
-                    <button
-                      type="button"
-                      className="ww-btn-link"
-                      onClick={handleResendCode}
-                      disabled={isLoading}
-                    >
+                    <button type="button" className="ww-btn-link" onClick={handleResendCode} disabled={isLoading}>
                       Resend code
                     </button>
                   )}
@@ -546,17 +560,18 @@ export function AuthenticationComponent({
               )}
 
               <div className="ww-auth-footer">
-                <button
-                  type="button"
-                  className="ww-btn-link"
-                  onClick={() => setShowRecoveryInput(!showRecoveryInput)}
-                >
+                <button type="button" className="ww-btn-link" onClick={() => setShowRecoveryInput(!showRecoveryInput)}>
                   {showRecoveryInput ? 'Use verification code' : 'Use recovery code'}
                 </button>
                 <button
                   type="button"
                   className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); setTwoFactorCode(''); setRecoveryCode(''); }}
+                  onClick={() => {
+                    clearMessages();
+                    setView('login');
+                    setTwoFactorCode('');
+                    setRecoveryCode('');
+                  }}
                 >
                   Back to sign in
                 </button>
@@ -658,7 +673,10 @@ export function AuthenticationComponent({
                 <button
                   type="button"
                   className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); }}
+                  onClick={() => {
+                    clearMessages();
+                    setView('login');
+                  }}
                 >
                   Back to sign in
                 </button>
@@ -669,15 +687,15 @@ export function AuthenticationComponent({
           {/* DISCLAIMERS VIEW */}
           {view === 'disclaimers' && pendingAuth?.pendingDisclaimers && (
             <div className="ww-disclaimers-section">
-              <p className="ww-text-muted">
-                Please review and accept the following before continuing.
-              </p>
+              <p className="ww-text-muted">Please review and accept the following before continuing.</p>
               {pendingAuth.pendingDisclaimers.map((d) => (
                 <div key={d.disclaimerId} className="ww-disclaimer-item">
                   <h4>{d.title}</h4>
                   <div
                     className="ww-disclaimer-content"
-                    dangerouslySetInnerHTML={d.contentFormat === 'html' ? { __html: sanitizeHtml(d.content) } : undefined}
+                    dangerouslySetInnerHTML={
+                      d.contentFormat === 'html' ? { __html: sanitizeHtml(d.content) } : undefined
+                    }
                   >
                     {d.contentFormat !== 'html' ? d.content : undefined}
                   </div>

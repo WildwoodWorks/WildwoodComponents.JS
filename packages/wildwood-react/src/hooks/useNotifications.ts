@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import type { ToastNotification, NotificationType } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
@@ -25,7 +27,10 @@ export function useNotifications(): UseNotificationsReturn {
 
   return {
     toasts,
-    show: useCallback((...args: Parameters<typeof client.notifications.show>) => client.notifications.show(...args), [client]),
+    show: useCallback(
+      (...args: Parameters<typeof client.notifications.show>) => client.notifications.show(...args),
+      [client],
+    ),
     success: useCallback((msg: string, title?: string) => client.notifications.success(msg, title), [client]),
     error: useCallback((msg: string, title?: string) => client.notifications.error(msg, title), [client]),
     warning: useCallback((msg: string, title?: string) => client.notifications.warning(msg, title), [client]),

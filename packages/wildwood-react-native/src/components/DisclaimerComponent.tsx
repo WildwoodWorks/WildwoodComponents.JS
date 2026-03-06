@@ -1,14 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Alert,
-} from 'react-native';
-import type { PendingDisclaimersResponse } from '@wildwood/core';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 
 export interface DisclaimerComponentProps {
@@ -43,13 +34,7 @@ export function DisclaimerComponent({
   onDisclaimerAccepted,
   autoLoad = true,
 }: DisclaimerComponentProps) {
-  const {
-    disclaimers,
-    loading,
-    getPendingDisclaimers,
-    acceptDisclaimer,
-    acceptAllDisclaimers,
-  } = useDisclaimer();
+  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
 
   const [accepting, setAccepting] = useState(false);
 
@@ -61,17 +46,20 @@ export function DisclaimerComponent({
     }
   }, [autoLoad, getPendingDisclaimers]);
 
-  const handleAcceptSingle = useCallback(async (disclaimerId: string, versionId: string) => {
-    setAccepting(true);
-    try {
-      await acceptDisclaimer(disclaimerId, versionId);
-      onDisclaimerAccepted?.(disclaimerId);
-    } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept disclaimer');
-    } finally {
-      setAccepting(false);
-    }
-  }, [acceptDisclaimer, onDisclaimerAccepted]);
+  const handleAcceptSingle = useCallback(
+    async (disclaimerId: string, versionId: string) => {
+      setAccepting(true);
+      try {
+        await acceptDisclaimer(disclaimerId, versionId);
+        onDisclaimerAccepted?.(disclaimerId);
+      } catch (err) {
+        Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept disclaimer');
+      } finally {
+        setAccepting(false);
+      }
+    },
+    [acceptDisclaimer, onDisclaimerAccepted],
+  );
 
   const handleAcceptAll = useCallback(async () => {
     if (!disclaimers?.disclaimers?.length) return;
@@ -125,13 +113,8 @@ export function DisclaimerComponent({
             </View>
           </View>
 
-          <ScrollView
-            style={styles.contentArea}
-            nestedScrollEnabled
-          >
-            <Text style={styles.contentText}>
-              {d.contentFormat === 'html' ? stripHtml(d.content) : d.content}
-            </Text>
+          <ScrollView style={styles.contentArea} nestedScrollEnabled>
+            <Text style={styles.contentText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
           </ScrollView>
 
           <Pressable
@@ -157,9 +140,7 @@ export function DisclaimerComponent({
           {accepting ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.acceptAllButtonText}>
-              Accept All ({pendingList.length})
-            </Text>
+            <Text style={styles.acceptAllButtonText}>Accept All ({pendingList.length})</Text>
           )}
         </Pressable>
       )}

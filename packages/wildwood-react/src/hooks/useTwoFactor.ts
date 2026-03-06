@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type {
   TwoFactorUserStatus,
@@ -64,37 +66,55 @@ export function useTwoFactor(): UseTwoFactorReturn {
     return result;
   }, [client]);
 
-  const enrollEmail = useCallback(async (email?: string) => {
-    return wrap(() => client.twoFactor.enrollEmail(email));
-  }, [client, wrap]);
+  const enrollEmail = useCallback(
+    async (email?: string) => {
+      return wrap(() => client.twoFactor.enrollEmail(email));
+    },
+    [client, wrap],
+  );
 
-  const verifyEmailEnrollment = useCallback(async (credentialId: string, code: string) => {
-    const result = await wrap(() => client.twoFactor.verifyEmailEnrollment(credentialId, code));
-    await getCredentials();
-    return result;
-  }, [client, wrap, getCredentials]);
+  const verifyEmailEnrollment = useCallback(
+    async (credentialId: string, code: string) => {
+      const result = await wrap(() => client.twoFactor.verifyEmailEnrollment(credentialId, code));
+      await getCredentials();
+      return result;
+    },
+    [client, wrap, getCredentials],
+  );
 
-  const beginAuthenticatorEnrollment = useCallback(async (friendlyName?: string) => {
-    return wrap(() => client.twoFactor.beginAuthenticatorEnrollment(friendlyName));
-  }, [client, wrap]);
+  const beginAuthenticatorEnrollment = useCallback(
+    async (friendlyName?: string) => {
+      return wrap(() => client.twoFactor.beginAuthenticatorEnrollment(friendlyName));
+    },
+    [client, wrap],
+  );
 
-  const completeAuthenticatorEnrollment = useCallback(async (credentialId: string, code: string) => {
-    const result = await wrap(() => client.twoFactor.completeAuthenticatorEnrollment(credentialId, code));
-    await getCredentials();
-    return result;
-  }, [client, wrap, getCredentials]);
+  const completeAuthenticatorEnrollment = useCallback(
+    async (credentialId: string, code: string) => {
+      const result = await wrap(() => client.twoFactor.completeAuthenticatorEnrollment(credentialId, code));
+      await getCredentials();
+      return result;
+    },
+    [client, wrap, getCredentials],
+  );
 
-  const removeCredential = useCallback(async (credentialId: string) => {
-    const result = await client.twoFactor.removeCredential(credentialId);
-    await getCredentials();
-    return result;
-  }, [client, getCredentials]);
+  const removeCredential = useCallback(
+    async (credentialId: string) => {
+      const result = await client.twoFactor.removeCredential(credentialId);
+      await getCredentials();
+      return result;
+    },
+    [client, getCredentials],
+  );
 
-  const setPrimaryCredential = useCallback(async (credentialId: string) => {
-    const result = await client.twoFactor.setPrimaryCredential(credentialId);
-    await getCredentials();
-    return result;
-  }, [client, getCredentials]);
+  const setPrimaryCredential = useCallback(
+    async (credentialId: string) => {
+      const result = await client.twoFactor.setPrimaryCredential(credentialId);
+      await getCredentials();
+      return result;
+    },
+    [client, getCredentials],
+  );
 
   const getRecoveryCodeInfo = useCallback(async () => {
     return client.twoFactor.getRecoveryCodeInfo();
@@ -110,11 +130,14 @@ export function useTwoFactor(): UseTwoFactorReturn {
     return result;
   }, [client]);
 
-  const revokeTrustedDevice = useCallback(async (deviceId: string) => {
-    const result = await client.twoFactor.revokeTrustedDevice(deviceId);
-    await getTrustedDevices();
-    return result;
-  }, [client, getTrustedDevices]);
+  const revokeTrustedDevice = useCallback(
+    async (deviceId: string) => {
+      const result = await client.twoFactor.revokeTrustedDevice(deviceId);
+      await getTrustedDevices();
+      return result;
+    },
+    [client, getTrustedDevices],
+  );
 
   const revokeAllTrustedDevices = useCallback(async () => {
     const result = await client.twoFactor.revokeAllTrustedDevices();
@@ -123,11 +146,23 @@ export function useTwoFactor(): UseTwoFactorReturn {
   }, [client]);
 
   return {
-    status, credentials, trustedDevices, loading, error,
-    getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
-    removeCredential, setPrimaryCredential,
-    getRecoveryCodeInfo, regenerateRecoveryCodes,
-    getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
+    status,
+    credentials,
+    trustedDevices,
+    loading,
+    error,
+    getStatus,
+    getCredentials,
+    enrollEmail,
+    verifyEmailEnrollment,
+    beginAuthenticatorEnrollment,
+    completeAuthenticatorEnrollment,
+    removeCredential,
+    setPrimaryCredential,
+    getRecoveryCodeInfo,
+    regenerateRecoveryCodes,
+    getTrustedDevices,
+    revokeTrustedDevice,
+    revokeAllTrustedDevices,
   };
 }

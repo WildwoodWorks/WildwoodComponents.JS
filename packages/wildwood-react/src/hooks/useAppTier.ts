@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type {
   AppTierModel,
@@ -42,9 +44,12 @@ export function useAppTier(): UseAppTierReturn {
     }
   }, [client, appId]);
 
-  const getTier = useCallback(async (tierId: string) => {
-    return client.appTier.getTier(tierId);
-  }, [client]);
+  const getTier = useCallback(
+    async (tierId: string) => {
+      return client.appTier.getTier(tierId);
+    },
+    [client],
+  );
 
   const getUserSubscription = useCallback(async () => {
     const result = await client.appTier.getUserSubscription();
@@ -52,28 +57,48 @@ export function useAppTier(): UseAppTierReturn {
     return result;
   }, [client]);
 
-  const checkFeature = useCallback(async (featureKey: string) => {
-    return client.appTier.checkFeature(featureKey);
-  }, [client]);
+  const checkFeature = useCallback(
+    async (featureKey: string) => {
+      return client.appTier.checkFeature(featureKey);
+    },
+    [client],
+  );
 
-  const getLimitStatus = useCallback(async (limitKey: string) => {
-    return client.appTier.getLimitStatus(limitKey);
-  }, [client]);
+  const getLimitStatus = useCallback(
+    async (limitKey: string) => {
+      return client.appTier.getLimitStatus(limitKey);
+    },
+    [client],
+  );
 
-  const changeTier = useCallback(async (tierId: string, pricingModelId?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await client.appTier.changeTier(tierId, pricingModelId);
-      await getUserSubscription();
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tier change failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [client, getUserSubscription]);
+  const changeTier = useCallback(
+    async (tierId: string, pricingModelId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.appTier.changeTier(tierId, pricingModelId);
+        await getUserSubscription();
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Tier change failed');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client, getUserSubscription],
+  );
 
-  return { tiers, userSubscription, loading, error, getTiers, getTier, getUserSubscription, checkFeature, getLimitStatus, changeTier };
+  return {
+    tiers,
+    userSubscription,
+    loading,
+    error,
+    getTiers,
+    getTier,
+    getUserSubscription,
+    checkFeature,
+    getLimitStatus,
+    changeTier,
+  };
 }

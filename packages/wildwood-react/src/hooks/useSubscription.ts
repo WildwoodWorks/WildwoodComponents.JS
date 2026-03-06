@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type { SubscriptionPlan, Subscription, SubscriptionResult } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
@@ -36,36 +38,59 @@ export function useSubscription(): UseSubscriptionReturn {
     return result;
   }, [client]);
 
-  const getSubscription = useCallback(async (subscriptionId: string) => {
-    return client.subscription.getSubscription(subscriptionId);
-  }, [client]);
+  const getSubscription = useCallback(
+    async (subscriptionId: string) => {
+      return client.subscription.getSubscription(subscriptionId);
+    },
+    [client],
+  );
 
-  const subscribe = useCallback(async (planId: string, paymentMethodId?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await client.subscription.subscribe(planId, paymentMethodId);
+  const subscribe = useCallback(
+    async (planId: string, paymentMethodId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.subscription.subscribe(planId, paymentMethodId);
+        await getUserSubscriptions();
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Subscription failed');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client, getUserSubscriptions],
+  );
+
+  const cancelSubscription = useCallback(
+    async (subscriptionId: string) => {
+      const result = await client.subscription.cancelSubscription(subscriptionId);
       await getUserSubscriptions();
       return result;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Subscription failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [client, getUserSubscriptions]);
+    },
+    [client, getUserSubscriptions],
+  );
 
-  const cancelSubscription = useCallback(async (subscriptionId: string) => {
-    const result = await client.subscription.cancelSubscription(subscriptionId);
-    await getUserSubscriptions();
-    return result;
-  }, [client, getUserSubscriptions]);
+  const changePlan = useCallback(
+    async (subscriptionId: string, newPlanId: string) => {
+      const result = await client.subscription.changePlan(subscriptionId, newPlanId);
+      await getUserSubscriptions();
+      return result;
+    },
+    [client, getUserSubscriptions],
+  );
 
-  const changePlan = useCallback(async (subscriptionId: string, newPlanId: string) => {
-    const result = await client.subscription.changePlan(subscriptionId, newPlanId);
-    await getUserSubscriptions();
-    return result;
-  }, [client, getUserSubscriptions]);
-
-  return { plans, subscriptions, loading, error, getPlans, getUserSubscriptions, getSubscription, subscribe, cancelSubscription, changePlan };
+  return {
+    plans,
+    subscriptions,
+    loading,
+    error,
+    getPlans,
+    getUserSubscriptions,
+    getSubscription,
+    subscribe,
+    cancelSubscription,
+    changePlan,
+  };
 }

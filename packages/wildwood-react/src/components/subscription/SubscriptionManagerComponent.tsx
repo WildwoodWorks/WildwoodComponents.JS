@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Subscription, SubscriptionPlan } from '@wildwood/core';
+import type { Subscription } from '@wildwood/core';
 import { SubscriptionStatus } from '@wildwood/core';
 import { useSubscription } from '../../hooks/useSubscription.js';
 
@@ -21,9 +21,16 @@ export function SubscriptionManagerComponent({
   className,
 }: SubscriptionManagerComponentProps) {
   const {
-    plans, subscriptions, loading, error,
-    getPlans, getUserSubscriptions, getSubscription,
-    subscribe, cancelSubscription, changePlan,
+    plans,
+    subscriptions,
+    loading,
+    error,
+    getPlans,
+    getUserSubscriptions,
+    getSubscription,
+    subscribe,
+    cancelSubscription,
+    changePlan,
   } = useSubscription();
 
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
@@ -37,62 +44,78 @@ export function SubscriptionManagerComponent({
     }
   }, [autoLoad, getPlans, getUserSubscriptions]);
 
-  const handleViewDetails = useCallback(async (subscriptionId: string) => {
-    const sub = await getSubscription(subscriptionId);
-    setSelectedSubscription(sub);
-  }, [getSubscription]);
+  const handleViewDetails = useCallback(
+    async (subscriptionId: string) => {
+      const sub = await getSubscription(subscriptionId);
+      setSelectedSubscription(sub);
+    },
+    [getSubscription],
+  );
 
-  const handleSubscribe = useCallback(async (planId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await subscribe(planId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Subscribed successfully!' });
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to subscribe' });
+  const handleSubscribe = useCallback(
+    async (planId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await subscribe(planId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscribed successfully!' });
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to subscribe' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to subscribe' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to subscribe' });
-    }
-    setConfirmAction(null);
-  }, [subscribe]);
+      setConfirmAction(null);
+    },
+    [subscribe],
+  );
 
-  const handleCancel = useCallback(async (subscriptionId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await cancelSubscription(subscriptionId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Subscription cancelled' });
-        onSubscriptionChange?.(subscriptions.find((s) => s.id === subscriptionId)!);
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to cancel' });
+  const handleCancel = useCallback(
+    async (subscriptionId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await cancelSubscription(subscriptionId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscription cancelled' });
+          onSubscriptionChange?.(subscriptions.find((s) => s.id === subscriptionId)!);
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to cancel' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to cancel' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to cancel' });
-    }
-    setConfirmAction(null);
-  }, [cancelSubscription, subscriptions, onSubscriptionChange]);
+      setConfirmAction(null);
+    },
+    [cancelSubscription, subscriptions, onSubscriptionChange],
+  );
 
-  const handleChangePlan = useCallback(async (subscriptionId: string, newPlanId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await changePlan(subscriptionId, newPlanId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Plan changed successfully!' });
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to change plan' });
+  const handleChangePlan = useCallback(
+    async (subscriptionId: string, newPlanId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await changePlan(subscriptionId, newPlanId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Plan changed successfully!' });
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to change plan' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to change plan' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to change plan' });
-    }
-  }, [changePlan]);
+    },
+    [changePlan],
+  );
 
   const getStatusBadge = (status: SubscriptionStatus) => {
     switch (status) {
-      case SubscriptionStatus.Active: return 'ww-badge-success';
-      case SubscriptionStatus.Cancelled: return 'ww-badge-danger';
-      case SubscriptionStatus.PendingPayment: return 'ww-badge-warning';
-      default: return 'ww-badge-secondary';
+      case SubscriptionStatus.Active:
+        return 'ww-badge-success';
+      case SubscriptionStatus.Cancelled:
+        return 'ww-badge-danger';
+      case SubscriptionStatus.PendingPayment:
+        return 'ww-badge-warning';
+      default:
+        return 'ww-badge-secondary';
     }
   };
 
@@ -101,17 +124,13 @@ export function SubscriptionManagerComponent({
       {(error || actionMessage?.type === 'error') && (
         <div className="ww-alert ww-alert-danger">{error || actionMessage?.text}</div>
       )}
-      {actionMessage?.type === 'success' && (
-        <div className="ww-alert ww-alert-success">{actionMessage.text}</div>
-      )}
+      {actionMessage?.type === 'success' && <div className="ww-alert ww-alert-success">{actionMessage.text}</div>}
 
       {/* Subscription List */}
       <div className="ww-subscription-list">
         <h3>Your Subscriptions</h3>
         {loading && subscriptions.length === 0 && <p className="ww-text-muted">Loading...</p>}
-        {!loading && subscriptions.length === 0 && (
-          <p className="ww-text-muted">No subscriptions found.</p>
-        )}
+        {!loading && subscriptions.length === 0 && <p className="ww-text-muted">No subscriptions found.</p>}
         {subscriptions.map((sub) => (
           <div key={sub.id} className="ww-subscription-card">
             <div className="ww-subscription-info">
@@ -120,9 +139,7 @@ export function SubscriptionManagerComponent({
                 <span className={`ww-badge ${getStatusBadge(sub.status)}`}>{sub.status}</span>
               </div>
               {sub.startDate && (
-                <small className="ww-text-muted">
-                  Since {new Date(sub.startDate).toLocaleDateString()}
-                </small>
+                <small className="ww-text-muted">Since {new Date(sub.startDate).toLocaleDateString()}</small>
               )}
               {sub.nextBillingDate && (
                 <small className="ww-text-muted">
@@ -169,11 +186,7 @@ export function SubscriptionManagerComponent({
               >
                 {loading ? 'Processing...' : 'Confirm'}
               </button>
-              <button
-                type="button"
-                className="ww-btn ww-btn-outline"
-                onClick={() => setConfirmAction(null)}
-              >
+              <button type="button" className="ww-btn ww-btn-outline" onClick={() => setConfirmAction(null)}>
                 Cancel
               </button>
             </div>
@@ -186,16 +199,31 @@ export function SubscriptionManagerComponent({
         <div className="ww-subscription-details">
           <h4>Subscription Details</h4>
           <dl className="ww-detail-list">
-            <dt>Plan</dt><dd>{selectedSubscription.planName}</dd>
-            <dt>Status</dt><dd><span className={`ww-badge ${getStatusBadge(selectedSubscription.status)}`}>{selectedSubscription.status}</span></dd>
+            <dt>Plan</dt>
+            <dd>{selectedSubscription.planName}</dd>
+            <dt>Status</dt>
+            <dd>
+              <span className={`ww-badge ${getStatusBadge(selectedSubscription.status)}`}>
+                {selectedSubscription.status}
+              </span>
+            </dd>
             {selectedSubscription.startDate && (
-              <><dt>Period Start</dt><dd>{new Date(selectedSubscription.startDate).toLocaleDateString()}</dd></>
+              <>
+                <dt>Period Start</dt>
+                <dd>{new Date(selectedSubscription.startDate).toLocaleDateString()}</dd>
+              </>
             )}
             {selectedSubscription.endDate && (
-              <><dt>Period End</dt><dd>{new Date(selectedSubscription.endDate).toLocaleDateString()}</dd></>
+              <>
+                <dt>Period End</dt>
+                <dd>{new Date(selectedSubscription.endDate).toLocaleDateString()}</dd>
+              </>
             )}
             {selectedSubscription.nextBillingDate && (
-              <><dt>Next Billing</dt><dd>{new Date(selectedSubscription.nextBillingDate).toLocaleDateString()}</dd></>
+              <>
+                <dt>Next Billing</dt>
+                <dd>{new Date(selectedSubscription.nextBillingDate).toLocaleDateString()}</dd>
+              </>
             )}
           </dl>
 
@@ -208,7 +236,9 @@ export function SubscriptionManagerComponent({
                   .filter((p) => p.id !== selectedSubscription.planId)
                   .map((plan) => (
                     <div key={plan.id} className="ww-plan-option">
-                      <span>{plan.name} - ${plan.price}/{plan.billingInterval ?? 'month'}</span>
+                      <span>
+                        {plan.name} - ${plan.price}/{plan.billingInterval ?? 'month'}
+                      </span>
                       <button
                         type="button"
                         className="ww-btn ww-btn-sm ww-btn-primary"
@@ -239,13 +269,16 @@ export function SubscriptionManagerComponent({
                 <div className="ww-plan-header">
                   <h4>{plan.name}</h4>
                   <div className="ww-plan-price">
-                    ${plan.price}<span>/{plan.billingInterval ?? 'month'}</span>
+                    ${plan.price}
+                    <span>/{plan.billingInterval ?? 'month'}</span>
                   </div>
                 </div>
                 {plan.description && <p className="ww-plan-description">{plan.description}</p>}
                 {plan.features && plan.features.length > 0 && (
                   <ul className="ww-plan-features">
-                    {plan.features.map((f, i) => <li key={i}>{f}</li>)}
+                    {plan.features.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
                   </ul>
                 )}
                 <button

@@ -10,11 +10,6 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import type {
-  TwoFactorUserStatus,
-  TwoFactorCredential,
-  TrustedDevice,
-} from '@wildwood/core';
 import { useTwoFactor } from '../hooks/useTwoFactor';
 
 export interface TwoFactorSettingsComponentProps {
@@ -23,15 +18,25 @@ export interface TwoFactorSettingsComponentProps {
 
 type SettingsView = 'overview' | 'enrollEmail' | 'enrollAuthenticator' | 'recoveryCodes' | 'trustedDevices';
 
-export function TwoFactorSettingsComponent({
-  onStatusChange,
-}: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ onStatusChange }: TwoFactorSettingsComponentProps) {
   const {
-    status, credentials, trustedDevices, loading, error,
-    getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
-    removeCredential, getRecoveryCodeInfo, regenerateRecoveryCodes,
-    getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
+    status,
+    credentials,
+    trustedDevices,
+    loading,
+    error,
+    getStatus,
+    getCredentials,
+    enrollEmail,
+    verifyEmailEnrollment,
+    beginAuthenticatorEnrollment,
+    completeAuthenticatorEnrollment,
+    removeCredential,
+    getRecoveryCodeInfo,
+    regenerateRecoveryCodes,
+    getTrustedDevices,
+    revokeTrustedDevice,
+    revokeAllTrustedDevices,
   } = useTwoFactor();
 
   const [view, setView] = useState<SettingsView>('overview');
@@ -87,11 +92,9 @@ export function TwoFactorSettingsComponent({
     onStatusChange?.(true);
   }, [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange]);
 
-  const handleRemoveCredential = useCallback(async (credentialId: string) => {
-    Alert.alert(
-      'Remove Credential',
-      'Are you sure you want to remove this two-factor method?',
-      [
+  const handleRemoveCredential = useCallback(
+    async (credentialId: string) => {
+      Alert.alert('Remove Credential', 'Are you sure you want to remove this two-factor method?', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
@@ -104,9 +107,10 @@ export function TwoFactorSettingsComponent({
             }
           },
         },
-      ],
-    );
-  }, [removeCredential, getStatus, credentials.length, onStatusChange]);
+      ]);
+    },
+    [removeCredential, getStatus, credentials.length, onStatusChange],
+  );
 
   const handleViewRecoveryCodes = useCallback(async () => {
     const info = await getRecoveryCodeInfo();
@@ -115,21 +119,17 @@ export function TwoFactorSettingsComponent({
   }, [getRecoveryCodeInfo]);
 
   const handleRegenerateCodes = useCallback(async () => {
-    Alert.alert(
-      'Regenerate Codes',
-      'This will invalidate all existing recovery codes. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Regenerate',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await regenerateRecoveryCodes();
-            setRecoveryCodes(result.codes ?? []);
-          },
+    Alert.alert('Regenerate Codes', 'This will invalidate all existing recovery codes. Continue?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Regenerate',
+        style: 'destructive',
+        onPress: async () => {
+          const result = await regenerateRecoveryCodes();
+          setRecoveryCodes(result.codes ?? []);
         },
-      ],
-    );
+      },
+    ]);
   }, [regenerateRecoveryCodes]);
 
   const handleViewTrustedDevices = useCallback(async () => {
@@ -138,20 +138,16 @@ export function TwoFactorSettingsComponent({
   }, [getTrustedDevices]);
 
   const handleRevokeAllDevices = useCallback(() => {
-    Alert.alert(
-      'Revoke All Devices',
-      'Are you sure you want to revoke all trusted devices?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Revoke All',
-          style: 'destructive',
-          onPress: async () => {
-            await revokeAllTrustedDevices();
-          },
+    Alert.alert('Revoke All Devices', 'Are you sure you want to revoke all trusted devices?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Revoke All',
+        style: 'destructive',
+        onPress: async () => {
+          await revokeAllTrustedDevices();
         },
-      ],
-    );
+      },
+    ]);
   }, [revokeAllTrustedDevices]);
 
   // ---- Render helpers ----
@@ -178,9 +174,7 @@ export function TwoFactorSettingsComponent({
             <View key={cred.id} style={styles.listItem}>
               <View style={styles.listItemInfo}>
                 <Text style={styles.listItemTitle}>{cred.providerType}</Text>
-                {cred.displayName ? (
-                  <Text style={styles.mutedText}>{cred.displayName}</Text>
-                ) : null}
+                {cred.displayName ? <Text style={styles.mutedText}>{cred.displayName}</Text> : null}
               </View>
               <Pressable
                 style={[styles.buttonDanger, styles.buttonSmall, loading && styles.buttonDisabled]}
@@ -262,10 +256,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonPrimaryText}>Verify</Text>
           )}
         </Pressable>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={() => setView('overview')}>
           <Text style={styles.buttonOutlineText}>Cancel</Text>
         </Pressable>
       </View>
@@ -275,24 +266,20 @@ export function TwoFactorSettingsComponent({
   const renderEnrollAuthenticator = () => (
     <View style={styles.card}>
       <Text style={styles.heading}>Setup Authenticator</Text>
-      <Text style={styles.mutedText}>
-        Scan the QR code with your authenticator app, or enter the key manually.
-      </Text>
+      <Text style={styles.mutedText}>Scan the QR code with your authenticator app, or enter the key manually.</Text>
 
       {authenticatorQrUri ? (
         <View style={styles.qrContainer}>
-          <Image
-            source={{ uri: authenticatorQrUri }}
-            style={styles.qrImage}
-            resizeMode="contain"
-          />
+          <Image source={{ uri: authenticatorQrUri }} style={styles.qrImage} resizeMode="contain" />
         </View>
       ) : null}
 
       {authenticatorSecret ? (
         <View style={styles.manualKeyContainer}>
           <Text style={styles.manualKeyLabel}>Manual Key:</Text>
-          <Text style={styles.manualKeyValue} selectable>{authenticatorSecret}</Text>
+          <Text style={styles.manualKeyValue} selectable>
+            {authenticatorSecret}
+          </Text>
         </View>
       ) : null}
 
@@ -319,10 +306,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonPrimaryText}>Verify & Enable</Text>
           )}
         </Pressable>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={() => setView('overview')}>
           <Text style={styles.buttonOutlineText}>Cancel</Text>
         </Pressable>
       </View>
@@ -334,13 +318,13 @@ export function TwoFactorSettingsComponent({
       <Text style={styles.heading}>Recovery Codes</Text>
       {recoveryCodes.length > 0 ? (
         <>
-          <Text style={styles.mutedText}>
-            Save these codes in a safe place. Each code can only be used once.
-          </Text>
+          <Text style={styles.mutedText}>Save these codes in a safe place. Each code can only be used once.</Text>
           <View style={styles.codeGrid}>
             {recoveryCodes.map((code, i) => (
               <View key={i} style={styles.recoveryCodeItem}>
-                <Text style={styles.recoveryCodeText} selectable>{code}</Text>
+                <Text style={styles.recoveryCodeText} selectable>
+                  {code}
+                </Text>
               </View>
             ))}
           </View>
@@ -364,7 +348,10 @@ export function TwoFactorSettingsComponent({
         </Pressable>
         <Pressable
           style={styles.buttonOutline}
-          onPress={() => { setRecoveryCodes([]); setView('overview'); }}
+          onPress={() => {
+            setRecoveryCodes([]);
+            setView('overview');
+          }}
         >
           <Text style={styles.buttonOutlineText}>Back</Text>
         </Pressable>
@@ -384,9 +371,7 @@ export function TwoFactorSettingsComponent({
               <View style={styles.listItemInfo}>
                 <Text style={styles.listItemTitle}>{device.deviceName ?? 'Unknown Device'}</Text>
                 {device.lastUsedAt ? (
-                  <Text style={styles.mutedText}>
-                    Last used: {new Date(device.lastUsedAt).toLocaleDateString()}
-                  </Text>
+                  <Text style={styles.mutedText}>Last used: {new Date(device.lastUsedAt).toLocaleDateString()}</Text>
                 ) : null}
               </View>
               <Pressable
@@ -410,10 +395,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonDangerText}>Revoke All</Text>
           </Pressable>
         )}
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={() => setView('overview')}>
           <Text style={styles.buttonOutlineText}>Back</Text>
         </Pressable>
       </View>

@@ -1,9 +1,7 @@
+'use client';
+
 import { useState, useCallback } from 'react';
-import type {
-  FlowDefinition,
-  FlowExecution,
-  FlowExecuteRequest,
-} from '@wildwood/core';
+import type { FlowDefinition, FlowExecution, FlowExecuteRequest } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
 export interface UseAIFlowReturn {
@@ -31,35 +29,47 @@ export function useAIFlow(): UseAIFlowReturn {
     return result;
   }, [client]);
 
-  const getFlowDefinition = useCallback(async (flowId: string) => {
-    return client.ai.getFlowDefinition(flowId);
-  }, [client]);
+  const getFlowDefinition = useCallback(
+    async (flowId: string) => {
+      return client.ai.getFlowDefinition(flowId);
+    },
+    [client],
+  );
 
-  const executeFlow = useCallback(async (request: FlowExecuteRequest) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await client.ai.executeFlow(request);
-      await getFlowExecutions();
+  const executeFlow = useCallback(
+    async (request: FlowExecuteRequest) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.ai.executeFlow(request);
+        await getFlowExecutions();
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Flow execution failed';
+        setError(msg);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client],
+  );
+
+  const getFlowExecution = useCallback(
+    async (executionId: string) => {
+      return client.ai.getFlowExecution(executionId);
+    },
+    [client],
+  );
+
+  const getFlowExecutions = useCallback(
+    async (flowId?: string) => {
+      const result = await client.ai.getFlowExecutions(flowId);
+      setExecutions(result);
       return result;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Flow execution failed';
-      setError(msg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [client]);
-
-  const getFlowExecution = useCallback(async (executionId: string) => {
-    return client.ai.getFlowExecution(executionId);
-  }, [client]);
-
-  const getFlowExecutions = useCallback(async (flowId?: string) => {
-    const result = await client.ai.getFlowExecutions(flowId);
-    setExecutions(result);
-    return result;
-  }, [client]);
+    },
+    [client],
+  );
 
   return {
     definitions,

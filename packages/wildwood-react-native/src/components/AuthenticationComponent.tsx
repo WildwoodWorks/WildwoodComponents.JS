@@ -113,36 +113,42 @@ export function AuthenticationComponent({
   };
 
   // Complete auth flow (called after all checks pass)
-  const completeAuth = useCallback(async (response: AuthenticationResponse) => {
-    await client.session.login(response);
-    onAuthenticationSuccess?.(response);
-  }, [client, onAuthenticationSuccess]);
+  const completeAuth = useCallback(
+    async (response: AuthenticationResponse) => {
+      await client.session.login(response);
+      onAuthenticationSuccess?.(response);
+    },
+    [client, onAuthenticationSuccess],
+  );
 
   // Process auth response, checking for 2FA/password reset/disclaimers
-  const processAuthResponse = useCallback(async (response: AuthenticationResponse) => {
-    if (response.requiresTwoFactor) {
-      setPendingAuth(response);
-      setTwoFactorSessionId(response.twoFactorSessionId ?? '');
-      setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
-      setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
-      setView('twoFactor');
-      return;
-    }
+  const processAuthResponse = useCallback(
+    async (response: AuthenticationResponse) => {
+      if (response.requiresTwoFactor) {
+        setPendingAuth(response);
+        setTwoFactorSessionId(response.twoFactorSessionId ?? '');
+        setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
+        setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
+        setView('twoFactor');
+        return;
+      }
 
-    if (response.requiresPasswordReset) {
-      setPendingAuth(response);
-      setView('passwordReset');
-      return;
-    }
+      if (response.requiresPasswordReset) {
+        setPendingAuth(response);
+        setView('passwordReset');
+        return;
+      }
 
-    if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
-      setPendingAuth(response);
-      setView('disclaimers');
-      return;
-    }
+      if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
+        setPendingAuth(response);
+        setView('disclaimers');
+        return;
+      }
 
-    await completeAuth(response);
-  }, [completeAuth]);
+      await completeAuth(response);
+    },
+    [completeAuth],
+  );
 
   // ---------------------------------------------------------------------------
   // Login
@@ -206,11 +212,7 @@ export function AuthenticationComponent({
     clearMessages();
     setLoading(true);
     try {
-      const result = await client.auth.verifyTwoFactorRecoveryCode(
-        twoFactorSessionId,
-        recoveryCode,
-        '',
-      );
+      const result = await client.auth.verifyTwoFactorRecoveryCode(twoFactorSessionId, recoveryCode, '');
 
       if (result.success && result.authResponse) {
         await processAuthResponse(result.authResponse);
@@ -324,13 +326,13 @@ export function AuthenticationComponent({
   // Map common OAuth provider names to unicode symbols for native rendering
   const getProviderIcon = (providerName: string): string => {
     const name = providerName.toLowerCase();
-    if (name.includes('google')) return '\u{1F310}';    // globe
-    if (name.includes('apple')) return '\uF8FF';         // apple symbol (renders on iOS)
+    if (name.includes('google')) return '\u{1F310}'; // globe
+    if (name.includes('apple')) return '\uF8FF'; // apple symbol (renders on iOS)
     if (name.includes('facebook') || name.includes('meta')) return '\u{1F465}'; // people
     if (name.includes('microsoft') || name.includes('azure')) return '\u{1F5A5}'; // desktop
-    if (name.includes('github')) return '\u{2699}';      // gear
+    if (name.includes('github')) return '\u{2699}'; // gear
     if (name.includes('twitter') || name.includes('x')) return '\u{1F426}'; // bird
-    return '\u{1F511}';                                   // key (generic)
+    return '\u{1F511}'; // key (generic)
   };
 
   // Strip HTML tags for plain text rendering in RN (no dangerouslySetInnerHTML)
@@ -358,13 +360,20 @@ export function AuthenticationComponent({
   const resolveTitle = () => {
     if (title) return title;
     switch (view) {
-      case 'login': return 'Sign In';
-      case 'register': return 'Create Account';
-      case 'twoFactor': return 'Two-Factor Verification';
-      case 'passwordReset': return 'Reset Password';
-      case 'forgotPassword': return 'Forgot Password';
-      case 'disclaimers': return 'Terms & Conditions';
-      default: return 'Sign In';
+      case 'login':
+        return 'Sign In';
+      case 'register':
+        return 'Create Account';
+      case 'twoFactor':
+        return 'Two-Factor Verification';
+      case 'passwordReset':
+        return 'Reset Password';
+      case 'forgotPassword':
+        return 'Forgot Password';
+      case 'disclaimers':
+        return 'Terms & Conditions';
+      default:
+        return 'Sign In';
     }
   };
 
@@ -386,12 +395,8 @@ export function AuthenticationComponent({
     </>
   );
 
-  const renderSubmitButton = (label: string, loadingLabel: string, onPress: () => void) => (
-    <Pressable
-      style={[styles.primaryButton, loading && styles.buttonDisabled]}
-      onPress={onPress}
-      disabled={loading}
-    >
+  const renderSubmitButton = (label: string, _loadingLabel: string, onPress: () => void) => (
+    <Pressable style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={onPress} disabled={loading}>
       {loading ? (
         <ActivityIndicator color="#fff" size="small" />
       ) : (
@@ -461,10 +466,7 @@ export function AuthenticationComponent({
         </>
       )}
 
-      <Pressable
-        style={styles.checkboxRow}
-        onPress={() => setRememberMe(!rememberMe)}
-      >
+      <Pressable style={styles.checkboxRow} onPress={() => setRememberMe(!rememberMe)}>
         <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
           {rememberMe && <Text style={styles.checkmark}>✓</Text>}
         </View>
@@ -500,10 +502,13 @@ export function AuthenticationComponent({
       )}
 
       <View style={styles.footer}>
-        {(authConfig?.allowPasswordReset !== false) && (
+        {authConfig?.allowPasswordReset !== false && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => { clearMessages(); setView('forgotPassword'); }}
+            onPress={() => {
+              clearMessages();
+              setView('forgotPassword');
+            }}
           >
             <Text style={styles.linkText}>Forgot password?</Text>
           </Pressable>
@@ -511,7 +516,10 @@ export function AuthenticationComponent({
         {(authConfig?.allowOpenRegistration || authConfig?.allowTokenRegistration) && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => { clearMessages(); setView('register'); }}
+            onPress={() => {
+              clearMessages();
+              setView('register');
+            }}
           >
             <Text style={styles.linkText}>Don't have an account? Sign up</Text>
           </Pressable>
@@ -526,12 +534,15 @@ export function AuthenticationComponent({
   const renderRegister = () => (
     <View>
       <Text style={styles.subtitle}>
-        Use the TokenRegistrationComponent for invitation-based registration,
-        or contact your administrator for account access.
+        Use the TokenRegistrationComponent for invitation-based registration, or contact your administrator for account
+        access.
       </Text>
       <Pressable
         style={styles.linkButton}
-        onPress={() => { clearMessages(); setView('login'); }}
+        onPress={() => {
+          clearMessages();
+          setView('login');
+        }}
       >
         <Text style={styles.linkText}>Already have an account? Sign in</Text>
       </Pressable>
@@ -553,7 +564,10 @@ export function AuthenticationComponent({
                 styles.twoFaMethodButton,
                 selectedTwoFactorMethod === method.providerType && styles.twoFaMethodActive,
               ]}
-              onPress={() => { setSelectedTwoFactorMethod(method.providerType); setShowRecoveryInput(false); }}
+              onPress={() => {
+                setSelectedTwoFactorMethod(method.providerType);
+                setShowRecoveryInput(false);
+              }}
             >
               <Text
                 style={[
@@ -584,10 +598,7 @@ export function AuthenticationComponent({
             onSubmitEditing={handleTwoFactorSubmit}
           />
 
-          <Pressable
-            style={styles.checkboxRow}
-            onPress={() => setRememberDevice(!rememberDevice)}
-          >
+          <Pressable style={styles.checkboxRow} onPress={() => setRememberDevice(!rememberDevice)}>
             <View style={[styles.checkbox, rememberDevice && styles.checkboxChecked]}>
               {rememberDevice && <Text style={styles.checkmark}>✓</Text>}
             </View>
@@ -597,11 +608,7 @@ export function AuthenticationComponent({
           {renderSubmitButton('Verify', 'Verifying...', handleTwoFactorSubmit)}
 
           {selectedTwoFactorMethod.toLowerCase().includes('email') && (
-            <Pressable
-              style={styles.linkButton}
-              onPress={handleResendCode}
-              disabled={loading}
-            >
+            <Pressable style={styles.linkButton} onPress={handleResendCode} disabled={loading}>
               <Text style={styles.linkText}>Resend code</Text>
             </Pressable>
           )}
@@ -626,17 +633,17 @@ export function AuthenticationComponent({
       )}
 
       <View style={styles.footer}>
-        <Pressable
-          style={styles.linkButton}
-          onPress={() => setShowRecoveryInput(!showRecoveryInput)}
-        >
-          <Text style={styles.linkText}>
-            {showRecoveryInput ? 'Use verification code' : 'Use recovery code'}
-          </Text>
+        <Pressable style={styles.linkButton} onPress={() => setShowRecoveryInput(!showRecoveryInput)}>
+          <Text style={styles.linkText}>{showRecoveryInput ? 'Use verification code' : 'Use recovery code'}</Text>
         </Pressable>
         <Pressable
           style={styles.linkButton}
-          onPress={() => { clearMessages(); setView('login'); setTwoFactorCode(''); setRecoveryCode(''); }}
+          onPress={() => {
+            clearMessages();
+            setView('login');
+            setTwoFactorCode('');
+            setRecoveryCode('');
+          }}
         >
           <Text style={styles.linkText}>Back to sign in</Text>
         </Pressable>
@@ -649,9 +656,7 @@ export function AuthenticationComponent({
   // ---------------------------------------------------------------------------
   const renderPasswordReset = () => (
     <View>
-      <Text style={styles.subtitle}>
-        You must set a new password before continuing.
-      </Text>
+      <Text style={styles.subtitle}>You must set a new password before continuing.</Text>
 
       <Text style={styles.label}>New Password</Text>
       {renderPasswordInput(
@@ -673,9 +678,7 @@ export function AuthenticationComponent({
       )}
 
       {authConfig && (
-        <Text style={styles.passwordRequirements}>
-          {client.auth.getPasswordRequirementsText(authConfig)}
-        </Text>
+        <Text style={styles.passwordRequirements}>{client.auth.getPasswordRequirementsText(authConfig)}</Text>
       )}
 
       {renderSubmitButton('Set New Password', 'Updating...', handlePasswordReset)}
@@ -687,9 +690,7 @@ export function AuthenticationComponent({
   // ---------------------------------------------------------------------------
   const renderForgotPassword = () => (
     <View>
-      <Text style={styles.subtitle}>
-        Enter your email address and we'll send you a link to reset your password.
-      </Text>
+      <Text style={styles.subtitle}>Enter your email address and we'll send you a link to reset your password.</Text>
 
       <Text style={styles.label}>Email Address</Text>
       <TextInput
@@ -711,7 +712,10 @@ export function AuthenticationComponent({
 
       <Pressable
         style={styles.linkButton}
-        onPress={() => { clearMessages(); setView('login'); }}
+        onPress={() => {
+          clearMessages();
+          setView('login');
+        }}
       >
         <Text style={styles.linkText}>Back to sign in</Text>
       </Pressable>
@@ -726,9 +730,7 @@ export function AuthenticationComponent({
 
     return (
       <View>
-        <Text style={styles.subtitle}>
-          Please review and accept the following before continuing.
-        </Text>
+        <Text style={styles.subtitle}>Please review and accept the following before continuing.</Text>
         {pendingAuth.pendingDisclaimers.map((d: PendingDisclaimerModel) => (
           <View key={d.disclaimerId} style={styles.disclaimerItem}>
             <Text style={styles.disclaimerTitle}>{d.title}</Text>
@@ -736,9 +738,7 @@ export function AuthenticationComponent({
               <Text style={styles.disclaimerChangeNotes}>What changed: {d.changeNotes}</Text>
             )}
             <ScrollView style={styles.disclaimerContent} nestedScrollEnabled>
-              <Text style={styles.disclaimerText}>
-                {d.contentFormat === 'html' ? stripHtml(d.content) : d.content}
-              </Text>
+              <Text style={styles.disclaimerText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
             </ScrollView>
           </View>
         ))}
@@ -752,14 +752,8 @@ export function AuthenticationComponent({
   // Main render
   // ---------------------------------------------------------------------------
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.title}>{resolveTitle()}</Text>
           {renderAlert()}

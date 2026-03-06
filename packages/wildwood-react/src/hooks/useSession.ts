@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useWildwood } from './useWildwood.js';
 
@@ -29,7 +31,10 @@ export function useSession(): UseSessionReturn {
           clearInterval(checkInit);
         }
       }, 50);
-      return () => { unsub(); clearInterval(checkInit); };
+      return () => {
+        unsub();
+        clearInterval(checkInit);
+      };
     }
 
     return unsub;

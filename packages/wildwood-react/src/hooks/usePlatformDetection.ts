@@ -1,3 +1,5 @@
+'use client';
+
 import { useMemo } from 'react';
 import { detectPlatform } from '@wildwood/core';
 import type { PlatformInfo } from '@wildwood/core';

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type { CaptchaConfiguration } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
@@ -15,10 +17,13 @@ export function useCaptcha(): UseCaptchaReturn {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
 
-  const configure = useCallback((config: CaptchaConfiguration) => {
-    client.captcha.setConfiguration(config);
-    setIsEnabled(config.isEnabled ?? false);
-  }, [client]);
+  const configure = useCallback(
+    (config: CaptchaConfiguration) => {
+      client.captcha.setConfiguration(config);
+      setIsEnabled(config.isEnabled ?? false);
+    },
+    [client],
+  );
 
   const loadScript = useCallback(async () => {
     await client.captcha.loadScript();

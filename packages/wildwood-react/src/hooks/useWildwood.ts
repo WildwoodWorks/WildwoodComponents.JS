@@ -1,3 +1,5 @@
+'use client';
+
 import { useContext } from 'react';
 import type { WildwoodClient } from '@wildwood/core';
 import { WildwoodContext } from '../provider/WildwoodContext.js';

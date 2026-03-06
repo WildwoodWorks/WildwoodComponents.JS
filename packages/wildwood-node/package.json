@@ -21,7 +21,8 @@
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@wildwood/core": "workspace:*"
+    "@wildwood/core": "workspace:*",
+    "express": "^4.18.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
     "express": {
