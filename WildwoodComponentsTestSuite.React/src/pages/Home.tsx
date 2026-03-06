@@ -27,9 +27,18 @@ export function Home() {
       <div className="status-card">
         <h3>Available Test Pages</h3>
         <ul>
-          <li><strong>Authentication</strong> - Login, register, 2FA, password reset</li>
-          <li><strong>Notifications</strong> - Toast notification queue</li>
-          <li><strong>Theme</strong> - Theme switching and CSS variables</li>
+          <li><strong>Authentication</strong> — Login, register, 2FA, password reset, OAuth</li>
+          <li><strong>Notifications</strong> — Toast notification queue</li>
+          <li><strong>Theme</strong> — Theme switching and CSS variables</li>
+          <li><strong>Two-Factor</strong> — 2FA enrollment, recovery codes, trusted devices</li>
+          <li><strong>Token Registration</strong> — Invitation-based registration</li>
+          <li><strong>Disclaimer</strong> — Pending disclaimers and acceptance</li>
+          <li><strong>App Tier</strong> — Tier comparison and selection</li>
+          <li><strong>AI Chat</strong> — Chat sessions, messages, TTS</li>
+          <li><strong>AI Flow</strong> — Workflow definitions and execution</li>
+          <li><strong>Messaging</strong> — Threads, reactions, typing indicators</li>
+          <li><strong>Payment</strong> — Payment methods and processing</li>
+          <li><strong>Subscription</strong> — Plan browsing and lifecycle</li>
         </ul>
       </div>
     </div>
