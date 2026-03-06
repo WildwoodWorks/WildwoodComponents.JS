@@ -16,8 +16,8 @@ import { PaymentTest } from './pages/PaymentTest';
 import { SubscriptionTest } from './pages/SubscriptionTest';
 
 const config = {
-  baseUrl: 'https://localhost:5291',
-  appId: 'd6e61c7a-eec5-4164-a004-9b99eb5eb6de',
+  baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.wildwoodworks.com.co/api/',
+  appId: import.meta.env.VITE_APP_ID || '',
   enableAutoTokenRefresh: true,
   sessionExpirationMinutes: 60,
 };

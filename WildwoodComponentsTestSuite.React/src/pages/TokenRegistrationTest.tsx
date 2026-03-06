@@ -20,7 +20,7 @@ export function TokenRegistrationTest() {
       }}
     >
       <TokenRegistrationComponent
-        appId="d6e61c7a-eec5-4164-a004-9b99eb5eb6de"
+        appId={import.meta.env.VITE_APP_ID || ''}
         registrationToken={registrationToken || undefined}
         onRegistrationSuccess={(resp) => {
           setLastResponse(resp);

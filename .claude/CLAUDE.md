@@ -47,10 +47,10 @@ cd WildwoodComponentsTestSuite.React && pnpm dev  # Start test suite
 
 ## WildwoodAPI Connection
 
-Default test configuration:
-- **API URL**: https://localhost:5291
-- **AppId**: d6e61c7a-eec5-4164-a004-9b99eb5eb6de
-- **Test user**: test3@kuhnhaus.com / password1
+Default test configuration — see `WildwoodComponentsTestSuite.React/.env.example`:
+- **API URL**: https://api.wildwoodworks.com.co/api/
+- **AppId**: Set via `VITE_APP_ID` environment variable
+- **Test user**: Configure in `.env` file (not committed)
 
 ## Related Projects
 
