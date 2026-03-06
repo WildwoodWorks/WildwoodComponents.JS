@@ -37,5 +37,18 @@
       "optional": true
     }
   },
+  "keywords": ["wildwood", "sdk", "api-client", "authentication", "jwt", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wildwood-platform/wildwood-js.git",
+    "directory": "packages/wildwood-core"
+  },
+  "homepage": "https://github.com/wildwood-platform/wildwood-js/tree/master/packages/wildwood-core#readme",
+  "bugs": {
+    "url": "https://github.com/wildwood-platform/wildwood-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }
