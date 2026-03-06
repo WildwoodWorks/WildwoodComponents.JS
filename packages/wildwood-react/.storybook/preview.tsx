@@ -4,11 +4,13 @@ import { WildwoodProvider } from '../src/provider/WildwoodProvider.js';
 import '../src/styles/wildwood-themes.css';
 
 const withWildwoodProvider: Decorator = (Story) => (
-  <WildwoodProvider config={{
-    baseUrl: 'https://localhost:5291',
-    appId: 'storybook-demo',
-    storage: 'memory',
-  }}>
+  <WildwoodProvider
+    config={{
+      baseUrl: 'https://api.wildwoodworks.com.co/api/',
+      appId: 'storybook-demo',
+      storage: 'memory',
+    }}
+  >
     <Story />
   </WildwoodProvider>
 );
