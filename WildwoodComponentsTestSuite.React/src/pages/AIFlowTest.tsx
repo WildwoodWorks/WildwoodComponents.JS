@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAIFlow } from '@wildwood/react';
 import type { FlowDefinition } from '@wildwood/core';
+import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function AIFlowTest() {
   const {
@@ -43,10 +44,10 @@ export function AIFlowTest() {
   };
 
   return (
-    <div className="page">
-      <h1>AI Flow Component</h1>
-      <p>Browse and execute AI workflow definitions.</p>
-
+    <ComponentTestPage
+      title="AI Flow Component"
+      description="Browse and execute AI workflow definitions."
+    >
       {error && <div className="ww-alert ww-alert-danger">{error}</div>}
 
       <div style={{ display: 'flex', gap: 24 }}>
@@ -178,6 +179,6 @@ export function AIFlowTest() {
           </table>
         </div>
       )}
-    </div>
+    </ComponentTestPage>
   );
 }
