@@ -35,5 +35,18 @@
     "vitest": "^3.0.0"
   },
   "files": ["dist"],
+  "keywords": ["wildwood", "react-native", "hooks", "components", "mobile", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wildwood-platform/wildwood-js.git",
+    "directory": "packages/wildwood-react-native"
+  },
+  "homepage": "https://github.com/wildwood-platform/wildwood-js/tree/master/packages/wildwood-react-native#readme",
+  "bugs": {
+    "url": "https://github.com/wildwood-platform/wildwood-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }
