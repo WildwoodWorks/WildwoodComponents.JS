@@ -29,15 +29,25 @@
     }
   },
   "devDependencies": {
-    "@wildwood/core": "workspace:*",
     "@types/express": "^5.0.0",
+    "@types/node": "^25.3.5",
+    "@wildwood/core": "workspace:*",
     "express": "^5.1.0",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
     "vitest": "^3.0.0"
   },
-  "files": ["dist"],
-  "keywords": ["wildwood", "node", "express", "middleware", "jwt", "typescript"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "wildwood",
+    "node",
+    "express",
+    "middleware",
+    "jwt",
+    "typescript"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/wildwood-platform/wildwood-js.git",

@@ -73,6 +73,9 @@ importers:
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.6
+      '@types/node':
+        specifier: ^25.3.5
+        version: 25.3.5
       '@wildwood/core':
         specifier: workspace:*
         version: link:../wildwood-core
