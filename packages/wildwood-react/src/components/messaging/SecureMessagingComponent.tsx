@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FormEvent } from 'react';
 import type { MessageThread, SecureMessage } from '@wildwood/core';
@@ -8,15 +10,20 @@ export interface SecureMessagingComponentProps {
   onThreadSelected?: (thread: MessageThread) => void;
 }
 
-export function SecureMessagingComponent({
-  className,
-  onThreadSelected,
-}: SecureMessagingComponentProps) {
+export function SecureMessagingComponent({ className, onThreadSelected }: SecureMessagingComponentProps) {
   const {
-    threads, loading, error,
-    getThreads, getMessages, sendMessage, createThread,
-    editMessage, deleteMessage, reactToMessage,
-    markThreadAsRead, searchUsers,
+    threads,
+    loading,
+    error,
+    getThreads,
+    getMessages,
+    sendMessage,
+    createThread,
+    editMessage,
+    deleteMessage,
+    reactToMessage,
+    markThreadAsRead,
+    searchUsers,
   } = useMessaging();
 
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
@@ -40,69 +47,90 @@ export function SecureMessagingComponent({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSelectThread = useCallback(async (thread: MessageThread) => {
-    setSelectedThread(thread);
-    setShowNewThread(false);
-    const msgs = await getMessages(thread.id);
-    setMessages(msgs);
-    await markThreadAsRead(thread.id);
-    onThreadSelected?.(thread);
-  }, [getMessages, markThreadAsRead, onThreadSelected]);
+  const handleSelectThread = useCallback(
+    async (thread: MessageThread) => {
+      setSelectedThread(thread);
+      setShowNewThread(false);
+      const msgs = await getMessages(thread.id);
+      setMessages(msgs);
+      await markThreadAsRead(thread.id);
+      onThreadSelected?.(thread);
+    },
+    [getMessages, markThreadAsRead, onThreadSelected],
+  );
 
-  const handleSendMessage = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !selectedThread || sending) return;
+  const handleSendMessage = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!messageInput.trim() || !selectedThread || sending) return;
 
-    setSending(true);
-    try {
-      const msg = await sendMessage(selectedThread.id, messageInput.trim());
-      setMessages((prev) => [...prev, msg]);
-      setMessageInput('');
-    } finally {
-      setSending(false);
-    }
-  }, [messageInput, selectedThread, sending, sendMessage]);
+      setSending(true);
+      try {
+        const msg = await sendMessage(selectedThread.id, messageInput.trim());
+        setMessages((prev) => [...prev, msg]);
+        setMessageInput('');
+      } finally {
+        setSending(false);
+      }
+    },
+    [messageInput, selectedThread, sending, sendMessage],
+  );
 
-  const handleSearchUsers = useCallback(async (query: string) => {
-    setUserSearchQuery(query);
-    if (query.length >= 2) {
-      const results = await searchUsers(query);
-      setSearchResults(results.map((u) => ({ id: u.userId, displayName: u.userName })));
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchUsers]);
+  const handleSearchUsers = useCallback(
+    async (query: string) => {
+      setUserSearchQuery(query);
+      if (query.length >= 2) {
+        const results = await searchUsers(query);
+        setSearchResults(results.map((u) => ({ id: u.userId, displayName: u.userName })));
+      } else {
+        setSearchResults([]);
+      }
+    },
+    [searchUsers],
+  );
 
-  const handleCreateThread = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (selectedParticipants.length === 0) return;
-    const thread = await createThread(
-      selectedParticipants.map((p) => p.id),
-      newThreadSubject || '',
-    );
-    setShowNewThread(false);
-    setNewThreadSubject('');
-    setSelectedParticipants([]);
-    setUserSearchQuery('');
-    await handleSelectThread(thread);
-  }, [selectedParticipants, newThreadSubject, createThread, handleSelectThread]);
+  const handleCreateThread = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (selectedParticipants.length === 0) return;
+      const thread = await createThread(
+        selectedParticipants.map((p) => p.id),
+        newThreadSubject || '',
+      );
+      setShowNewThread(false);
+      setNewThreadSubject('');
+      setSelectedParticipants([]);
+      setUserSearchQuery('');
+      await handleSelectThread(thread);
+    },
+    [selectedParticipants, newThreadSubject, createThread, handleSelectThread],
+  );
 
-  const handleEditMessage = useCallback(async (messageId: string) => {
-    if (!editContent.trim()) return;
-    await editMessage(messageId, editContent.trim());
-    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, content: editContent.trim() } : m));
-    setEditingMessageId(null);
-    setEditContent('');
-  }, [editContent, editMessage]);
+  const handleEditMessage = useCallback(
+    async (messageId: string) => {
+      if (!editContent.trim()) return;
+      await editMessage(messageId, editContent.trim());
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content: editContent.trim() } : m)));
+      setEditingMessageId(null);
+      setEditContent('');
+    },
+    [editContent, editMessage],
+  );
 
-  const handleDeleteMessage = useCallback(async (messageId: string) => {
-    await deleteMessage(messageId);
-    setMessages((prev) => prev.filter((m) => m.id !== messageId));
-  }, [deleteMessage]);
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      await deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    },
+    [deleteMessage],
+  );
 
-  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
-    await reactToMessage(messageId, emoji);
-  }, [reactToMessage]);
+  const handleReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      await reactToMessage(messageId, emoji);
+    },
+    [reactToMessage],
+  );
 
   return (
     <div className={`ww-messaging-component ${className ?? ''}`}>
@@ -113,11 +141,7 @@ export function SecureMessagingComponent({
         <div className="ww-messaging-sidebar">
           <div className="ww-messaging-sidebar-header">
             <h4>Messages</h4>
-            <button
-              type="button"
-              className="ww-btn ww-btn-sm ww-btn-primary"
-              onClick={() => setShowNewThread(true)}
-            >
+            <button type="button" className="ww-btn ww-btn-sm ww-btn-primary" onClick={() => setShowNewThread(true)}>
               New
             </button>
           </div>
@@ -186,7 +210,10 @@ export function SecureMessagingComponent({
                   {selectedParticipants.map((p) => (
                     <span key={p.id} className="ww-participant-tag">
                       {p.displayName}
-                      <button type="button" onClick={() => setSelectedParticipants((prev) => prev.filter((x) => x.id !== p.id))}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedParticipants((prev) => prev.filter((x) => x.id !== p.id))}
+                      >
                         &times;
                       </button>
                     </span>
@@ -212,9 +239,7 @@ export function SecureMessagingComponent({
                   <div key={msg.id} className="ww-message-item">
                     <div className="ww-message-header">
                       <strong>{msg.senderName ?? 'Unknown'}</strong>
-                      <span className="ww-text-muted">
-                        {new Date(msg.createdAt).toLocaleString()}
-                      </span>
+                      <span className="ww-text-muted">{new Date(msg.createdAt).toLocaleString()}</span>
                     </div>
                     {editingMessageId === msg.id ? (
                       <div className="ww-message-edit">
@@ -224,29 +249,51 @@ export function SecureMessagingComponent({
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
                         />
-                        <button className="ww-btn ww-btn-sm ww-btn-primary" onClick={() => handleEditMessage(msg.id)}>Save</button>
-                        <button className="ww-btn ww-btn-sm ww-btn-outline" onClick={() => setEditingMessageId(null)}>Cancel</button>
+                        <button className="ww-btn ww-btn-sm ww-btn-primary" onClick={() => handleEditMessage(msg.id)}>
+                          Save
+                        </button>
+                        <button className="ww-btn ww-btn-sm ww-btn-outline" onClick={() => setEditingMessageId(null)}>
+                          Cancel
+                        </button>
                       </div>
                     ) : (
                       <div className="ww-message-content">{msg.content}</div>
                     )}
                     <div className="ww-message-actions">
                       {['👍', '❤️', '😂'].map((emoji) => (
-                        <button key={emoji} type="button" className="ww-btn-icon ww-btn-sm" onClick={() => handleReaction(msg.id, emoji)}>
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="ww-btn-icon ww-btn-sm"
+                          onClick={() => handleReaction(msg.id, emoji)}
+                        >
                           {emoji}
                         </button>
                       ))}
-                      <button type="button" className="ww-btn-icon ww-btn-sm" onClick={() => { setEditingMessageId(msg.id); setEditContent(msg.content); }}>
+                      <button
+                        type="button"
+                        className="ww-btn-icon ww-btn-sm"
+                        onClick={() => {
+                          setEditingMessageId(msg.id);
+                          setEditContent(msg.content);
+                        }}
+                      >
                         Edit
                       </button>
-                      <button type="button" className="ww-btn-icon ww-btn-sm" onClick={() => handleDeleteMessage(msg.id)}>
+                      <button
+                        type="button"
+                        className="ww-btn-icon ww-btn-sm"
+                        onClick={() => handleDeleteMessage(msg.id)}
+                      >
                         Delete
                       </button>
                     </div>
                     {msg.reactions && msg.reactions.length > 0 && (
                       <div className="ww-message-reactions">
                         {msg.reactions.map((r) => (
-                          <span key={r.id} className="ww-reaction">{r.emoji}</span>
+                          <span key={r.id} className="ww-reaction">
+                            {r.emoji}
+                          </span>
                         ))}
                       </div>
                     )}

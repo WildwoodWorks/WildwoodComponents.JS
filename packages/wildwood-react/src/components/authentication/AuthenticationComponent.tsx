@@ -1,3 +1,5 @@
+'use client';
+
 // AuthenticationComponent - ported from WildwoodComponents.Blazor AuthenticationComponent
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
 

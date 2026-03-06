@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { SubscriptionStatus } from '@wildwood/core';
 import { useSubscription } from '../../hooks/useSubscription.js';
@@ -13,11 +15,22 @@ export function SubscriptionComponent({
   onSubscriptionChange,
   className,
 }: SubscriptionComponentProps) {
-  const { plans, subscriptions, loading, error, getPlans, getUserSubscriptions, subscribe, cancelSubscription, changePlan } = useSubscription();
+  const {
+    plans,
+    subscriptions,
+    loading,
+    error,
+    getPlans,
+    getUserSubscriptions,
+    subscribe,
+    cancelSubscription,
+    changePlan,
+  } = useSubscription();
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const activeSubscription = subscriptions.find((s) => s.status === SubscriptionStatus.Active) ?? subscriptions[0] ?? null;
+  const activeSubscription =
+    subscriptions.find((s) => s.status === SubscriptionStatus.Active) ?? subscriptions[0] ?? null;
 
   useEffect(() => {
     if (autoLoad) {
@@ -26,21 +39,24 @@ export function SubscriptionComponent({
     }
   }, [autoLoad, getPlans, getUserSubscriptions]);
 
-  const handleSubscribe = useCallback(async (planId: string) => {
-    setActionError(null);
-    setSuccessMessage('');
-    try {
-      const result = await subscribe(planId);
-      if (result.isSuccess) {
-        setSuccessMessage('Subscribed successfully!');
-        onSubscriptionChange?.();
-      } else {
-        setActionError(result.errorMessage ?? 'Subscription failed');
+  const handleSubscribe = useCallback(
+    async (planId: string) => {
+      setActionError(null);
+      setSuccessMessage('');
+      try {
+        const result = await subscribe(planId);
+        if (result.isSuccess) {
+          setSuccessMessage('Subscribed successfully!');
+          onSubscriptionChange?.();
+        } else {
+          setActionError(result.errorMessage ?? 'Subscription failed');
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Subscription failed');
       }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Subscription failed');
-    }
-  }, [subscribe, onSubscriptionChange]);
+    },
+    [subscribe, onSubscriptionChange],
+  );
 
   const handleCancel = useCallback(async () => {
     if (!activeSubscription) return;
@@ -59,22 +75,25 @@ export function SubscriptionComponent({
     }
   }, [activeSubscription, cancelSubscription, onSubscriptionChange]);
 
-  const handleChangePlan = useCallback(async (newPlanId: string) => {
-    if (!activeSubscription) return;
-    setActionError(null);
-    setSuccessMessage('');
-    try {
-      const result = await changePlan(activeSubscription.id, newPlanId);
-      if (result.isSuccess) {
-        setSuccessMessage('Plan changed successfully!');
-        onSubscriptionChange?.();
-      } else {
-        setActionError(result.errorMessage ?? 'Plan change failed');
+  const handleChangePlan = useCallback(
+    async (newPlanId: string) => {
+      if (!activeSubscription) return;
+      setActionError(null);
+      setSuccessMessage('');
+      try {
+        const result = await changePlan(activeSubscription.id, newPlanId);
+        if (result.isSuccess) {
+          setSuccessMessage('Plan changed successfully!');
+          onSubscriptionChange?.();
+        } else {
+          setActionError(result.errorMessage ?? 'Plan change failed');
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Plan change failed');
       }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Plan change failed');
-    }
-  }, [activeSubscription, changePlan, onSubscriptionChange]);
+    },
+    [activeSubscription, changePlan, onSubscriptionChange],
+  );
 
   return (
     <div className={`ww-subscription-component ${className ?? ''}`}>
@@ -88,7 +107,9 @@ export function SubscriptionComponent({
           <div className="ww-subscription-card ww-active">
             <div className="ww-subscription-info">
               <strong>{activeSubscription.planName}</strong>
-              <span className={`ww-badge ${activeSubscription.status === SubscriptionStatus.Active ? 'ww-badge-success' : 'ww-badge-warning'}`}>
+              <span
+                className={`ww-badge ${activeSubscription.status === SubscriptionStatus.Active ? 'ww-badge-success' : 'ww-badge-warning'}`}
+              >
                 {activeSubscription.status}
               </span>
             </div>
@@ -97,12 +118,7 @@ export function SubscriptionComponent({
                 Renews: {new Date(activeSubscription.nextBillingDate).toLocaleDateString()}
               </p>
             )}
-            <button
-              type="button"
-              className="ww-btn ww-btn-danger ww-btn-sm"
-              onClick={handleCancel}
-              disabled={loading}
-            >
+            <button type="button" className="ww-btn ww-btn-danger ww-btn-sm" onClick={handleCancel} disabled={loading}>
               Cancel Subscription
             </button>
           </div>
@@ -117,10 +133,7 @@ export function SubscriptionComponent({
           {plans.map((plan) => {
             const isCurrentPlan = activeSubscription?.planId === plan.id;
             return (
-              <div
-                key={plan.id}
-                className={`ww-plan-card ${isCurrentPlan ? 'ww-plan-current' : ''}`}
-              >
+              <div key={plan.id} className={`ww-plan-card ${isCurrentPlan ? 'ww-plan-current' : ''}`}>
                 <div className="ww-plan-header">
                   <h3>{plan.name}</h3>
                   <div className="ww-plan-price">
@@ -128,9 +141,7 @@ export function SubscriptionComponent({
                     <span>/{plan.billingInterval ?? 'month'}</span>
                   </div>
                 </div>
-                {plan.description && (
-                  <p className="ww-plan-description">{plan.description}</p>
-                )}
+                {plan.description && <p className="ww-plan-description">{plan.description}</p>}
                 {plan.features && plan.features.length > 0 && (
                   <ul className="ww-plan-features">
                     {plan.features.map((f, i) => (

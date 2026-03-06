@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import type { AppPaymentConfigurationDto, SavedPaymentMethodDto } from '@wildwood/core';
 import { usePayment } from '../../hooks/usePayment.js';
@@ -8,16 +10,16 @@ export interface PaymentComponentProps {
   className?: string;
 }
 
-export function PaymentComponent({
-  customerId,
-  onPaymentComplete,
-  className,
-}: PaymentComponentProps) {
+export function PaymentComponent({ customerId, onPaymentComplete, className }: PaymentComponentProps) {
   const {
-    loading, error, savedMethods,
+    loading,
+    error,
+    savedMethods,
     getAppPaymentConfiguration,
-    initiatePayment, getSavedPaymentMethods,
-    deleteSavedPaymentMethod, setDefaultPaymentMethod,
+    initiatePayment,
+    getSavedPaymentMethods,
+    deleteSavedPaymentMethod,
+    setDefaultPaymentMethod,
   } = usePayment();
 
   const [config, setConfig] = useState<AppPaymentConfigurationDto | null>(null);
@@ -84,16 +86,22 @@ export function PaymentComponent({
     }
   }, [amount, config, description, customerId, initiatePayment, onPaymentComplete]);
 
-  const handleDeleteMethod = useCallback(async (methodId: string) => {
-    await deleteSavedPaymentMethod(methodId);
-    if (selectedMethod === methodId) setSelectedMethod(null);
-    if (customerId) await getSavedPaymentMethods(customerId);
-  }, [deleteSavedPaymentMethod, selectedMethod, getSavedPaymentMethods, customerId]);
+  const handleDeleteMethod = useCallback(
+    async (methodId: string) => {
+      await deleteSavedPaymentMethod(methodId);
+      if (selectedMethod === methodId) setSelectedMethod(null);
+      if (customerId) await getSavedPaymentMethods(customerId);
+    },
+    [deleteSavedPaymentMethod, selectedMethod, getSavedPaymentMethods, customerId],
+  );
 
-  const handleSetDefault = useCallback(async (methodId: string) => {
-    await setDefaultPaymentMethod(methodId);
-    if (customerId) await getSavedPaymentMethods(customerId);
-  }, [setDefaultPaymentMethod, getSavedPaymentMethods, customerId]);
+  const handleSetDefault = useCallback(
+    async (methodId: string) => {
+      await setDefaultPaymentMethod(methodId);
+      if (customerId) await getSavedPaymentMethods(customerId);
+    },
+    [setDefaultPaymentMethod, getSavedPaymentMethods, customerId],
+  );
 
   return (
     <div className={`ww-payment-component ${className ?? ''}`}>
@@ -120,7 +128,10 @@ export function PaymentComponent({
                   <button
                     type="button"
                     className="ww-btn ww-btn-sm ww-btn-outline"
-                    onClick={(e) => { e.stopPropagation(); handleSetDefault(method.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetDefault(method.id);
+                    }}
                   >
                     Set Default
                   </button>
@@ -128,7 +139,10 @@ export function PaymentComponent({
                 <button
                   type="button"
                   className="ww-btn ww-btn-sm ww-btn-danger"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteMethod(method.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteMethod(method.id);
+                  }}
                 >
                   Remove
                 </button>

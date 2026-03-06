@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import type { Subscription } from '@wildwood/core';
 import { SubscriptionStatus } from '@wildwood/core';

@@ -1,3 +1,5 @@
+'use client';
+
 // LoadingSpinner - mirrors Blazor BaseWildwoodComponent loading indicator
 // Used by all components when ShowLoadingStates is true
 
@@ -16,13 +18,7 @@ export interface LoadingSpinnerProps {
   style?: CSSProperties;
 }
 
-export function LoadingSpinner({
-  size = 40,
-  color,
-  message,
-  className,
-  style,
-}: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 40, color, message, className, style }: LoadingSpinnerProps) {
   const spinnerStyle: CSSProperties = {
     width: size,
     height: size,

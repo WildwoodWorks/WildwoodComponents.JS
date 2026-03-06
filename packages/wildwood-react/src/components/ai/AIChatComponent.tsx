@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FormEvent } from 'react';
 import type { AIChatResponse, AISessionSummary } from '@wildwood/core';
@@ -44,43 +46,52 @@ export function AIChatComponent({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || sending) return;
+  const handleSend = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!input.trim() || sending) return;
 
-    const userMessage = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }]);
-    setSending(true);
+      const userMessage = input.trim();
+      setInput('');
+      setMessages((prev) => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }]);
+      setSending(true);
 
-    try {
-      const response = await sendMessage({
-        message: userMessage,
-        sessionId: currentSessionId || undefined,
-        configurationId: configurationName ?? '',
-      });
+      try {
+        const response = await sendMessage({
+          message: userMessage,
+          sessionId: currentSessionId || undefined,
+          configurationId: configurationName ?? '',
+        });
 
-      if (response.sessionId && !currentSessionId) {
-        setCurrentSessionId(response.sessionId);
+        if (response.sessionId && !currentSessionId) {
+          setCurrentSessionId(response.sessionId);
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: response.response ?? '',
+            timestamp: new Date(),
+          },
+        ]);
+
+        onMessageReceived?.(response);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'Sorry, an error occurred. Please try again.',
+            timestamp: new Date(),
+          },
+        ]);
+      } finally {
+        setSending(false);
       }
-
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: response.response ?? '',
-        timestamp: new Date(),
-      }]);
-
-      onMessageReceived?.(response);
-    } catch {
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: 'Sorry, an error occurred. Please try again.',
-        timestamp: new Date(),
-      }]);
-    } finally {
-      setSending(false);
-    }
-  }, [input, sending, currentSessionId, configurationName, sendMessage, onMessageReceived]);
+    },
+    [input, sending, currentSessionId, configurationName, sendMessage, onMessageReceived],
+  );
 
   const handleNewSession = useCallback(async () => {
     if (!configurationName) return;
@@ -96,13 +107,16 @@ export function AIChatComponent({
     setMessages([]);
   }, []);
 
-  const handleDeleteSession = useCallback(async (id: string) => {
-    await deleteSession(id);
-    if (currentSessionId === id) {
-      setCurrentSessionId('');
-      setMessages([]);
-    }
-  }, [deleteSession, currentSessionId]);
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      await deleteSession(id);
+      if (currentSessionId === id) {
+        setCurrentSessionId('');
+        setMessages([]);
+      }
+    },
+    [deleteSession, currentSessionId],
+  );
 
   return (
     <div className={`ww-aichat-component ${className ?? ''}`}>
@@ -134,16 +148,17 @@ export function AIChatComponent({
                   <button
                     type="button"
                     className="ww-btn-icon ww-btn-sm"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSession(s.id);
+                    }}
                     aria-label="Delete session"
                   >
                     &times;
                   </button>
                 </div>
               ))}
-              {sessions.length === 0 && (
-                <p className="ww-text-muted ww-text-center">No sessions</p>
-              )}
+              {sessions.length === 0 && <p className="ww-text-muted ww-text-center">No sessions</p>}
             </div>
           </div>
         )}
@@ -158,9 +173,7 @@ export function AIChatComponent({
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`ww-chat-message ww-chat-${msg.role}`}>
-                <div className="ww-chat-bubble">
-                  {msg.content}
-                </div>
+                <div className="ww-chat-bubble">{msg.content}</div>
               </div>
             ))}
             {sending && (
@@ -180,11 +193,7 @@ export function AIChatComponent({
               placeholder={placeholder}
               disabled={sending}
             />
-            <button
-              type="submit"
-              className="ww-btn ww-btn-primary"
-              disabled={!input.trim() || sending}
-            >
+            <button type="submit" className="ww-btn ww-btn-primary" disabled={!input.trim() || sending}>
               {sending ? '...' : 'Send'}
             </button>
           </form>

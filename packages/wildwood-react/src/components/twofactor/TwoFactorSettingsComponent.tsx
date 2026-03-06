@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useTwoFactor } from '../../hooks/useTwoFactor.js';
@@ -9,16 +11,25 @@ export interface TwoFactorSettingsComponentProps {
 
 type SettingsView = 'overview' | 'enrollEmail' | 'enrollAuthenticator' | 'recoveryCodes' | 'trustedDevices';
 
-export function TwoFactorSettingsComponent({
-  className,
-  onStatusChange,
-}: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFactorSettingsComponentProps) {
   const {
-    status, credentials, trustedDevices, loading, error,
-    getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
-    removeCredential, getRecoveryCodeInfo, regenerateRecoveryCodes,
-    getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
+    status,
+    credentials,
+    trustedDevices,
+    loading,
+    error,
+    getStatus,
+    getCredentials,
+    enrollEmail,
+    verifyEmailEnrollment,
+    beginAuthenticatorEnrollment,
+    completeAuthenticatorEnrollment,
+    removeCredential,
+    getRecoveryCodeInfo,
+    regenerateRecoveryCodes,
+    getTrustedDevices,
+    revokeTrustedDevice,
+    revokeAllTrustedDevices,
   } = useTwoFactor();
 
   const [view, setView] = useState<SettingsView>('overview');
@@ -45,16 +56,19 @@ export function TwoFactorSettingsComponent({
     setSuccessMessage('Verification code sent to your email');
   }, [enrollEmail]);
 
-  const handleVerifyEmail = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    await verifyEmailEnrollment(emailCredentialId, emailCode);
-    setEmailCode('');
-    setEmailCredentialId('');
-    setView('overview');
-    setSuccessMessage('Email 2FA enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, onStatusChange]);
+  const handleVerifyEmail = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      await verifyEmailEnrollment(emailCredentialId, emailCode);
+      setEmailCode('');
+      setEmailCredentialId('');
+      setView('overview');
+      setSuccessMessage('Email 2FA enrolled successfully');
+      await getStatus();
+      onStatusChange?.(true);
+    },
+    [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, onStatusChange],
+  );
 
   const handleBeginAuthenticator = useCallback(async () => {
     setSuccessMessage('');
@@ -65,24 +79,30 @@ export function TwoFactorSettingsComponent({
     setView('enrollAuthenticator');
   }, [beginAuthenticatorEnrollment]);
 
-  const handleCompleteAuthenticator = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    await completeAuthenticatorEnrollment(authenticatorCredentialId, authenticatorCode);
-    setAuthenticatorCode('');
-    setAuthenticatorCredentialId('');
-    setView('overview');
-    setSuccessMessage('Authenticator enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange]);
+  const handleCompleteAuthenticator = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      await completeAuthenticatorEnrollment(authenticatorCredentialId, authenticatorCode);
+      setAuthenticatorCode('');
+      setAuthenticatorCredentialId('');
+      setView('overview');
+      setSuccessMessage('Authenticator enrolled successfully');
+      await getStatus();
+      onStatusChange?.(true);
+    },
+    [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange],
+  );
 
-  const handleRemoveCredential = useCallback(async (credentialId: string) => {
-    await removeCredential(credentialId);
-    await getStatus();
-    if (credentials.length <= 1) {
-      onStatusChange?.(false);
-    }
-  }, [removeCredential, getStatus, credentials.length, onStatusChange]);
+  const handleRemoveCredential = useCallback(
+    async (credentialId: string) => {
+      await removeCredential(credentialId);
+      await getStatus();
+      if (credentials.length <= 1) {
+        onStatusChange?.(false);
+      }
+    },
+    [removeCredential, getStatus, credentials.length, onStatusChange],
+  );
 
   const handleViewRecoveryCodes = useCallback(async () => {
     const info = await getRecoveryCodeInfo();
@@ -142,15 +162,30 @@ export function TwoFactorSettingsComponent({
             <button type="button" className="ww-btn ww-btn-outline" onClick={handleEnrollEmail} disabled={loading}>
               Add Email
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={handleBeginAuthenticator} disabled={loading}>
+            <button
+              type="button"
+              className="ww-btn ww-btn-outline"
+              onClick={handleBeginAuthenticator}
+              disabled={loading}
+            >
               Add Authenticator
             </button>
             {status?.isEnabled && (
               <>
-                <button type="button" className="ww-btn ww-btn-outline" onClick={handleViewRecoveryCodes} disabled={loading}>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleViewRecoveryCodes}
+                  disabled={loading}
+                >
                   Recovery Codes
                 </button>
-                <button type="button" className="ww-btn ww-btn-outline" onClick={handleViewTrustedDevices} disabled={loading}>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleViewTrustedDevices}
+                  disabled={loading}
+                >
                   Trusted Devices
                 </button>
               </>
@@ -192,9 +227,7 @@ export function TwoFactorSettingsComponent({
       {view === 'enrollAuthenticator' && (
         <form onSubmit={handleCompleteAuthenticator} className="ww-twofactor-enroll">
           <h4>Setup Authenticator</h4>
-          <p className="ww-text-muted">
-            Scan the QR code with your authenticator app, or enter the key manually.
-          </p>
+          <p className="ww-text-muted">Scan the QR code with your authenticator app, or enter the key manually.</p>
           {authenticatorQrUri && (
             <div className="ww-qr-code">
               <img src={authenticatorQrUri} alt="QR Code" />
@@ -237,12 +270,12 @@ export function TwoFactorSettingsComponent({
           <h4>Recovery Codes</h4>
           {recoveryCodes.length > 0 ? (
             <>
-              <p className="ww-text-muted">
-                Save these codes in a safe place. Each code can only be used once.
-              </p>
+              <p className="ww-text-muted">Save these codes in a safe place. Each code can only be used once.</p>
               <div className="ww-code-grid">
                 {recoveryCodes.map((code, i) => (
-                  <code key={i} className="ww-recovery-code">{code}</code>
+                  <code key={i} className="ww-recovery-code">
+                    {code}
+                  </code>
                 ))}
               </div>
             </>
@@ -255,7 +288,14 @@ export function TwoFactorSettingsComponent({
             <button type="button" className="ww-btn ww-btn-warning" onClick={handleRegenerateCodes} disabled={loading}>
               {loading ? 'Generating...' : 'Regenerate Codes'}
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={() => { setRecoveryCodes([]); setView('overview'); }}>
+            <button
+              type="button"
+              className="ww-btn ww-btn-outline"
+              onClick={() => {
+                setRecoveryCodes([]);
+                setView('overview');
+              }}
+            >
               Back
             </button>
           </div>
@@ -275,7 +315,10 @@ export function TwoFactorSettingsComponent({
                   <div className="ww-device-info">
                     <strong>{device.deviceName ?? 'Unknown Device'}</strong>
                     {device.lastUsedAt && (
-                      <span className="ww-text-muted"> - Last used: {new Date(device.lastUsedAt).toLocaleDateString()}</span>
+                      <span className="ww-text-muted">
+                        {' '}
+                        - Last used: {new Date(device.lastUsedAt).toLocaleDateString()}
+                      </span>
                     )}
                   </div>
                   <button
@@ -292,7 +335,12 @@ export function TwoFactorSettingsComponent({
           )}
           <div className="ww-twofactor-actions">
             {trustedDevices.length > 0 && (
-              <button type="button" className="ww-btn ww-btn-danger" onClick={revokeAllTrustedDevices} disabled={loading}>
+              <button
+                type="button"
+                className="ww-btn ww-btn-danger"
+                onClick={revokeAllTrustedDevices}
+                disabled={loading}
+              >
                 Revoke All
               </button>
             )}

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import type { AuthenticationResponse } from '@wildwood/core';
@@ -31,45 +33,59 @@ export function TokenRegistrationComponent({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleSubmit = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError('');
+      setSuccess('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
 
-    if (!token.trim()) {
-      setError('Registration token is required');
-      return;
-    }
+      if (!token.trim()) {
+        setError('Registration token is required');
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      const response = await client.auth.registerWithToken({
-        registrationToken: token,
-        firstName,
-        lastName,
-        email,
-        password,
-        appId: appId ?? '',
-        platform: 'web',
-        deviceInfo: navigator.userAgent,
-      });
+      setIsLoading(true);
+      try {
+        const response = await client.auth.registerWithToken({
+          registrationToken: token,
+          firstName,
+          lastName,
+          email,
+          password,
+          appId: appId ?? '',
+          platform: 'web',
+          deviceInfo: navigator.userAgent,
+        });
 
-      setSuccess('Registration successful!');
-      await client.session.login(response);
-      onRegistrationSuccess?.(response);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Registration failed';
-      setError(msg);
-      onRegistrationError?.(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token, firstName, lastName, email, password, confirmPassword, appId, client, onRegistrationSuccess, onRegistrationError]);
+        setSuccess('Registration successful!');
+        await client.session.login(response);
+        onRegistrationSuccess?.(response);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Registration failed';
+        setError(msg);
+        onRegistrationError?.(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      token,
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+      appId,
+      client,
+      onRegistrationSuccess,
+      onRegistrationError,
+    ],
+  );
 
   return (
     <div className={`ww-token-registration ${className ?? ''}`}>

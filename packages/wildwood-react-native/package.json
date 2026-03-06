@@ -18,6 +18,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -34,8 +35,17 @@
     "typescript": "^5.8.3",
     "vitest": "^3.0.0"
   },
-  "files": ["dist"],
-  "keywords": ["wildwood", "react-native", "hooks", "components", "mobile", "typescript"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "wildwood",
+    "react-native",
+    "hooks",
+    "components",
+    "mobile",
+    "typescript"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/wildwood-platform/wildwood-js.git",

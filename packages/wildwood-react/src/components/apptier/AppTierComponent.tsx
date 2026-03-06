@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAppTier } from '../../hooks/useAppTier.js';
 
@@ -7,11 +9,7 @@ export interface AppTierComponentProps {
   className?: string;
 }
 
-export function AppTierComponent({
-  autoLoad = true,
-  onTierChanged,
-  className,
-}: AppTierComponentProps) {
+export function AppTierComponent({ autoLoad = true, onTierChanged, className }: AppTierComponentProps) {
   const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier } = useAppTier();
   const [changeError, setChangeError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -23,21 +21,24 @@ export function AppTierComponent({
     }
   }, [autoLoad, getTiers, getUserSubscription]);
 
-  const handleChangeTier = useCallback(async (tierId: string) => {
-    setChangeError(null);
-    setSuccessMessage('');
-    try {
-      const result = await changeTier(tierId);
-      if (result.success) {
-        setSuccessMessage('Tier changed successfully');
-        onTierChanged?.(tierId);
-      } else {
-        setChangeError(result.errorMessage ?? 'Tier change failed');
+  const handleChangeTier = useCallback(
+    async (tierId: string) => {
+      setChangeError(null);
+      setSuccessMessage('');
+      try {
+        const result = await changeTier(tierId);
+        if (result.success) {
+          setSuccessMessage('Tier changed successfully');
+          onTierChanged?.(tierId);
+        } else {
+          setChangeError(result.errorMessage ?? 'Tier change failed');
+        }
+      } catch (err) {
+        setChangeError(err instanceof Error ? err.message : 'Tier change failed');
       }
-    } catch (err) {
-      setChangeError(err instanceof Error ? err.message : 'Tier change failed');
-    }
-  }, [changeTier, onTierChanged]);
+    },
+    [changeTier, onTierChanged],
+  );
 
   return (
     <div className={`ww-apptier-component ${className ?? ''}`}>
@@ -51,9 +52,7 @@ export function AppTierComponent({
           <div className="ww-tier-badge">
             <strong>{userSubscription.tierName}</strong>
             {userSubscription.endDate && (
-              <span className="ww-text-muted">
-                {' '}Expires: {new Date(userSubscription.endDate).toLocaleDateString()}
-              </span>
+              <span className="ww-text-muted"> Expires: {new Date(userSubscription.endDate).toLocaleDateString()}</span>
             )}
           </div>
         </div>
@@ -67,10 +66,7 @@ export function AppTierComponent({
             const isCurrent = userSubscription?.appTierId === tier.id;
             const defaultPricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0];
             return (
-              <div
-                key={tier.id}
-                className={`ww-tier-card ${isCurrent ? 'ww-tier-current' : ''}`}
-              >
+              <div key={tier.id} className={`ww-tier-card ${isCurrent ? 'ww-tier-current' : ''}`}>
                 <div className="ww-tier-header">
                   <h3>{tier.name}</h3>
                   {defaultPricing && (
@@ -79,13 +75,9 @@ export function AppTierComponent({
                       {defaultPricing.billingFrequency && <span>/{defaultPricing.billingFrequency}</span>}
                     </div>
                   )}
-                  {tier.isFreeTier && !defaultPricing && (
-                    <div className="ww-tier-price">Free</div>
-                  )}
+                  {tier.isFreeTier && !defaultPricing && <div className="ww-tier-price">Free</div>}
                 </div>
-                {tier.description && (
-                  <p className="ww-tier-description">{tier.description}</p>
-                )}
+                {tier.description && <p className="ww-tier-description">{tier.description}</p>}
                 {tier.features && tier.features.length > 0 && (
                   <ul className="ww-tier-features">
                     {tier.features.map((f) => (
