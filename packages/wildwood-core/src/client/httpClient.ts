@@ -6,10 +6,10 @@ import type {
   WildwoodConfig,
   RequestOptions,
   ApiResponse,
-  ApiError,
   RequestInterceptor,
   ResponseInterceptor,
 } from './types.js';
+import { WildwoodError } from './errors.js';
 
 export class HttpClient {
   private requestInterceptors: RequestInterceptor[] = [];
@@ -79,14 +79,20 @@ export class HttpClient {
     const timeoutMs = (options?.timeout ?? this.config.requestTimeoutSeconds ?? 30) * 1000;
     const maxAttempts = this.config.enableRetry !== false ? (this.config.maxRetryAttempts ?? 3) : 1;
 
-    let lastError: ApiError | null = null;
+    let lastError: WildwoodError | null = null;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const result = await this.executeRequest<T>(method, url, body, options, timeoutMs);
         return result;
       } catch (err) {
-        lastError = err as ApiError;
+        lastError = err instanceof WildwoodError
+          ? err
+          : new WildwoodError(
+              err instanceof Error ? err.message : String(err),
+              0,
+              'NetworkError',
+            );
 
         // Reactive 401 handling: refresh token and retry once (Blazor parity)
         if (lastError.status === 401 && !options?.skipAuth && this.on401Refresh && attempt === 0) {
@@ -164,12 +170,7 @@ export class HttpClient {
           errorBody = await response.text().catch(() => null);
         }
 
-        const apiError: ApiError = {
-          message: this.extractErrorMessage(errorBody, response.statusText),
-          status: response.status,
-          details: errorBody,
-        };
-        throw apiError;
+        throw WildwoodError.fromResponse(response.status, errorBody, response.statusText);
       }
 
       const contentType = response.headers.get('content-type');
@@ -191,22 +192,6 @@ export class HttpClient {
     } finally {
       if (timer) clearTimeout(timer);
     }
-  }
-
-  private extractErrorMessage(body: unknown, fallback: string): string {
-    if (body && typeof body === 'object') {
-      const obj = body as Record<string, unknown>;
-      if (typeof obj.message === 'string') return obj.message;
-      if (typeof obj.error === 'string') return obj.error;
-      if (typeof obj.title === 'string') return obj.title;
-      if (typeof obj.errors === 'object' && obj.errors) {
-        const errors = obj.errors as Record<string, string[]>;
-        const firstKey = Object.keys(errors)[0];
-        if (firstKey && errors[firstKey]?.[0]) return errors[firstKey][0];
-      }
-    }
-    if (typeof body === 'string' && body.length > 0) return body;
-    return fallback;
   }
 
   private combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
