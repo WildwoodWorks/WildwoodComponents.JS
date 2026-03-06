@@ -8,9 +8,17 @@
     "clean": "pnpm -r exec rm -rf dist",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "release": "pnpm build && changeset publish",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/*/src/**/*.{ts,tsx}": [
+      "pnpm -r run lint"
+    ]
   },
   "devDependencies": {
-    "@changesets/cli": "^2.30.0"
+    "@changesets/cli": "^2.30.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2"
   }
 }
