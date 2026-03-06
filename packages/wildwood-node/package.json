@@ -37,5 +37,18 @@
     "vitest": "^3.0.0"
   },
   "files": ["dist"],
+  "keywords": ["wildwood", "node", "express", "middleware", "jwt", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wildwood-platform/wildwood-js.git",
+    "directory": "packages/wildwood-node"
+  },
+  "homepage": "https://github.com/wildwood-platform/wildwood-js/tree/master/packages/wildwood-node#readme",
+  "bugs": {
+    "url": "https://github.com/wildwood-platform/wildwood-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }
