@@ -150,6 +150,8 @@ export type {
   AppTierFeatureModel,
   AppTierLimitModel,
   AppTierAddOnModel,
+  AppTierAddOnFeatureModel,
+  AppTierAddOnPricingModel,
   UserTierSubscriptionModel,
   UserAddOnSubscriptionModel,
   AppFeatureCheckResultModel,
