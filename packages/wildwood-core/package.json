@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
+    "msw": "^2.12.10",
     "tsup": "^8.4.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
@@ -37,7 +38,14 @@
       "optional": true
     }
   },
-  "keywords": ["wildwood", "sdk", "api-client", "authentication", "jwt", "typescript"],
+  "keywords": [
+    "wildwood",
+    "sdk",
+    "api-client",
+    "authentication",
+    "jwt",
+    "typescript"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/wildwood-platform/wildwood-js.git",
