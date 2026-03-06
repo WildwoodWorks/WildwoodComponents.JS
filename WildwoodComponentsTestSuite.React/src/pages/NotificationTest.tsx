@@ -1,13 +1,14 @@
 import { useNotifications } from '@wildwood/react';
+import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function NotificationTest() {
   const { toasts, show, success, error, warning, info, dismiss, clear } = useNotifications();
 
   return (
-    <div className="page">
-      <h1>Notification Component</h1>
-      <p>Tests toast notification queue with different types and durations.</p>
-
+    <ComponentTestPage
+      title="Notification Component"
+      description="Tests toast notification queue with different types and durations."
+    >
       <div className="button-group">
         <button onClick={() => success('Operation completed successfully!', 'Success')}>
           Success
@@ -44,6 +45,6 @@ export function NotificationTest() {
           </ul>
         )}
       </div>
-    </div>
+    </ComponentTestPage>
   );
 }
