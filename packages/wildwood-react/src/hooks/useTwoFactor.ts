@@ -23,6 +23,7 @@ export interface UseTwoFactorReturn {
   beginAuthenticatorEnrollment: (friendlyName?: string) => Promise<AuthenticatorEnrollmentResult>;
   completeAuthenticatorEnrollment: (credentialId: string, code: string) => Promise<boolean>;
   removeCredential: (credentialId: string) => Promise<boolean>;
+  setPrimaryCredential: (credentialId: string) => Promise<boolean>;
   getRecoveryCodeInfo: () => Promise<RecoveryCodeInfo>;
   regenerateRecoveryCodes: () => Promise<RegenerateRecoveryCodesResult>;
   getTrustedDevices: () => Promise<TrustedDevice[]>;
@@ -89,6 +90,12 @@ export function useTwoFactor(): UseTwoFactorReturn {
     return result;
   }, [client, getCredentials]);
 
+  const setPrimaryCredential = useCallback(async (credentialId: string) => {
+    const result = await client.twoFactor.setPrimaryCredential(credentialId);
+    await getCredentials();
+    return result;
+  }, [client, getCredentials]);
+
   const getRecoveryCodeInfo = useCallback(async () => {
     return client.twoFactor.getRecoveryCodeInfo();
   }, [client]);
@@ -118,7 +125,8 @@ export function useTwoFactor(): UseTwoFactorReturn {
   return {
     status, credentials, trustedDevices, loading, error,
     getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment, removeCredential,
+    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
+    removeCredential, setPrimaryCredential,
     getRecoveryCodeInfo, regenerateRecoveryCodes,
     getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
   };
