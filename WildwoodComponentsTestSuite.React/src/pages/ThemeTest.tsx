@@ -1,5 +1,6 @@
 import { useTheme } from '@wildwood/react';
 import type { ThemeName } from '@wildwood/core';
+import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 const themes: ThemeName[] = [
   'woodland-warm',
@@ -14,10 +15,10 @@ export function ThemeTest() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="page">
-      <h1>Theme Component</h1>
-      <p>Tests theme switching and CSS variable propagation.</p>
-
+    <ComponentTestPage
+      title="Theme Component"
+      description="Tests theme switching and CSS variable propagation."
+    >
       <div className="status-card">
         <h3>Current Theme</h3>
         <p><code>{theme}</code></p>
@@ -34,6 +35,6 @@ export function ThemeTest() {
           </button>
         ))}
       </div>
-    </div>
+    </ComponentTestPage>
   );
 }
