@@ -1,9 +1,14 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type {
   MessageThread,
   SecureMessage,
   CompanyAppUser,
   MessageSearchResult,
+  TypingIndicator,
+  OnlineStatus,
+  UserStatus,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -20,9 +25,17 @@ export interface UseMessagingReturn {
   deleteMessage: (messageId: string) => Promise<boolean>;
   reactToMessage: (messageId: string, emoji: string) => Promise<boolean>;
   removeReaction: (messageId: string, emoji: string) => Promise<boolean>;
+  markMessageAsRead: (messageId: string) => Promise<boolean>;
   markThreadAsRead: (threadId: string) => Promise<boolean>;
   searchUsers: (query: string) => Promise<CompanyAppUser[]>;
+  getCompanyAppUsers: () => Promise<CompanyAppUser[]>;
   searchMessages: (query: string) => Promise<MessageSearchResult[]>;
+  startTyping: (threadId: string) => Promise<boolean>;
+  stopTyping: (threadId: string) => Promise<boolean>;
+  getTypingIndicators: (threadId: string) => Promise<TypingIndicator[]>;
+  downloadAttachment: (attachmentId: string) => Promise<ArrayBuffer>;
+  updateOnlineStatus: (status: UserStatus, statusMessage?: string) => Promise<boolean>;
+  getOnlineStatuses: () => Promise<OnlineStatus[]>;
 }
 
 export function useMessaging(): UseMessagingReturn {
@@ -82,6 +95,10 @@ export function useMessaging(): UseMessagingReturn {
     return client.messaging.removeReaction(messageId, emoji);
   }, [client]);
 
+  const markMessageAsRead = useCallback(async (messageId: string) => {
+    return client.messaging.markMessageAsRead(messageId);
+  }, [client]);
+
   const markThreadAsRead = useCallback(async (threadId: string) => {
     return client.messaging.markThreadAsRead(threadId);
   }, [client]);
@@ -90,15 +107,46 @@ export function useMessaging(): UseMessagingReturn {
     return client.messaging.searchUsers(appId, query);
   }, [client, appId]);
 
+  const getCompanyAppUsers = useCallback(async () => {
+    return client.messaging.getCompanyAppUsers(appId);
+  }, [client, appId]);
+
   const searchMessages = useCallback(async (query: string) => {
     return client.messaging.searchMessages(appId, query);
+  }, [client, appId]);
+
+  const startTyping = useCallback(async (threadId: string) => {
+    return client.messaging.startTyping(threadId);
+  }, [client]);
+
+  const stopTyping = useCallback(async (threadId: string) => {
+    return client.messaging.stopTyping(threadId);
+  }, [client]);
+
+  const getTypingIndicators = useCallback(async (threadId: string) => {
+    return client.messaging.getTypingIndicators(threadId);
+  }, [client]);
+
+  const downloadAttachment = useCallback(async (attachmentId: string) => {
+    return client.messaging.downloadAttachment(attachmentId);
+  }, [client]);
+
+  const updateOnlineStatus = useCallback(async (status: UserStatus, statusMessage?: string) => {
+    return client.messaging.updateOnlineStatus(appId, status, statusMessage);
+  }, [client, appId]);
+
+  const getOnlineStatuses = useCallback(async () => {
+    return client.messaging.getOnlineStatuses(appId);
   }, [client, appId]);
 
   return {
     threads, loading, error,
     getThreads, getThread, createThread, getMessages,
     sendMessage, editMessage, deleteMessage,
-    reactToMessage, removeReaction, markThreadAsRead,
-    searchUsers, searchMessages,
+    reactToMessage, removeReaction,
+    markMessageAsRead, markThreadAsRead,
+    searchUsers, getCompanyAppUsers, searchMessages,
+    startTyping, stopTyping, getTypingIndicators,
+    downloadAttachment, updateOnlineStatus, getOnlineStatuses,
   };
 }
