@@ -1,0 +1,314 @@
+/* WildwoodComponents Default Theme System
+ * Ported from WildwoodComponents.Blazor/wwwroot/css/wildwood-themes.css
+ *
+ * All component styling uses --ww-* variables which can be overridden.
+ * Available built-in themes: woodland-warm (default), cool-blue, fall-colors
+ *
+ * HOW TO OVERRIDE:
+ * :root {
+ *     --ww-primary: var(--my-app-primary, #6366F1);
+ *     --ww-bg-secondary: var(--my-app-bg-secondary, #1E293B);
+ * }
+ */
+
+/* ========================================
+   WOODLAND WARM THEME (Default)
+   ======================================== */
+[data-theme="woodland-warm"],
+:root {
+    --ww-primary: #D4882C;
+    --ww-primary-dark: #B8720F;
+    --ww-primary-light: #E8A33C;
+    --ww-accent: #D4A853;
+    --ww-accent-light: #F5D78E;
+    --ww-accent-hover: #F5B041;
+    --ww-success: #28a745;
+    --ww-success-light: #48c774;
+    --ww-danger: #dc3545;
+    --ww-danger-light: #f14668;
+    --ww-warning: #ffc107;
+    --ww-warning-light: #ffdd57;
+    --ww-info: #17a2b8;
+    --ww-info-light: #3298dc;
+    --ww-bg-dark: #4A3F2F;
+    --ww-bg-medium: #5D4E37;
+    --ww-bg-light: #6B5B45;
+    --ww-bg-primary: #ffffff;
+    --ww-bg-secondary: #f8f9fa;
+    --ww-bg-tertiary: #e9ecef;
+    --ww-login-overlay: rgba(74, 63, 47, 0.75);
+    --ww-login-card-bg: rgba(93, 78, 55, 0.95);
+    --ww-login-card-border: rgba(212,168,83,0.5);
+    --ww-text-primary: #212529;
+    --ww-text-secondary: #6c757d;
+    --ww-text-muted: #6c757d;
+    --ww-text-light: #FFF8E7;
+    --ww-text-dark: #4A3F2F;
+    --ww-text-inverse: #ffffff;
+    --ww-input-bg: #ffffff;
+    --ww-focus-ring: rgba(212, 136, 44, 0.25);
+    --ww-focus-border: #D4A853;
+    --ww-focus-shadow: rgba(212, 168, 83, 0.25);
+    --ww-info-bg: rgba(23, 162, 184, 0.15);
+    --ww-info-text: #055160;
+    --ww-danger-bg: rgba(220, 53, 69, 0.15);
+    --ww-danger-text: #842029;
+    --ww-success-bg: rgba(40, 167, 69, 0.15);
+    --ww-success-text: #0f5132;
+    --ww-warning-bg: rgba(255, 193, 7, 0.15);
+    --ww-warning-text: #664d03;
+    --ww-btn-primary-text: #ffffff;
+    --ww-btn-success-text: #ffffff;
+    --ww-gradient-sidebar: linear-gradient(180deg, #5D4E37 0%, #4A3F2F 100%);
+    --ww-gradient-header: linear-gradient(135deg, #6B5B45 0%, #5D4E37 100%);
+    --ww-gradient-active: linear-gradient(135deg, #D4882C 0%, #B8720F 100%);
+    --ww-gradient-button: linear-gradient(135deg, #D4882C 0%, #B8720F 100%);
+    --ww-gradient-button-hover: linear-gradient(135deg, #E8A33C 0%, #D4882C 100%);
+    --ww-border-color: #dee2e6;
+    --ww-border-accent: #D4A853;
+    --ww-border-subtle: rgba(255, 200, 100, 0.15);
+    --ww-border-light: rgba(0, 0, 0, 0.125);
+    --ww-border-radius: 0.375rem;
+    --ww-border-radius-sm: 0.25rem;
+    --ww-border-radius-lg: 0.5rem;
+    --ww-hover-bg: rgba(232, 163, 60, 0.2);
+    --ww-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --ww-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --ww-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+    --ww-shadow-button: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --ww-shadow-button-hover: 0 4px 8px rgba(0, 0, 0, 0.25);
+    --ww-card-footer-bg: #FFF8E7;
+    --ww-card-footer-border: #E8DCC8;
+    --ww-payment-provider-selected-bg: rgba(212, 136, 44, 0.1);
+}
+
+/* ========================================
+   COOL BLUE THEME
+   ======================================== */
+[data-theme="cool-blue"] {
+    --ww-primary: #3B7EA1;
+    --ww-primary-dark: #2C5F7A;
+    --ww-primary-light: #5A9BBF;
+    --ww-accent: #6BA3C7;
+    --ww-accent-light: #A3CAE0;
+    --ww-accent-hover: #7BB5D9;
+    --ww-bg-dark: #2D3A42;
+    --ww-bg-medium: #3A4A55;
+    --ww-bg-light: #4A5C68;
+    --ww-login-overlay: rgba(45, 58, 66, 0.8);
+    --ww-login-card-bg: rgba(58, 74, 85, 0.95);
+    --ww-login-card-border: rgba(107, 163, 199, 0.5);
+    --ww-text-light: #E8F4FA;
+    --ww-text-muted: #B8D4E8;
+    --ww-text-dark: #2D3A42;
+    --ww-gradient-sidebar: linear-gradient(180deg, #3A4A55 0%, #2D3A42 100%);
+    --ww-gradient-header: linear-gradient(135deg, #4A5C68 0%, #3A4A55 100%);
+    --ww-gradient-active: linear-gradient(135deg, #3B7EA1 0%, #2C5F7A 100%);
+    --ww-gradient-button: linear-gradient(135deg, #3B7EA1 0%, #2C5F7A 100%);
+    --ww-gradient-button-hover: linear-gradient(135deg, #5A9BBF 0%, #3B7EA1 100%);
+    --ww-border-accent: #6BA3C7;
+    --ww-border-subtle: rgba(107, 163, 199, 0.2);
+    --ww-hover-bg: rgba(59, 126, 161, 0.2);
+    --ww-shadow-button: 0 2px 4px rgba(0, 0, 0, 0.25);
+    --ww-shadow-button-hover: 0 4px 8px rgba(0, 0, 0, 0.3);
+    --ww-card-footer-bg: #E8F4FA;
+    --ww-card-footer-border: #B8D4E8;
+    --ww-focus-border: #6BA3C7;
+    --ww-focus-shadow: rgba(107, 163, 199, 0.25);
+    --ww-payment-provider-selected-bg: rgba(59, 126, 161, 0.1);
+}
+
+/* ========================================
+   FALL COLORS THEME
+   ======================================== */
+[data-theme="fall-colors"] {
+    --ww-primary: #B8452A;
+    --ww-primary-dark: #8B3420;
+    --ww-primary-light: #D4613D;
+    --ww-accent: #D97B3D;
+    --ww-accent-light: #F5C16E;
+    --ww-accent-hover: #E89849;
+    --ww-bg-dark: #4A2E2A;
+    --ww-bg-medium: #5D3B35;
+    --ww-bg-light: #6B4A42;
+    --ww-login-overlay: rgba(74, 46, 42, 0.78);
+    --ww-login-card-bg: rgba(93, 59, 53, 0.95);
+    --ww-login-card-border: rgba(217, 123, 61, 0.5);
+    --ww-text-light: #FFF5E8;
+    --ww-text-muted: #E8D8C8;
+    --ww-text-dark: #4A2E2A;
+    --ww-gradient-sidebar: linear-gradient(180deg, #5D3B35 0%, #4A2E2A 100%);
+    --ww-gradient-header: linear-gradient(135deg, #6B4A42 0%, #5D3B35 100%);
+    --ww-gradient-active: linear-gradient(135deg, #B8452A 0%, #8B3420 100%);
+    --ww-gradient-button: linear-gradient(135deg, #B8452A 0%, #8B3420 100%);
+    --ww-gradient-button-hover: linear-gradient(135deg, #D4613D 0%, #B8452A 100%);
+    --ww-border-accent: #D97B3D;
+    --ww-border-subtle: rgba(245, 193, 110, 0.18);
+    --ww-hover-bg: rgba(217, 123, 61, 0.22);
+    --ww-shadow-button: 0 2px 4px rgba(0, 0, 0, 0.22);
+    --ww-shadow-button-hover: 0 4px 8px rgba(0, 0, 0, 0.28);
+    --ww-card-footer-bg: #FFF5E8;
+    --ww-card-footer-border: #E8D8C8;
+    --ww-focus-border: #D97B3D;
+    --ww-focus-shadow: rgba(217, 123, 61, 0.28);
+    --ww-payment-provider-selected-bg: rgba(184, 69, 42, 0.1);
+}
+
+/* ========================================
+   COMMON COMPONENT STYLES
+   ======================================== */
+
+.ww-btn-primary {
+    background: var(--ww-gradient-button, var(--ww-primary));
+    border: none;
+    color: var(--ww-btn-primary-text, white);
+    box-shadow: var(--ww-shadow-button);
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--ww-border-radius);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.ww-btn-primary:hover {
+    background: var(--ww-gradient-button-hover, var(--ww-primary-light));
+    transform: translateY(-1px);
+    box-shadow: var(--ww-shadow-button-hover);
+}
+
+.ww-btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ww-form-control:focus {
+    border-color: var(--ww-focus-border);
+    box-shadow: 0 0 0 0.25rem var(--ww-focus-shadow);
+    outline: none;
+}
+
+.ww-card {
+    border-radius: var(--ww-border-radius-lg);
+    border: 1px solid var(--ww-border-color);
+    box-shadow: var(--ww-shadow-sm);
+    background: var(--ww-bg-primary);
+}
+
+.ww-card-header {
+    background: var(--ww-gradient-header);
+    border-bottom: 2px solid var(--ww-border-accent);
+    color: var(--ww-text-light);
+    padding: 0.75rem 1rem;
+}
+
+.ww-card-footer {
+    background: var(--ww-card-footer-bg);
+    border-top: 1px solid var(--ww-card-footer-border);
+    padding: 0.75rem 1rem;
+}
+
+.ww-alert-info {
+    background-color: var(--ww-info-bg);
+    border: 1px solid var(--ww-info);
+    color: var(--ww-info-text);
+    padding: 0.75rem 1rem;
+    border-radius: var(--ww-border-radius);
+}
+
+.ww-alert-danger {
+    background-color: var(--ww-danger-bg);
+    border: 1px solid var(--ww-danger);
+    color: var(--ww-danger-text);
+    padding: 0.75rem 1rem;
+    border-radius: var(--ww-border-radius);
+}
+
+.ww-alert-success {
+    background-color: var(--ww-success-bg);
+    border: 1px solid var(--ww-success);
+    color: var(--ww-success-text);
+    padding: 0.75rem 1rem;
+    border-radius: var(--ww-border-radius);
+}
+
+.ww-alert-warning {
+    background-color: var(--ww-warning-bg);
+    border: 1px solid var(--ww-warning);
+    color: var(--ww-warning-text);
+    padding: 0.75rem 1rem;
+    border-radius: var(--ww-border-radius);
+}
+
+/* ========================================
+   LOADING SPINNER STYLES
+   ======================================== */
+
+.ww-loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.ww-spinner {
+    border-style: solid;
+    border-radius: 50%;
+    animation: ww-spin 0.75s linear infinite;
+}
+
+.ww-loading-message {
+    margin-top: 0.75rem;
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+.ww-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@keyframes ww-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   ERROR BOUNDARY STYLES
+   ======================================== */
+
+.ww-error-boundary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.ww-error-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.ww-error-title {
+    color: var(--ww-danger, #dc3545);
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+}
+
+.ww-error-message {
+    color: var(--ww-text-secondary, #6c757d);
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+.ww-error-retry {
+    margin-top: 0.5rem;
+}
