@@ -5,6 +5,8 @@ export { createWildwoodClient } from './client/WildwoodClient.js';
 export type { WildwoodClient } from './client/WildwoodClient.js';
 export type { WildwoodConfig, RequestOptions, ApiResponse, ApiError, RequestInterceptor, ResponseInterceptor } from './client/types.js';
 export { HttpClient } from './client/httpClient.js';
+export { WildwoodError } from './client/errors.js';
+export type { WildwoodErrorCode } from './client/errors.js';
 
 // Auth
 export { AuthService } from './auth/authService.js';
