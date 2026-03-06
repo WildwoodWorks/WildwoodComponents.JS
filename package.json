@@ -11,20 +11,6 @@
     "release": "pnpm build && changeset publish",
     "prepare": "husky"
   },
-  "lint-staged": {
-    "packages/wildwood-core/src/**/*.{ts,tsx}": [
-      "pnpm --filter @wildwood/core run lint"
-    ],
-    "packages/wildwood-react/src/**/*.{ts,tsx}": [
-      "pnpm --filter @wildwood/react run lint"
-    ],
-    "packages/wildwood-react-native/src/**/*.{ts,tsx}": [
-      "pnpm --filter @wildwood/react-native run lint"
-    ],
-    "packages/wildwood-node/src/**/*.{ts,tsx}": [
-      "pnpm --filter @wildwood/node run lint"
-    ]
-  },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
     "husky": "^9.1.7",
