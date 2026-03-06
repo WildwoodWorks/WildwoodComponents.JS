@@ -3,6 +3,7 @@ import { useDisclaimer } from '../../hooks/useDisclaimer.js';
 
 // Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
 function sanitizeHtml(html: string): string {
+  if (typeof DOMParser === 'undefined') return html;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const dangerous = doc.querySelectorAll('script, style, iframe, object, embed, form, link, meta');
   dangerous.forEach((el) => el.remove());

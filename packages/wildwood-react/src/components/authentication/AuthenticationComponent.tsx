@@ -15,6 +15,7 @@ import { useWildwood } from '../../hooks/useWildwood.js';
 
 // Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
 function sanitizeHtml(html: string): string {
+  if (typeof DOMParser === 'undefined') return html;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   // Remove script, style, iframe, object, embed, form elements
   const dangerous = doc.querySelectorAll('script, style, iframe, object, embed, form, link, meta');
