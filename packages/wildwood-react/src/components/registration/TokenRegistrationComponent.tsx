@@ -1,106 +1,436 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import type { AuthenticationResponse } from '@wildwood/core';
+import type { AuthenticationResponse, AuthenticationConfiguration } from '@wildwood/core';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface TokenRegistrationComponentProps {
   appId?: string;
   registrationToken?: string;
+  /** If true, token is required to register. Default true. */
+  requireToken?: boolean;
+  /** If true, open registration (no token) is allowed. Default false. */
+  allowOpenRegistration?: boolean;
+  /** If true, auto-login after successful registration. Default true. */
+  autoLogin?: boolean;
+  /** URL to redirect after successful auto-login */
+  redirectUrl?: string;
   onRegistrationSuccess?: (response: AuthenticationResponse) => void;
   onRegistrationError?: (error: string) => void;
+  onAutoLoginSuccess?: (response: AuthenticationResponse) => void;
+  onCancel?: () => void;
   className?: string;
 }
+
+type Step = 'token' | 'account' | 'success';
 
 export function TokenRegistrationComponent({
   appId,
   registrationToken: initialToken,
+  requireToken = true,
+  allowOpenRegistration = false,
+  autoLogin = true,
+  redirectUrl,
   onRegistrationSuccess,
   onRegistrationError,
+  onAutoLoginSuccess,
+  onCancel,
   className,
 }: TokenRegistrationComponentProps) {
   const client = useWildwood();
 
+  // Step management
+  const tokenIsRequired = requireToken && !allowOpenRegistration;
+  const tokenIsOptional = !requireToken && allowOpenRegistration;
+  const initialStep: Step = tokenIsRequired ? 'token' : 'account';
+  const [currentStep, setCurrentStep] = useState<Step>(initialToken ? 'account' : initialStep);
+
+  // Token state
   const [token, setToken] = useState(initialToken ?? '');
+  const [tokenValidated, setTokenValidated] = useState(!!initialToken);
+  const [tokenError, setTokenError] = useState('');
+  const [useToken, setUseToken] = useState(!!initialToken);
+
+  // Registration form state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [autoLoginComplete, setAutoLoginComplete] = useState(false);
+  const [autoLoginError, setAutoLoginError] = useState('');
+  const [registrationResponse, setRegistrationResponse] = useState<AuthenticationResponse | null>(null);
 
-  const handleSubmit = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  // Auth config (password requirements)
+  const [authConfig, setAuthConfig] = useState<AuthenticationConfiguration | null>(null);
+  const [passwordRequirements, setPasswordRequirements] = useState('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+  // Load auth configuration for password requirements
+  useEffect(() => {
+    if (!appId) return;
+    client.auth
+      .getAuthenticationConfiguration(appId)
+      .then((config) => {
+        if (config) {
+          setAuthConfig(config);
+          setPasswordRequirements(client.auth.getPasswordRequirementsText(config));
+        }
+      })
+      .catch(() => {});
+  }, [appId, client.auth]);
+
+  // Get step number for display
+  const getStepNumber = (step: Step): number => {
+    if (tokenIsRequired) {
+      if (step === 'token') return 1;
+      if (step === 'account') return 2;
+      return 3;
     }
+    if (step === 'account') return 1;
+    return 2;
+  };
 
+  const isStepActive = (step: Step): boolean => {
+    const order: Step[] = tokenIsRequired ? ['token', 'account', 'success'] : ['account', 'success'];
+    return order.indexOf(currentStep) >= order.indexOf(step);
+  };
+
+  const isStepCompleted = (step: Step): boolean => {
+    const order: Step[] = tokenIsRequired ? ['token', 'account', 'success'] : ['account', 'success'];
+    return order.indexOf(currentStep) > order.indexOf(step);
+  };
+
+  // Validate registration token
+  const handleValidateToken = useCallback(async () => {
     if (!token.trim()) {
-      setError('Registration token is required');
+      setTokenError('Registration token is required');
       return;
     }
 
     setIsLoading(true);
+    setTokenError('');
     try {
-      const response = await client.auth.registerWithToken({
-        registrationToken: token,
-        firstName,
-        lastName,
-        email,
-        password,
-        appId: appId ?? '',
-        platform: 'web',
-        deviceInfo: navigator.userAgent,
-      });
-
-      setSuccess('Registration successful!');
-      await client.session.login(response);
-      onRegistrationSuccess?.(response);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Registration failed';
-      setError(msg);
-      onRegistrationError?.(msg);
+      const valid = await client.auth.validateRegistrationToken(token);
+      if (valid) {
+        setTokenValidated(true);
+        setUseToken(true);
+        setCurrentStep('account');
+      } else {
+        setTokenError('Invalid or expired registration token');
+      }
+    } catch {
+      setTokenError('Failed to validate token. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, [token, firstName, lastName, email, password, confirmPassword, appId, client, onRegistrationSuccess, onRegistrationError]);
+  }, [token, client.auth]);
+
+  // Handle token input Enter key
+  const handleTokenKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleValidateToken();
+    }
+  };
+
+  // Validate optional token
+  const handleValidateOptionalToken = useCallback(async () => {
+    if (!token.trim()) return;
+    setIsLoading(true);
+    setTokenError('');
+    try {
+      const valid = await client.auth.validateRegistrationToken(token);
+      if (valid) {
+        setUseToken(true);
+        setTokenValidated(true);
+      } else {
+        setTokenError('Invalid or expired registration token');
+      }
+    } catch {
+      setTokenError('Failed to validate token');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, client.auth]);
+
+  const clearToken = () => {
+    setToken('');
+    setUseToken(false);
+    setTokenValidated(false);
+    setTokenError('');
+  };
+
+  // Client-side password validation
+  const validatePassword = useCallback(
+    (pwd: string): string | null => {
+      if (!authConfig) return null;
+      if (pwd.length < authConfig.passwordMinimumLength) {
+        return `Password must be at least ${authConfig.passwordMinimumLength} characters.`;
+      }
+      if (authConfig.passwordRequireUppercase && !/[A-Z]/.test(pwd)) {
+        return 'Password must contain at least one uppercase letter (A-Z).';
+      }
+      if (authConfig.passwordRequireLowercase && !/[a-z]/.test(pwd)) {
+        return 'Password must contain at least one lowercase letter (a-z).';
+      }
+      if (authConfig.passwordRequireDigit && !/\d/.test(pwd)) {
+        return 'Password must contain at least one number (0-9).';
+      }
+      if (authConfig.passwordRequireSpecialChar && !/[^a-zA-Z0-9]/.test(pwd)) {
+        return 'Password must contain at least one special character.';
+      }
+      return null;
+    },
+    [authConfig],
+  );
+
+  // Submit registration
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError('');
+
+      // Validation
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+
+      const pwdError = validatePassword(password);
+      if (pwdError) {
+        setError(pwdError);
+        return;
+      }
+
+      if (useToken && !token.trim()) {
+        setError('Registration token is required');
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        let response: AuthenticationResponse;
+
+        if (useToken && token.trim()) {
+          response = await client.auth.registerWithToken({
+            registrationToken: token,
+            firstName,
+            lastName,
+            username: username || email,
+            email,
+            password,
+            appId: appId ?? '',
+            platform: 'web',
+            deviceInfo: navigator.userAgent,
+          });
+        } else {
+          response = await client.auth.register({
+            firstName,
+            lastName,
+            username: username || email,
+            email,
+            password,
+            appId: appId ?? '',
+            platform: 'web',
+            deviceInfo: navigator.userAgent,
+          });
+        }
+
+        setRegistrationResponse(response);
+        onRegistrationSuccess?.(response);
+
+        // Auto-login
+        if (autoLogin && response.jwtToken) {
+          setIsAutoLoggingIn(true);
+          try {
+            await client.session.login(response);
+            setAutoLoginComplete(true);
+            onAutoLoginSuccess?.(response);
+            if (redirectUrl) {
+              window.location.href = redirectUrl;
+              return;
+            }
+          } catch {
+            setAutoLoginError('Account created but auto-login failed. Please log in manually.');
+          } finally {
+            setIsAutoLoggingIn(false);
+          }
+        }
+
+        setCurrentStep('success');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Registration failed';
+        setError(msg);
+        onRegistrationError?.(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      token,
+      firstName,
+      lastName,
+      username,
+      email,
+      password,
+      confirmPassword,
+      appId,
+      useToken,
+      autoLogin,
+      redirectUrl,
+      client,
+      validatePassword,
+      onRegistrationSuccess,
+      onRegistrationError,
+      onAutoLoginSuccess,
+    ],
+  );
+
+  const resetForm = () => {
+    setToken('');
+    setTokenValidated(false);
+    setTokenError('');
+    setUseToken(false);
+    setCurrentStep('token');
+  };
 
   return (
     <div className={`ww-token-registration ${className ?? ''}`}>
-      <div className="ww-auth-card">
-        <div className="ww-auth-header">
-          <h2>Register with Invitation</h2>
-          {error && <div className="ww-alert ww-alert-danger">{error}</div>}
-          {success && <div className="ww-alert ww-alert-success">{success}</div>}
+      {/* Step Indicator */}
+      {currentStep !== 'success' && (
+        <div className="ww-step-indicator">
+          <div className="ww-steps">
+            {tokenIsRequired && (
+              <>
+                <div
+                  className={`ww-step ${isStepActive('token') ? 'ww-step-active' : ''} ${isStepCompleted('token') ? 'ww-step-completed' : ''}`}
+                >
+                  <span className="ww-step-number">{getStepNumber('token')}</span>
+                  <span className="ww-step-label">Token</span>
+                </div>
+                <div className={`ww-step-connector ${isStepCompleted('token') ? 'ww-step-connector-completed' : ''}`} />
+              </>
+            )}
+            <div
+              className={`ww-step ${isStepActive('account') ? 'ww-step-active' : ''} ${isStepCompleted('account') ? 'ww-step-completed' : ''}`}
+            >
+              <span className="ww-step-number">{getStepNumber('account')}</span>
+              <span className="ww-step-label">Account</span>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="ww-auth-body">
-          <form onSubmit={handleSubmit}>
-            {!initialToken && (
-              <div className="ww-form-group">
-                <label htmlFor="ww-reg-token">Registration Token</label>
+      {/* Token Validation Step */}
+      {currentStep === 'token' && tokenIsRequired && (
+        <div className="ww-reg-section">
+          <h3 className="ww-reg-title">Registration Token Required</h3>
+          <p className="ww-reg-subtitle">Please enter your registration token to begin the signup process.</p>
+
+          <div className="ww-form-group">
+            <label htmlFor="ww-reg-token">
+              Registration Token <span className="ww-text-danger">*</span>
+            </label>
+            <input
+              id="ww-reg-token"
+              type="text"
+              className={`ww-form-control ${tokenError ? 'ww-is-invalid' : ''}`}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onKeyDown={handleTokenKeyPress}
+              placeholder="Enter your registration token"
+              maxLength={100}
+              disabled={isLoading}
+            />
+            {tokenError && <div className="ww-invalid-feedback">{tokenError}</div>}
+          </div>
+
+          <button
+            type="button"
+            className="ww-btn ww-btn-primary"
+            onClick={handleValidateToken}
+            disabled={isLoading || !token.trim()}
+          >
+            {isLoading ? (
+              <>
+                <span className="ww-spinner ww-spinner-sm" />
+                Validating...
+              </>
+            ) : (
+              'Validate Token'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Account Registration Step */}
+      {currentStep === 'account' && (
+        <div className="ww-reg-section">
+          <h3 className="ww-reg-title">Create Your Account</h3>
+          <p className="ww-reg-subtitle">
+            {useToken
+              ? 'Your registration token is valid. Please complete your account setup.'
+              : 'Please complete the form below to create your account.'}
+          </p>
+
+          {/* Optional Token Entry */}
+          {tokenIsOptional && !useToken && (
+            <div className="ww-optional-token-card">
+              <h6 className="ww-optional-token-title">Have a Registration Token?</h6>
+              <p className="ww-optional-token-desc">
+                If you have a registration token, enter it below to unlock special access or pricing.
+              </p>
+              <div className="ww-input-group">
                 <input
-                  id="ww-reg-token"
                   type="text"
-                  className="ww-form-control"
+                  className={`ww-form-control ${tokenError ? 'ww-is-invalid' : ''} ${tokenValidated ? 'ww-is-valid' : ''}`}
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  required
+                  placeholder="Enter registration token (optional)"
+                  maxLength={100}
                   disabled={isLoading}
-                  placeholder="Enter your invitation token"
                 />
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleValidateOptionalToken}
+                  disabled={!token.trim() || isLoading}
+                >
+                  {isLoading ? <span className="ww-spinner ww-spinner-sm" /> : 'Apply'}
+                </button>
               </div>
-            )}
+              {tokenError && <div className="ww-text-danger ww-text-sm">{tokenError}</div>}
+              {tokenValidated && <div className="ww-text-success ww-text-sm">Token applied successfully!</div>}
+            </div>
+          )}
 
+          {/* Token Info Display */}
+          {useToken && tokenValidated && (
+            <div className="ww-alert ww-alert-info ww-token-info">
+              <div className="ww-token-info-content">
+                <h6>Token Information</h6>
+                <small>Token validated and will be applied to your registration.</small>
+              </div>
+              {tokenIsOptional && (
+                <button type="button" className="ww-btn ww-btn-sm ww-btn-outline" onClick={clearToken}>
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
+
+          {error && <div className="ww-alert ww-alert-danger">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
             <div className="ww-form-row">
               <div className="ww-form-group">
-                <label htmlFor="ww-reg-first">First Name</label>
+                <label htmlFor="ww-reg-first">First Name *</label>
                 <input
                   id="ww-reg-first"
                   type="text"
@@ -112,7 +442,7 @@ export function TokenRegistrationComponent({
                 />
               </div>
               <div className="ww-form-group">
-                <label htmlFor="ww-reg-last">Last Name</label>
+                <label htmlFor="ww-reg-last">Last Name *</label>
                 <input
                   id="ww-reg-last"
                   type="text"
@@ -126,7 +456,21 @@ export function TokenRegistrationComponent({
             </div>
 
             <div className="ww-form-group">
-              <label htmlFor="ww-reg-email">Email</label>
+              <label htmlFor="ww-reg-username">Username *</label>
+              <input
+                id="ww-reg-username"
+                type="text"
+                className="ww-form-control"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a unique username"
+                disabled={isLoading}
+              />
+              <small className="ww-text-muted">This will be used to log in to your account</small>
+            </div>
+
+            <div className="ww-form-group">
+              <label htmlFor="ww-reg-email">Email Address *</label>
               <input
                 id="ww-reg-email"
                 type="email"
@@ -140,8 +484,8 @@ export function TokenRegistrationComponent({
             </div>
 
             <div className="ww-form-group">
-              <label htmlFor="ww-reg-password">Password</label>
-              <div className="ww-input-group">
+              <label htmlFor="ww-reg-password">Password *</label>
+              <div className="ww-password-input-container">
                 <input
                   id="ww-reg-password"
                   type={showPassword ? 'text' : 'password'}
@@ -154,17 +498,18 @@ export function TokenRegistrationComponent({
                 />
                 <button
                   type="button"
-                  className="ww-btn-icon"
+                  className="ww-password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
+              {passwordRequirements && <small className="ww-text-muted">{passwordRequirements}</small>}
             </div>
 
             <div className="ww-form-group">
-              <label htmlFor="ww-reg-confirm">Confirm Password</label>
+              <label htmlFor="ww-reg-confirm">Confirm Password *</label>
               <input
                 id="ww-reg-confirm"
                 type={showPassword ? 'text' : 'password'}
@@ -177,12 +522,86 @@ export function TokenRegistrationComponent({
               />
             </div>
 
-            <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-              {isLoading ? 'Registering...' : 'Create Account'}
-            </button>
+            <div className="ww-reg-actions">
+              <button type="submit" className="ww-btn ww-btn-primary ww-btn-block ww-btn-lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <span className="ww-spinner ww-spinner-sm" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+
+              {tokenIsRequired && (
+                <button type="button" className="ww-btn ww-btn-link" onClick={resetForm}>
+                  Use Different Token
+                </button>
+              )}
+
+              {onCancel && (
+                <button type="button" className="ww-btn ww-btn-link" onClick={onCancel}>
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
-      </div>
+      )}
+
+      {/* Success Step */}
+      {currentStep === 'success' && (
+        <div className="ww-reg-section ww-reg-success">
+          {isAutoLoggingIn ? (
+            <>
+              <div className="ww-reg-success-icon">
+                <span className="ww-spinner ww-spinner-lg" />
+              </div>
+              <h4>Logging you in...</h4>
+              <p className="ww-text-muted">Please wait while we complete your sign in.</p>
+            </>
+          ) : autoLoginComplete ? (
+            <>
+              <div className="ww-reg-success-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--ww-success, #198754)">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+              </div>
+              <h4>Welcome!</h4>
+              <p className="ww-text-muted">Your account has been created and you are now logged in.</p>
+            </>
+          ) : (
+            <>
+              <div className="ww-reg-success-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--ww-success, #198754)">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+              </div>
+              <h4>Account Created Successfully!</h4>
+              <p className="ww-text-muted">Your account has been created. You can now log in.</p>
+            </>
+          )}
+
+          {autoLoginError && <div className="ww-alert ww-alert-warning">{autoLoginError}</div>}
+
+          {registrationResponse && !autoLoginComplete && !isAutoLoggingIn && (
+            <div className="ww-reg-success-actions">
+              <button
+                type="button"
+                className="ww-btn ww-btn-primary ww-btn-lg"
+                onClick={() => {
+                  if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                  }
+                }}
+              >
+                Continue to Login
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

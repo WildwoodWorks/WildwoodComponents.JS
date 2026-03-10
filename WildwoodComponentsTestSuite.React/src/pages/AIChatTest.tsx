@@ -26,8 +26,7 @@ export function AIChatTest() {
     >
       <AIChatComponent
         configurationName={configurationName}
-        showSessionList={showSessionList}
-        placeholder={placeholder}
+        settings={{ enableSessions: showSessionList, placeholderText: placeholder }}
         onMessageReceived={(resp) => {
           setLastResponse(resp);
           console.log('AI response:', resp);

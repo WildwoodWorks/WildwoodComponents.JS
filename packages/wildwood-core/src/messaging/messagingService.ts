@@ -164,6 +164,21 @@ export class MessagingService {
     return data;
   }
 
+  async uploadAttachment(
+    threadId: string,
+    file: File,
+  ): Promise<{ attachmentId: string; fileName: string; fileSize: number; contentType: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await this.http.post<{
+      attachmentId: string;
+      fileName: string;
+      fileSize: number;
+      contentType: string;
+    }>(`api/messaging/threads/${threadId}/attachments`, formData);
+    return data;
+  }
+
   // Search
   async searchMessages(companyAppId: string, searchTerm: string, threadId?: string): Promise<MessageSearchResult[]> {
     let url = `api/messaging/${companyAppId}/search?q=${encodeURIComponent(searchTerm)}`;

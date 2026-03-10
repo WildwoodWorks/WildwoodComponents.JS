@@ -18,10 +18,11 @@ export function PaymentTest() {
       }}
     >
       <PaymentComponent
+        amount={9.99}
         customerId={customerId || undefined}
-        onPaymentComplete={(paymentId) => {
-          setLastPaymentId(paymentId);
-          console.log('Payment complete:', paymentId);
+        onPaymentSuccess={(response) => {
+          setLastPaymentId(response.transactionId ?? 'unknown');
+          console.log('Payment complete:', response);
         }}
       />
 

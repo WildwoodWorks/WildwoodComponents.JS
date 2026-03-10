@@ -25,7 +25,11 @@ export interface UseMessagingReturn {
   getThread: (threadId: string) => Promise<MessageThread | null>;
   createThread: (participantIds: string[], subject: string) => Promise<MessageThread>;
   getMessages: (threadId: string, page?: number, pageSize?: number) => Promise<SecureMessage[]>;
-  sendMessage: (threadId: string, content: string) => Promise<SecureMessage>;
+  sendMessage: (threadId: string, content: string, replyToMessageId?: string) => Promise<SecureMessage>;
+  uploadAttachment: (
+    threadId: string,
+    file: File,
+  ) => Promise<{ attachmentId: string; fileName: string; fileSize: number; contentType: string }>;
   editMessage: (messageId: string, content: string) => Promise<SecureMessage>;
   deleteMessage: (messageId: string) => Promise<boolean>;
   reactToMessage: (messageId: string, emoji: string) => Promise<boolean>;
@@ -126,94 +130,172 @@ export function useMessaging(): UseMessagingReturn {
     }
   }, [client, appId]);
 
-  const getThread = useCallback(async (threadId: string) => {
-    return client.messaging.getThread(threadId);
-  }, [client]);
+  const getThread = useCallback(
+    async (threadId: string) => {
+      return client.messaging.getThread(threadId);
+    },
+    [client],
+  );
 
-  const createThread = useCallback(async (participantIds: string[], subject: string) => {
-    const thread = await client.messaging.createThread(appId, subject, participantIds);
-    await getThreads();
-    return thread;
-  }, [client, appId, getThreads]);
+  const createThread = useCallback(
+    async (participantIds: string[], subject: string) => {
+      const thread = await client.messaging.createThread(appId, subject, participantIds);
+      await getThreads();
+      return thread;
+    },
+    [client, appId, getThreads],
+  );
 
-  const getMessages = useCallback(async (threadId: string, page?: number, pageSize?: number) => {
-    return client.messaging.getMessages(threadId, page, pageSize);
-  }, [client]);
+  const getMessages = useCallback(
+    async (threadId: string, page?: number, pageSize?: number) => {
+      return client.messaging.getMessages(threadId, page, pageSize);
+    },
+    [client],
+  );
 
-  const sendMessage = useCallback(async (threadId: string, content: string) => {
-    return client.messaging.sendMessage(threadId, content);
-  }, [client]);
+  const sendMessage = useCallback(
+    async (threadId: string, content: string, replyToMessageId?: string) => {
+      return client.messaging.sendMessage(threadId, content, undefined, replyToMessageId);
+    },
+    [client],
+  );
 
-  const editMessage = useCallback(async (messageId: string, content: string) => {
-    return client.messaging.editMessage(messageId, content);
-  }, [client]);
+  const uploadAttachment = useCallback(
+    async (threadId: string, file: File) => {
+      return client.messaging.uploadAttachment(threadId, file);
+    },
+    [client],
+  );
 
-  const deleteMessage = useCallback(async (messageId: string) => {
-    return client.messaging.deleteMessage(messageId);
-  }, [client]);
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      return client.messaging.editMessage(messageId, content);
+    },
+    [client],
+  );
 
-  const reactToMessage = useCallback(async (messageId: string, emoji: string) => {
-    return client.messaging.reactToMessage(messageId, emoji);
-  }, [client]);
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      return client.messaging.deleteMessage(messageId);
+    },
+    [client],
+  );
 
-  const removeReaction = useCallback(async (messageId: string, emoji: string) => {
-    return client.messaging.removeReaction(messageId, emoji);
-  }, [client]);
+  const reactToMessage = useCallback(
+    async (messageId: string, emoji: string) => {
+      return client.messaging.reactToMessage(messageId, emoji);
+    },
+    [client],
+  );
 
-  const markMessageAsRead = useCallback(async (messageId: string) => {
-    return client.messaging.markMessageAsRead(messageId);
-  }, [client]);
+  const removeReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      return client.messaging.removeReaction(messageId, emoji);
+    },
+    [client],
+  );
 
-  const markThreadAsRead = useCallback(async (threadId: string) => {
-    return client.messaging.markThreadAsRead(threadId);
-  }, [client]);
+  const markMessageAsRead = useCallback(
+    async (messageId: string) => {
+      return client.messaging.markMessageAsRead(messageId);
+    },
+    [client],
+  );
 
-  const searchUsers = useCallback(async (query: string) => {
-    return client.messaging.searchUsers(appId, query);
-  }, [client, appId]);
+  const markThreadAsRead = useCallback(
+    async (threadId: string) => {
+      return client.messaging.markThreadAsRead(threadId);
+    },
+    [client],
+  );
+
+  const searchUsers = useCallback(
+    async (query: string) => {
+      return client.messaging.searchUsers(appId, query);
+    },
+    [client, appId],
+  );
 
   const getCompanyAppUsers = useCallback(async () => {
     return client.messaging.getCompanyAppUsers(appId);
   }, [client, appId]);
 
-  const searchMessages = useCallback(async (query: string) => {
-    return client.messaging.searchMessages(appId, query);
-  }, [client, appId]);
+  const searchMessages = useCallback(
+    async (query: string) => {
+      return client.messaging.searchMessages(appId, query);
+    },
+    [client, appId],
+  );
 
-  const startTyping = useCallback(async (threadId: string) => {
-    return client.messaging.startTyping(threadId);
-  }, [client]);
+  const startTyping = useCallback(
+    async (threadId: string) => {
+      return client.messaging.startTyping(threadId);
+    },
+    [client],
+  );
 
-  const stopTyping = useCallback(async (threadId: string) => {
-    return client.messaging.stopTyping(threadId);
-  }, [client]);
+  const stopTyping = useCallback(
+    async (threadId: string) => {
+      return client.messaging.stopTyping(threadId);
+    },
+    [client],
+  );
 
-  const getTypingIndicators = useCallback(async (threadId: string) => {
-    return client.messaging.getTypingIndicators(threadId);
-  }, [client]);
+  const getTypingIndicators = useCallback(
+    async (threadId: string) => {
+      return client.messaging.getTypingIndicators(threadId);
+    },
+    [client],
+  );
 
-  const downloadAttachment = useCallback(async (attachmentId: string) => {
-    return client.messaging.downloadAttachment(attachmentId);
-  }, [client]);
+  const downloadAttachment = useCallback(
+    async (attachmentId: string) => {
+      return client.messaging.downloadAttachment(attachmentId);
+    },
+    [client],
+  );
 
-  const updateOnlineStatus = useCallback(async (status: UserStatus, statusMessage?: string) => {
-    return client.messaging.updateOnlineStatus(appId, status, statusMessage);
-  }, [client, appId]);
+  const updateOnlineStatus = useCallback(
+    async (status: UserStatus, statusMessage?: string) => {
+      return client.messaging.updateOnlineStatus(appId, status, statusMessage);
+    },
+    [client, appId],
+  );
 
   const getOnlineStatuses = useCallback(async () => {
     return client.messaging.getOnlineStatuses(appId);
   }, [client, appId]);
 
   return {
-    threads, loading, error, connectionState,
-    connect, disconnect,
-    getThreads, getThread, createThread, getMessages,
-    sendMessage, editMessage, deleteMessage,
-    reactToMessage, removeReaction,
-    markMessageAsRead, markThreadAsRead,
-    searchUsers, getCompanyAppUsers, searchMessages,
-    startTyping, stopTyping, getTypingIndicators,
-    downloadAttachment, updateOnlineStatus, getOnlineStatuses,
-    onMessage, onTyping, onStatusChange,
+    threads,
+    loading,
+    error,
+    connectionState,
+    connect,
+    disconnect,
+    getThreads,
+    getThread,
+    createThread,
+    getMessages,
+    sendMessage,
+    uploadAttachment,
+    editMessage,
+    deleteMessage,
+    reactToMessage,
+    removeReaction,
+    markMessageAsRead,
+    markThreadAsRead,
+    searchUsers,
+    getCompanyAppUsers,
+    searchMessages,
+    startTyping,
+    stopTyping,
+    getTypingIndicators,
+    downloadAttachment,
+    updateOnlineStatus,
+    getOnlineStatuses,
+    onMessage,
+    onTyping,
+    onStatusChange,
   };
 }

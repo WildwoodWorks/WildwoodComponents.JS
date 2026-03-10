@@ -11,6 +11,8 @@
  * }
  */
 
+@import './components.css';
+
 /* ========================================
    WOODLAND WARM THEME (Default)
    ======================================== */
@@ -311,4 +313,404 @@
 
 .ww-error-retry {
     margin-top: 0.5rem;
+}
+
+/* ========================================
+   AUTHENTICATION COMPONENT STYLES
+   Ported from AuthenticationComponent.razor.css
+   ======================================== */
+
+/* Container */
+.ww-authentication-component {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Auth Card */
+.ww-auth-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+
+/* Header */
+.ww-auth-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.ww-auth-title {
+    color: var(--ww-text-primary, #212529);
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+/* Body */
+.ww-auth-body {
+    position: relative;
+}
+
+/* Form Elements */
+.ww-form-group {
+    margin-bottom: 1rem;
+}
+
+.ww-form-group label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.ww-form-control {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--ww-text-primary, #212529);
+    background-color: var(--ww-input-bg, #ffffff);
+    border: 1px solid var(--ww-border-color, #ced4da);
+    border-radius: var(--ww-border-radius, 0.375rem);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    box-sizing: border-box;
+}
+
+.ww-form-control:focus {
+    border-color: var(--ww-focus-border, var(--ww-primary, #0d6efd));
+    box-shadow: 0 0 0 0.25rem var(--ww-focus-shadow, rgba(13, 110, 253, 0.25));
+    outline: none;
+}
+
+.ww-form-control:disabled {
+    background-color: var(--ww-bg-secondary, #f8f9fa);
+    opacity: 0.65;
+}
+
+/* Password input with toggle */
+.ww-password-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.ww-password-input-container .ww-form-control {
+    padding-right: 3rem;
+}
+
+.ww-password-toggle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ww-text-secondary, #6c757d);
+    font-size: 1rem;
+    padding: 0;
+}
+
+.ww-password-toggle:hover {
+    color: var(--ww-text-primary, #212529);
+}
+
+/* Checkbox */
+.ww-form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ww-form-check-input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.ww-form-check-label {
+    font-weight: 400 !important;
+    font-size: 0.875rem;
+    cursor: pointer;
+    color: var(--ww-text-secondary, #6c757d);
+}
+
+/* Buttons */
+.ww-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1;
+    border-radius: var(--ww-border-radius, 0.375rem);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    text-decoration: none;
+}
+
+.ww-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.ww-btn-block {
+    display: flex;
+    width: 100%;
+}
+
+.ww-btn-outline {
+    background: transparent;
+    border: 1px solid var(--ww-border-color, #ced4da);
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-btn-outline:hover {
+    background: var(--ww-bg-tertiary, #e9ecef);
+    border-color: var(--ww-primary, #0d6efd);
+}
+
+.ww-btn-outline.ww-active {
+    background: var(--ww-primary, #0d6efd);
+    color: var(--ww-btn-primary-text, #ffffff);
+    border-color: var(--ww-primary, #0d6efd);
+}
+
+.ww-btn-link {
+    background: none;
+    border: none;
+    color: var(--ww-primary, #0d6efd);
+    cursor: pointer;
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.ww-btn-link:hover {
+    text-decoration: underline;
+    color: var(--ww-primary-dark, #0b5ed7);
+}
+
+.ww-btn-link:disabled {
+    color: var(--ww-text-muted, #6c757d);
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
+/* Divider */
+.ww-auth-divider {
+    text-align: center;
+    margin: 1.5rem 0;
+    position: relative;
+}
+
+.ww-auth-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--ww-border-color, #ced4da);
+}
+
+.ww-auth-divider span {
+    background: var(--ww-bg-primary, #ffffff);
+    padding: 0 1rem;
+    position: relative;
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+}
+
+/* Social auth providers */
+.ww-social-auth-providers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-social-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    background: var(--ww-bg-secondary, #f8f9fa);
+    border: 1px solid var(--ww-border-color, #ced4da);
+    border-radius: var(--ww-border-radius, 0.375rem);
+    cursor: pointer;
+    font-size: 0.9375rem;
+    color: var(--ww-text-primary, #212529);
+    transition: all 0.2s ease;
+}
+
+.ww-social-btn:hover {
+    background: var(--ww-bg-tertiary, #e9ecef);
+    border-color: var(--ww-primary, #0d6efd);
+}
+
+.ww-social-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.ww-social-btn i {
+    font-size: 1.25rem;
+}
+
+/* Footer */
+.ww-auth-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--ww-border-color, #ced4da);
+}
+
+.ww-auth-footer p {
+    margin: 0;
+    padding: 0.25rem 0;
+    color: var(--ww-text-secondary, #6c757d);
+    font-size: 0.875rem;
+}
+
+/* Text utilities */
+.ww-text-muted {
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+}
+
+/* Section headers (2FA, password reset, forgot password) */
+.ww-section-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.ww-section-icon {
+    font-size: 2.5rem;
+    color: var(--ww-primary, #0d6efd);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.ww-section-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-section-header p {
+    margin: 0;
+}
+
+/* Section icon variants (CSS-only, no Font Awesome dependency) */
+.ww-icon-shield::before { content: '\1F6E1'; }
+.ww-icon-key::before { content: '\1F511'; }
+.ww-icon-envelope::before { content: '\2709\FE0F'; }
+
+/* Loading overlay */
+.ww-loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.ww-auth-spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-width: 3px;
+    border-color: var(--ww-border-color, #dee2e6);
+    border-top-color: var(--ww-primary, #0d6efd);
+}
+
+/* Two-Factor section */
+.ww-two-factor-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.ww-verification-code-input {
+    text-align: center;
+    font-size: 1.5rem;
+    letter-spacing: 0.5rem;
+    font-family: monospace;
+    padding: 0.875rem 1rem;
+}
+
+.ww-recovery-code-input {
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+}
+
+.ww-resend-code-section {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+/* Password requirements */
+.ww-password-requirements {
+    margin-bottom: 1rem;
+}
+
+/* Disclaimer items */
+.ww-disclaimer-item {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-color, #ced4da);
+    border-radius: var(--ww-border-radius, 0.375rem);
+    background: var(--ww-bg-secondary, #f8f9fa);
+}
+
+.ww-disclaimer-item h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.ww-disclaimer-content {
+    font-size: 0.875rem;
+    color: var(--ww-text-secondary, #6c757d);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .ww-form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .ww-section-icon {
+        font-size: 2rem;
+    }
+
+    .ww-section-header h3 {
+        font-size: 1.125rem;
+    }
 }

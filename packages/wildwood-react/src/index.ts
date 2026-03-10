@@ -55,6 +55,8 @@ export { AIChatComponent } from './components/ai/AIChatComponent.js';
 export type { AIChatComponentProps } from './components/ai/AIChatComponent.js';
 export { AIProxyComponent } from './components/ai/AIProxyComponent.js';
 export type { AIProxyComponentProps } from './components/ai/AIProxyComponent.js';
+export { AIFlowComponent } from './components/ai/AIFlowComponent.js';
+export type { AIFlowComponentProps } from './components/ai/AIFlowComponent.js';
 export { SecureMessagingComponent } from './components/messaging/SecureMessagingComponent.js';
 export type { SecureMessagingComponentProps } from './components/messaging/SecureMessagingComponent.js';
 export { PaymentComponent } from './components/payment/PaymentComponent.js';

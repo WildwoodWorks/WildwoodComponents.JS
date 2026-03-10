@@ -13,14 +13,15 @@ type Story = StoryObj<typeof AIChatComponent>;
 export const Default: Story = {
   args: {
     configurationName: 'default',
-    showSessionList: true,
   },
 };
 
-export const NoSessionList: Story = {
+export const WithSettings: Story = {
   args: {
     configurationName: 'default',
-    showSessionList: false,
+    settings: {
+      enableSessions: false,
+    },
   },
 };
 
@@ -28,6 +29,5 @@ export const WithExistingSession: Story = {
   args: {
     configurationName: 'default',
     sessionId: 'demo-session-id',
-    showSessionList: true,
   },
 };

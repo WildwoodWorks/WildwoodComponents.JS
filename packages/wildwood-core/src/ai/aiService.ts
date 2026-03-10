@@ -121,10 +121,12 @@ export class AIService {
     configurationId?: string,
   ): Promise<{ audioBase64: string; contentType: string } | null> {
     try {
-      const { data } = await this.http.post<{ audioBase64: string; contentType: string }>(
-        'api/ai/tts/synthesize',
-        { text, voice, speed, configurationId },
-      );
+      const { data } = await this.http.post<{ audioBase64: string; contentType: string }>('api/ai/tts/synthesize', {
+        text,
+        voice,
+        speed,
+        configurationId,
+      });
       return data ?? null;
     } catch {
       return null;
@@ -164,5 +166,14 @@ export class AIService {
     const params = flowId ? `?flowDefinitionId=${encodeURIComponent(flowId)}` : '';
     const { data } = await this.http.get<FlowExecution[]>(`api/ai/flows/executions${params}`);
     return data ?? [];
+  }
+
+  async cancelFlowExecution(executionId: string): Promise<boolean> {
+    try {
+      await this.http.post(`api/ai/flows/executions/${executionId}/cancel`);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

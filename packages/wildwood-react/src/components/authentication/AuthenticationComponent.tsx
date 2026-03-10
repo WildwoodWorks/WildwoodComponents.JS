@@ -6,6 +6,7 @@ import type { FormEvent } from 'react';
 import type {
   AuthenticationResponse,
   LoginRequest,
+  RegistrationRequest,
   AuthProvider,
   AuthenticationConfiguration,
   CaptchaConfiguration,
@@ -17,10 +18,8 @@ import { useWildwood } from '../../hooks/useWildwood.js';
 function sanitizeHtml(html: string): string {
   if (typeof DOMParser === 'undefined') return html;
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  // Remove script, style, iframe, object, embed, form elements
   const dangerous = doc.querySelectorAll('script, style, iframe, object, embed, form, link, meta');
   dangerous.forEach((el) => el.remove());
-  // Remove event handler attributes from all elements
   const allElements = doc.querySelectorAll('*');
   allElements.forEach((el) => {
     for (const attr of Array.from(el.attributes)) {
@@ -78,6 +77,14 @@ export function AuthenticationComponent({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Registration form
+  const [regFirstName, setRegFirstName] = useState('');
+  const [regLastName, setRegLastName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+
   // 2FA
   const [twoFactorSessionId, setTwoFactorSessionId] = useState('');
   const [twoFactorMethods, setTwoFactorMethods] = useState<TwoFactorMethodInfo[]>([]);
@@ -104,9 +111,9 @@ export function AuthenticationComponent({
     if (!appId) return;
     const load = async () => {
       const [ac, cc, prov] = await Promise.all([
-        client.auth.getAuthenticationConfiguration(appId),
-        client.auth.getCaptchaConfiguration(appId),
-        client.auth.getAvailableProviders(appId),
+        client.auth.getAuthenticationConfiguration(appId).catch(() => null),
+        client.auth.getCaptchaConfiguration(appId).catch(() => null),
+        client.auth.getAvailableProviders(appId).catch(() => []),
       ]);
       setAuthConfig(ac);
       setCaptchaConfig(cc);
@@ -128,36 +135,42 @@ export function AuthenticationComponent({
   };
 
   // Complete auth flow (called after all checks pass)
-  const completeAuth = useCallback(async (response: AuthenticationResponse) => {
-    await client.session.login(response);
-    onAuthenticationSuccess?.(response);
-  }, [client, onAuthenticationSuccess]);
+  const completeAuth = useCallback(
+    async (response: AuthenticationResponse) => {
+      await client.session.login(response);
+      onAuthenticationSuccess?.(response);
+    },
+    [client, onAuthenticationSuccess],
+  );
 
   // Process auth response, checking for 2FA/password reset/disclaimers
-  const processAuthResponse = useCallback(async (response: AuthenticationResponse) => {
-    if (response.requiresTwoFactor) {
-      setPendingAuth(response);
-      setTwoFactorSessionId(response.twoFactorSessionId ?? '');
-      setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
-      setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
-      setView('twoFactor');
-      return;
-    }
+  const processAuthResponse = useCallback(
+    async (response: AuthenticationResponse) => {
+      if (response.requiresTwoFactor) {
+        setPendingAuth(response);
+        setTwoFactorSessionId(response.twoFactorSessionId ?? '');
+        setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
+        setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
+        setView('twoFactor');
+        return;
+      }
 
-    if (response.requiresPasswordReset) {
-      setPendingAuth(response);
-      setView('passwordReset');
-      return;
-    }
+      if (response.requiresPasswordReset) {
+        setPendingAuth(response);
+        setView('passwordReset');
+        return;
+      }
 
-    if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
-      setPendingAuth(response);
-      setView('disclaimers');
-      return;
-    }
+      if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
+        setPendingAuth(response);
+        setView('disclaimers');
+        return;
+      }
 
-    await completeAuth(response);
-  }, [completeAuth]);
+      await completeAuth(response);
+    },
+    [completeAuth],
+  );
 
   // ---------------------------------------------------------------------------
   // Login
@@ -178,6 +191,40 @@ export function AuthenticationComponent({
       };
 
       const response = await client.auth.login(request);
+      await processAuthResponse(response);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Registration
+  // ---------------------------------------------------------------------------
+  const handleRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+
+    if (regPassword !== regConfirmPassword) {
+      setErrorMessage('Passwords do not match');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const request: RegistrationRequest = {
+        firstName: regFirstName,
+        lastName: regLastName,
+        email: regEmail,
+        username: regEmail,
+        password: regPassword,
+        appId: appId ?? '',
+        platform: 'web',
+        deviceInfo: navigator.userAgent,
+      };
+
+      const response = await client.auth.register(request);
       await processAuthResponse(response);
     } catch (err) {
       handleError(err);
@@ -222,11 +269,7 @@ export function AuthenticationComponent({
     setIsLoading(true);
 
     try {
-      const result = await client.auth.verifyTwoFactorRecoveryCode(
-        twoFactorSessionId,
-        recoveryCode,
-        '',
-      );
+      const result = await client.auth.verifyTwoFactorRecoveryCode(twoFactorSessionId, recoveryCode, '');
 
       if (result.success && result.authResponse) {
         await processAuthResponse(result.authResponse);
@@ -275,7 +318,6 @@ export function AuthenticationComponent({
       setSuccessMessage('Password updated successfully');
 
       if (pendingAuth) {
-        // Re-login with new password
         const response = await client.auth.login({
           username: pendingAuth.email,
           password: newPassword,
@@ -302,7 +344,7 @@ export function AuthenticationComponent({
 
     try {
       await client.auth.requestPasswordReset(forgotEmail, appId ?? '');
-      setSuccessMessage('If an account exists with that email, a password reset link has been sent.');
+      setSuccessMessage('If an account exists with that email, a temporary password has been sent.');
     } catch (err) {
       handleError(err);
     } finally {
@@ -311,36 +353,67 @@ export function AuthenticationComponent({
   };
 
   // ---------------------------------------------------------------------------
-  // Render
+  // View helpers
   // ---------------------------------------------------------------------------
+  const toggleMode = () => {
+    clearMessages();
+    setView(view === 'login' ? 'register' : 'login');
+  };
+
   const resolveTitle = () => {
     if (title) return title;
     switch (view) {
-      case 'login': return 'Sign In';
-      case 'register': return 'Create Account';
-      case 'twoFactor': return 'Two-Factor Verification';
-      case 'passwordReset': return 'Reset Password';
-      case 'forgotPassword': return 'Forgot Password';
-      case 'disclaimers': return 'Terms & Conditions';
-      default: return 'Sign In';
+      case 'login':
+        return 'Sign In';
+      case 'register':
+        return 'Create Account';
+      case 'twoFactor':
+        return 'Two-Factor Authentication';
+      case 'passwordReset':
+        return 'Reset Password';
+      case 'forgotPassword':
+        return 'Forgot Password';
+      case 'disclaimers':
+        return 'Accept Disclaimers';
+      default:
+        return 'Sign In';
     }
   };
 
+  // Check if registration is allowed (config-driven or fallback to always allowed when no config)
+  const allowRegistration = authConfig ? authConfig.allowOpenRegistration || authConfig.allowTokenRegistration : true;
+
+  const allowPasswordReset = authConfig?.allowPasswordReset ?? true;
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <div className={`ww-authentication-component ${className ?? ''}`}>
       <div className="ww-auth-card">
+        {/* Header */}
         <div className="ww-auth-header">
-          <h2>{resolveTitle()}</h2>
+          <h2 className="ww-auth-title">{resolveTitle()}</h2>
           {errorMessage && <div className="ww-alert ww-alert-danger">{errorMessage}</div>}
           {successMessage && <div className="ww-alert ww-alert-success">{successMessage}</div>}
         </div>
 
         <div className="ww-auth-body">
-          {/* LOGIN VIEW */}
+          {/* Loading overlay */}
+          {isLoading && (
+            <div className="ww-loading-overlay">
+              <div className="ww-spinner ww-auth-spinner" />
+              <span className="ww-loading-message">Processing...</span>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* LOGIN VIEW                                                    */}
+          {/* ============================================================ */}
           {view === 'login' && (
             <form onSubmit={handleLogin}>
               <div className="ww-form-group">
-                <label htmlFor="ww-username">Username or Email</label>
+                <label htmlFor="ww-username">Username</label>
                 <input
                   id="ww-username"
                   type="text"
@@ -356,7 +429,7 @@ export function AuthenticationComponent({
               {showPasswordField && (
                 <div className="ww-form-group">
                   <label htmlFor="ww-password">Password</label>
-                  <div className="ww-input-group">
+                  <div className="ww-password-input-container">
                     <input
                       id="ww-password"
                       type={showPassword ? 'text' : 'password'}
@@ -369,108 +442,187 @@ export function AuthenticationComponent({
                     />
                     <button
                       type="button"
-                      className="ww-btn-icon"
+                      className="ww-password-toggle"
                       onClick={() => setShowPassword(!showPassword)}
                       tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? 'Hide' : 'Show'}
+                      {showPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                     </button>
                   </div>
                 </div>
               )}
 
               <div className="ww-form-group ww-form-check">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  {' '}Remember me
+                <input
+                  type="checkbox"
+                  id="ww-remember"
+                  className="ww-form-check-input"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <label className="ww-form-check-label" htmlFor="ww-remember">
+                  Remember me
                 </label>
               </div>
 
-              <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </button>
+              <div className="ww-form-group">
+                <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                  {isLoading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </div>
 
               {/* Social/OAuth providers */}
               {providers.length > 0 && (
                 <div className="ww-social-auth-providers">
-                  <div className="ww-divider"><span>or continue with</span></div>
+                  <div className="ww-auth-divider">
+                    <span>or</span>
+                  </div>
                   {providers.map((provider) => (
                     <button
                       key={provider.name}
                       type="button"
-                      className="ww-btn ww-btn-outline ww-btn-block ww-btn-social"
+                      className="ww-social-btn"
                       disabled={isLoading}
                       onClick={() => {
                         setErrorMessage(`OAuth login with ${provider.displayName} is not yet available.`);
                       }}
                     >
-                      {provider.icon && <span className={provider.icon} />}
-                      {provider.displayName}
+                      {provider.icon && <i className={provider.icon} />}
+                      Sign in with {provider.displayName}
                     </button>
                   ))}
                 </div>
               )}
+            </form>
+          )}
 
-              <div className="ww-auth-footer">
-                {authConfig?.allowPasswordReset && (
+          {/* ============================================================ */}
+          {/* REGISTRATION VIEW                                             */}
+          {/* ============================================================ */}
+          {view === 'register' && (
+            <form onSubmit={handleRegister} className="ww-register-section">
+              <div className="ww-form-row">
+                <div className="ww-form-group">
+                  <label htmlFor="ww-reg-first">First Name</label>
+                  <input
+                    id="ww-reg-first"
+                    type="text"
+                    className="ww-form-control"
+                    value={regFirstName}
+                    onChange={(e) => setRegFirstName(e.target.value)}
+                    required
+                    maxLength={50}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="ww-form-group">
+                  <label htmlFor="ww-reg-last">Last Name</label>
+                  <input
+                    id="ww-reg-last"
+                    type="text"
+                    className="ww-form-control"
+                    value={regLastName}
+                    onChange={(e) => setRegLastName(e.target.value)}
+                    required
+                    maxLength={50}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="ww-form-group">
+                <label htmlFor="ww-reg-email">Email Address</label>
+                <input
+                  id="ww-reg-email"
+                  type="email"
+                  className="ww-form-control"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="ww-form-group">
+                <label htmlFor="ww-reg-password">Password</label>
+                <div className="ww-password-input-container">
+                  <input
+                    id="ww-reg-password"
+                    type={showRegPassword ? 'text' : 'password'}
+                    className="ww-form-control"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                  />
                   <button
                     type="button"
-                    className="ww-btn-link"
-                    onClick={() => { clearMessages(); setView('forgotPassword'); }}
+                    className="ww-password-toggle"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    tabIndex={-1}
+                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
                   >
-                    Forgot password?
+                    {showRegPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                   </button>
-                )}
-                {(authConfig?.allowOpenRegistration || authConfig?.allowTokenRegistration) && (
-                  <button
-                    type="button"
-                    className="ww-btn-link"
-                    onClick={() => { clearMessages(); setView('register'); }}
-                  >
-                    Don't have an account? Sign up
-                  </button>
-                )}
+                </div>
+              </div>
+
+              <div className="ww-form-group">
+                <label htmlFor="ww-reg-confirm">Confirm Password</label>
+                <input
+                  id="ww-reg-confirm"
+                  type={showRegPassword ? 'text' : 'password'}
+                  className="ww-form-control"
+                  value={regConfirmPassword}
+                  onChange={(e) => setRegConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="ww-form-group">
+                <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                </button>
               </div>
             </form>
           )}
 
-          {/* REGISTRATION VIEW */}
-          {view === 'register' && (
-            <div className="ww-register-section">
-              <p className="ww-text-muted">
-                Use the <code>TokenRegistrationComponent</code> for invitation-based registration,
-                or contact your administrator for account access.
-              </p>
-              <div className="ww-auth-footer">
-                <button
-                  type="button"
-                  className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); }}
-                >
-                  Already have an account? Sign in
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TWO-FACTOR VIEW */}
+          {/* ============================================================ */}
+          {/* TWO-FACTOR VIEW                                               */}
+          {/* ============================================================ */}
           {view === 'twoFactor' && (
             <div className="ww-two-factor-section">
+              <div className="ww-section-header">
+                <div className="ww-section-icon ww-icon-shield" />
+                <h3>Verify Your Identity</h3>
+                <p className="ww-text-muted">
+                  {selectedTwoFactorMethod.toLowerCase().includes('email')
+                    ? "We've sent a verification code to your email address."
+                    : 'Enter the 6-digit code from your authenticator app.'}
+                </p>
+              </div>
+
               {/* Method selector */}
               {twoFactorMethods.length > 1 && (
-                <div className="ww-twofa-methods">
+                <div className="ww-two-factor-methods">
                   {twoFactorMethods.map((method) => (
                     <button
                       key={method.providerType}
                       type="button"
                       className={`ww-btn ww-btn-outline ${selectedTwoFactorMethod === method.providerType ? 'ww-active' : ''}`}
-                      onClick={() => { setSelectedTwoFactorMethod(method.providerType); setShowRecoveryInput(false); }}
+                      onClick={() => {
+                        setSelectedTwoFactorMethod(method.providerType);
+                        setShowRecoveryInput(false);
+                      }}
                     >
-                      {method.icon && <span className={method.icon} />}
+                      {method.icon && <i className={method.icon} />}
                       {method.name}
                     </button>
                   ))}
@@ -484,7 +636,7 @@ export function AuthenticationComponent({
                     <input
                       id="ww-2fa-code"
                       type="text"
-                      className="ww-form-control ww-code-input"
+                      className="ww-form-control ww-verification-code-input"
                       value={twoFactorCode}
                       onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       maxLength={6}
@@ -497,29 +649,30 @@ export function AuthenticationComponent({
                   </div>
 
                   <div className="ww-form-group ww-form-check">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={rememberDevice}
-                        onChange={(e) => setRememberDevice(e.target.checked)}
-                      />
-                      {' '}Trust this device for 30 days
+                    <input
+                      type="checkbox"
+                      id="ww-remember-device"
+                      className="ww-form-check-input"
+                      checked={rememberDevice}
+                      onChange={(e) => setRememberDevice(e.target.checked)}
+                    />
+                    <label className="ww-form-check-label" htmlFor="ww-remember-device">
+                      Trust this device for 30 days
                     </label>
                   </div>
 
-                  <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-                    {isLoading ? 'Verifying...' : 'Verify'}
-                  </button>
+                  <div className="ww-form-group">
+                    <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                      {isLoading ? 'Verifying...' : 'Verify'}
+                    </button>
+                  </div>
 
                   {selectedTwoFactorMethod.toLowerCase().includes('email') && (
-                    <button
-                      type="button"
-                      className="ww-btn-link"
-                      onClick={handleResendCode}
-                      disabled={isLoading}
-                    >
-                      Resend code
-                    </button>
+                    <div className="ww-resend-code-section">
+                      <button type="button" className="ww-btn-link" onClick={handleResendCode} disabled={isLoading}>
+                        Resend code
+                      </button>
+                    </div>
                   )}
                 </form>
               ) : (
@@ -529,7 +682,7 @@ export function AuthenticationComponent({
                     <input
                       id="ww-recovery-code"
                       type="text"
-                      className="ww-form-control"
+                      className="ww-form-control ww-recovery-code-input"
                       value={recoveryCode}
                       onChange={(e) => setRecoveryCode(e.target.value)}
                       maxLength={14}
@@ -539,39 +692,50 @@ export function AuthenticationComponent({
                     />
                   </div>
 
-                  <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-                    {isLoading ? 'Verifying...' : 'Verify Recovery Code'}
-                  </button>
+                  <div className="ww-form-group">
+                    <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                      {isLoading ? 'Verifying...' : 'Verify Recovery Code'}
+                    </button>
+                  </div>
                 </form>
               )}
 
               <div className="ww-auth-footer">
-                <button
-                  type="button"
-                  className="ww-btn-link"
-                  onClick={() => setShowRecoveryInput(!showRecoveryInput)}
-                >
-                  {showRecoveryInput ? 'Use verification code' : 'Use recovery code'}
+                <button type="button" className="ww-btn-link" onClick={() => setShowRecoveryInput(!showRecoveryInput)}>
+                  {showRecoveryInput ? 'Use verification code' : 'Use a recovery code instead'}
                 </button>
                 <button
                   type="button"
                   className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); setTwoFactorCode(''); setRecoveryCode(''); }}
+                  onClick={() => {
+                    clearMessages();
+                    setView('login');
+                    setTwoFactorCode('');
+                    setRecoveryCode('');
+                  }}
                 >
-                  Back to sign in
+                  Back to Sign In
                 </button>
               </div>
             </div>
           )}
 
-          {/* PASSWORD RESET VIEW (forced) */}
+          {/* ============================================================ */}
+          {/* PASSWORD RESET VIEW (forced)                                  */}
+          {/* ============================================================ */}
           {view === 'passwordReset' && (
             <form onSubmit={handlePasswordReset} className="ww-password-reset-section">
-              <p className="ww-text-muted">You must set a new password before continuing.</p>
+              <div className="ww-section-header">
+                <div className="ww-section-icon ww-icon-key" />
+                <h3>Password Reset Required</h3>
+                <p className="ww-text-muted">
+                  You logged in with a temporary password. Please create a new password to continue.
+                </p>
+              </div>
 
               <div className="ww-form-group">
                 <label htmlFor="ww-new-password">New Password</label>
-                <div className="ww-input-group">
+                <div className="ww-password-input-container">
                   <input
                     id="ww-new-password"
                     type={showNewPassword ? 'text' : 'password'}
@@ -584,18 +748,18 @@ export function AuthenticationComponent({
                   />
                   <button
                     type="button"
-                    className="ww-btn-icon"
+                    className="ww-password-toggle"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     tabIndex={-1}
                   >
-                    {showNewPassword ? 'Hide' : 'Show'}
+                    {showNewPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                   </button>
                 </div>
               </div>
 
               <div className="ww-form-group">
-                <label htmlFor="ww-confirm-password">Confirm Password</label>
-                <div className="ww-input-group">
+                <label htmlFor="ww-confirm-password">Confirm New Password</label>
+                <div className="ww-password-input-container">
                   <input
                     id="ww-confirm-password"
                     type={showConfirmPassword ? 'text' : 'password'}
@@ -608,33 +772,39 @@ export function AuthenticationComponent({
                   />
                   <button
                     type="button"
-                    className="ww-btn-icon"
+                    className="ww-password-toggle"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     tabIndex={-1}
                   >
-                    {showConfirmPassword ? 'Hide' : 'Show'}
+                    {showConfirmPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                   </button>
                 </div>
               </div>
 
               {authConfig && (
-                <p className="ww-text-muted ww-password-requirements">
-                  {client.auth.getPasswordRequirementsText(authConfig)}
-                </p>
+                <div className="ww-password-requirements">
+                  <small className="ww-text-muted">{client.auth.getPasswordRequirementsText(authConfig)}</small>
+                </div>
               )}
 
-              <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-                {isLoading ? 'Updating...' : 'Set New Password'}
-              </button>
+              <div className="ww-form-group">
+                <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                  {isLoading ? 'Updating...' : 'Set New Password'}
+                </button>
+              </div>
             </form>
           )}
 
-          {/* FORGOT PASSWORD VIEW */}
+          {/* ============================================================ */}
+          {/* FORGOT PASSWORD VIEW                                          */}
+          {/* ============================================================ */}
           {view === 'forgotPassword' && (
             <form onSubmit={handleForgotPasswordSubmit} className="ww-forgot-password-section">
-              <p className="ww-text-muted">
-                Enter your email address and we'll send you a link to reset your password.
-              </p>
+              <div className="ww-section-header">
+                <div className="ww-section-icon ww-icon-envelope" />
+                <h3>Reset Your Password</h3>
+                <p className="ww-text-muted">Enter your email address and we'll send you a temporary password.</p>
+              </div>
 
               <div className="ww-form-group">
                 <label htmlFor="ww-forgot-email">Email Address</label>
@@ -650,65 +820,116 @@ export function AuthenticationComponent({
                 />
               </div>
 
-              <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
-                {isLoading ? 'Sending...' : 'Send Reset Link'}
-              </button>
+              <div className="ww-form-group">
+                <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={isLoading}>
+                  {isLoading ? 'Sending...' : 'Send Reset Email'}
+                </button>
+              </div>
 
               <div className="ww-auth-footer">
                 <button
                   type="button"
                   className="ww-btn-link"
-                  onClick={() => { clearMessages(); setView('login'); }}
+                  onClick={() => {
+                    clearMessages();
+                    setView('login');
+                  }}
                 >
-                  Back to sign in
+                  Back to Sign In
                 </button>
               </div>
             </form>
           )}
 
-          {/* DISCLAIMERS VIEW */}
+          {/* ============================================================ */}
+          {/* DISCLAIMERS VIEW                                              */}
+          {/* ============================================================ */}
           {view === 'disclaimers' && pendingAuth?.pendingDisclaimers && (
             <div className="ww-disclaimers-section">
-              <p className="ww-text-muted">
-                Please review and accept the following before continuing.
-              </p>
+              <p className="ww-text-muted">Please review and accept the following before continuing.</p>
               {pendingAuth.pendingDisclaimers.map((d) => (
                 <div key={d.disclaimerId} className="ww-disclaimer-item">
                   <h4>{d.title}</h4>
                   <div
                     className="ww-disclaimer-content"
-                    dangerouslySetInnerHTML={d.contentFormat === 'html' ? { __html: sanitizeHtml(d.content) } : undefined}
+                    dangerouslySetInnerHTML={
+                      d.contentFormat === 'html' ? { __html: sanitizeHtml(d.content) } : undefined
+                    }
                   >
                     {d.contentFormat !== 'html' ? d.content : undefined}
                   </div>
                 </div>
               ))}
-              <button
-                type="button"
-                className="ww-btn ww-btn-primary ww-btn-block"
-                disabled={isLoading}
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    await client.disclaimer.acceptAllDisclaimers(
-                      pendingAuth.pendingDisclaimers!.map((d) => ({
-                        disclaimerId: d.disclaimerId,
-                        versionId: d.versionId,
-                      })),
-                    );
-                    if (pendingAuth) await completeAuth(pendingAuth);
-                  } catch (err) {
-                    handleError(err);
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {isLoading ? 'Accepting...' : 'Accept & Continue'}
-              </button>
+              <div className="ww-form-group">
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-primary ww-btn-block"
+                  disabled={isLoading}
+                  onClick={async () => {
+                    setIsLoading(true);
+                    try {
+                      await client.disclaimer.acceptAllDisclaimers(
+                        pendingAuth.pendingDisclaimers!.map((d) => ({
+                          disclaimerId: d.disclaimerId,
+                          versionId: d.versionId,
+                        })),
+                      );
+                      if (pendingAuth) await completeAuth(pendingAuth);
+                    } catch (err) {
+                      handleError(err);
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                >
+                  {isLoading ? 'Accepting...' : 'Accept & Continue'}
+                </button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* ============================================================ */}
+        {/* FOOTER                                                        */}
+        {/* ============================================================ */}
+        {(view === 'login' || view === 'register') && (
+          <div className="ww-auth-footer">
+            {view === 'login' && (
+              <>
+                {allowRegistration && (
+                  <p>
+                    Don't have an account?{' '}
+                    <button type="button" className="ww-btn-link" onClick={toggleMode}>
+                      Sign up
+                    </button>
+                  </p>
+                )}
+                {allowPasswordReset && (
+                  <p>
+                    <button
+                      type="button"
+                      className="ww-btn-link"
+                      onClick={() => {
+                        clearMessages();
+                        setView('forgotPassword');
+                      }}
+                    >
+                      Forgot your password?
+                    </button>
+                  </p>
+                )}
+              </>
+            )}
+            {view === 'register' && (
+              <p>
+                Already have an account?{' '}
+                <button type="button" className="ww-btn-link" onClick={toggleMode}>
+                  Sign in
+                </button>
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
