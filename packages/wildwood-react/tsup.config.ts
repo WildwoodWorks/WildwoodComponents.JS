@@ -11,10 +11,9 @@ export default defineConfig({
   treeshake: true,
   external: ['react', 'react/jsx-runtime', '@wildwood/core'],
   onSuccess: async () => {
-    // Copy CSS theme file to dist for consumers to import
-    const src = resolve('src/styles/wildwood-themes.css');
-    const dest = resolve('dist/wildwood-themes.css');
-    mkdirSync(dirname(dest), { recursive: true });
-    copyFileSync(src, dest);
+    // Copy CSS files to dist for consumers to import
+    mkdirSync(resolve('dist'), { recursive: true });
+    copyFileSync(resolve('src/styles/wildwood-themes.css'), resolve('dist/wildwood-themes.css'));
+    copyFileSync(resolve('src/styles/components.css'), resolve('dist/components.css'));
   },
 });

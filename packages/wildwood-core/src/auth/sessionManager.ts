@@ -27,9 +27,7 @@ export class SessionManager {
   private refreshInProgress: Promise<boolean> | null = null;
 
   get isAuthenticated(): boolean {
-    return this.currentUser != null
-      && !!this.currentUser.jwtToken
-      && !this.isSessionExpired();
+    return this.currentUser != null && !!this.currentUser.jwtToken && !this.isSessionExpired();
   }
 
   get isInitialized(): boolean {
@@ -42,7 +40,7 @@ export class SessionManager {
   }
 
   get userId(): string | null {
-    return this.currentUser?.userId ?? null;
+    return this.currentUser?.userId ?? this.currentUser?.id ?? null;
   }
 
   get userEmail(): string | null {
@@ -136,6 +134,9 @@ export class SessionManager {
       if (this.config.enableAutoTokenRefresh) {
         this.scheduleRefreshFromToken(authResponse.jwtToken);
       }
+
+      // Notify consumers of auth state change
+      this.events.emit('authChanged', authResponse);
 
       return true;
     } catch (err) {

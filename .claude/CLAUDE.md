@@ -45,6 +45,123 @@ cd WildwoodComponentsTestSuite.React && pnpm dev  # Start test suite
 - Typed event emitter for cross-cutting concerns (authChanged, sessionExpired, themeChanged)
 - `--ww-*` CSS variables matching the Blazor/Razor theme system
 
+## Quick Start: Integrating a New React App
+
+Follow this pattern to add Wildwood auth to any React app. Proven in the APIMCP project.
+
+### 1. Install packages
+
+```bash
+npm install @wildwood/core @wildwood/react
+```
+
+### 2. Wrap app in WildwoodProvider (App.jsx)
+
+```jsx
+import { WildwoodProvider } from '@wildwood/react';
+
+<WildwoodProvider config={{
+  baseUrl: import.meta.env.VITE_WILDWOOD_URL,
+  appId: import.meta.env.VITE_WILDWOOD_APP_ID,
+  apiKey: import.meta.env.VITE_WILDWOOD_API_KEY,
+  enableAutoTokenRefresh: true,
+}}>
+  {/* routes/app content */}
+</WildwoodProvider>
+```
+
+### 3. Auth — use SDK hooks directly, never create a custom AuthContext
+
+```jsx
+import { useAuth } from '@wildwood/react';
+
+const { user, logout, isAuthenticated, isInitialized } = useAuth();
+// user.email, user.firstName, user.lastName, user.companyId, user.roles
+```
+
+### 4. Route protection
+
+```jsx
+import { ProtectedRoute } from '@wildwood/react';
+import { Navigate, Outlet } from 'react-router-dom';
+
+<Route element={
+  <ProtectedRoute
+    loadingFallback={<Spinner />}
+    unauthenticatedFallback={<Navigate to="/login" replace />}
+  >
+    <Outlet />
+  </ProtectedRoute>
+}>
+  {/* protected routes */}
+</Route>
+```
+
+Or write a thin wrapper using `useAuth()` if the app needs custom loading/redirect behavior.
+
+### 5. Login/Registration pages — use pre-built components
+
+```jsx
+import { AuthenticationComponent, TokenRegistrationComponent } from '@wildwood/react';
+
+// Login page
+<AuthenticationComponent appId={appId} onAuthenticationSuccess={handleSuccess} />
+
+// Registration page
+<TokenRegistrationComponent appId={appId} autoLogin={true} />
+```
+
+### 6. Calling the app's own API (not Wildwood API)
+
+Use `useExternalApi()` — it auto-attaches the Wildwood session JWT:
+
+```jsx
+import { useExternalApi } from '@wildwood/react';
+
+function MyComponent() {
+  const api = useExternalApi({ baseUrl: '/api' });
+
+  const data = await api.get('/my-endpoint');
+  await api.post('/my-endpoint', { name: 'New Item' });
+  await api.put('/my-endpoint/123', updatedData);
+  await api.del('/my-endpoint/123');
+}
+```
+
+For module-level (non-React) code, use `createExternalApiClient` from `@wildwood/core`:
+
+```typescript
+import { createExternalApiClient } from '@wildwood/core';
+
+const api = createExternalApiClient(wildwoodClient.session, {
+  baseUrl: 'https://api.myapp.com',
+});
+```
+
+### 7. 401 Handling — let the SDK own it
+
+**Do NOT force logout on 401 responses.** The SDK:
+- Auto-refreshes tokens before expiry (80% lifetime)
+- Retries requests once after 401 with a fresh token
+- Fires `sessionExpired` only when refresh truly fails
+
+Forcing logout on 401 causes login loops during token refresh.
+
+### Common mistakes to avoid
+
+| Mistake | Correct approach |
+|---------|-----------------|
+| Custom AuthContext wrapping SDK hooks | Use `useAuth()` from `@wildwood/react` directly |
+| Reading `localStorage.getItem('ww_session_auth')` | Use `useExternalApi()` or `session.accessToken` |
+| Forcing logout on 401 in axios interceptor | Let SDK handle via `sessionExpired` event |
+| Creating custom login forms | Use `<AuthenticationComponent>` from SDK |
+| Polling `session.isInitialized` manually | Use `useAuth().isInitialized` (reactive) |
+
+## Real-World Integration Examples
+
+- **APIMCP**: `C:\Development\APIMCP\Dev\APIMCP\APIMCPAdmin\` — React + Vite admin app using all the patterns above
+- **WildwoodComponentsTestSuite.React**: `WildwoodComponentsTestSuite.React/` — SDK test harness
+
 ## WildwoodAPI Connection
 
 Default test configuration — see `WildwoodComponentsTestSuite.React/.env.example`:

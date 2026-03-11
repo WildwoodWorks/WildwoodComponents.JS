@@ -37,6 +37,12 @@ export { useWildwoodComponent } from './hooks/useWildwoodComponent.js';
 export type { UseWildwoodComponentReturn } from './hooks/useWildwoodComponent.js';
 export { usePlatformDetection } from './hooks/usePlatformDetection.js';
 export type { UsePlatformDetectionReturn } from './hooks/usePlatformDetection.js';
+export { useExternalApi } from './hooks/useExternalApi.js';
+export type { ExternalApiClient, ExternalApiClientOptions } from './hooks/useExternalApi.js';
+
+// Routing
+export { ProtectedRoute } from './components/routing/ProtectedRoute.js';
+export type { ProtectedRouteProps } from './components/routing/ProtectedRoute.js';
 
 // Components
 export { AuthenticationComponent } from './components/authentication/AuthenticationComponent.js';

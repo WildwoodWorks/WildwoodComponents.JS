@@ -3,15 +3,35 @@
 // Client
 export { createWildwoodClient } from './client/WildwoodClient.js';
 export type { WildwoodClient } from './client/WildwoodClient.js';
-export type { WildwoodConfig, RequestOptions, ApiResponse, ApiError, RequestInterceptor, ResponseInterceptor } from './client/types.js';
+export type {
+  WildwoodConfig,
+  RequestOptions,
+  ApiResponse,
+  ApiError,
+  RequestInterceptor,
+  ResponseInterceptor,
+} from './client/types.js';
 export { HttpClient } from './client/httpClient.js';
 export { WildwoodError } from './client/errors.js';
 export type { WildwoodErrorCode } from './client/errors.js';
+export { createExternalApiClient, ExternalApiError } from './client/externalApiClient.js';
+export type {
+  ExternalApiClient,
+  ExternalApiClientOptions,
+  ExternalApiRequestOptions,
+} from './client/externalApiClient.js';
 
 // Auth
 export { AuthService } from './auth/authService.js';
 export { SessionManager } from './auth/sessionManager.js';
-export { decodeJwtPayload, getTokenExpiry, isTokenExpired, getTokenRemainingMs, getRefreshTimeMs, extractUserFromToken } from './auth/tokenUtils.js';
+export {
+  decodeJwtPayload,
+  getTokenExpiry,
+  isTokenExpired,
+  getTokenRemainingMs,
+  getRefreshTimeMs,
+  extractUserFromToken,
+} from './auth/tokenUtils.js';
 export type { JwtPayload } from './auth/tokenUtils.js';
 export type {
   LoginRequest,
@@ -56,12 +76,7 @@ export type {
 export { MessagingService } from './messaging/messagingService.js';
 export { createSignalRManager } from './messaging/signalRManager.js';
 export type { SignalRManager, SignalRManagerConfig, SignalRConnectionState } from './messaging/signalRManager.js';
-export {
-  MessageType,
-  ThreadType,
-  ParticipantRole,
-  UserStatus,
-} from './messaging/types.js';
+export { MessageType, ThreadType, ParticipantRole, UserStatus } from './messaging/types.js';
 export type {
   SecureMessage,
   MessageThread,
@@ -109,21 +124,20 @@ export type {
 } from './payment/types.js';
 
 // Payment Script Loader
-export { loadScript, loadStripe, loadPayPal, loadApplePay, loadGooglePay, isScriptLoaded } from './payment/scriptLoader.js';
+export {
+  loadScript,
+  loadStripe,
+  loadPayPal,
+  loadApplePay,
+  loadGooglePay,
+  isScriptLoaded,
+} from './payment/scriptLoader.js';
 export type { ScriptLoadOptions } from './payment/scriptLoader.js';
 
 // Notifications
 export { NotificationService } from './notifications/notificationService.js';
-export {
-  NotificationType,
-  NotificationActionStyle,
-  NotificationPosition,
-} from './notifications/types.js';
-export type {
-  ToastNotification,
-  NotificationAction,
-  NotificationActionArgs,
-} from './notifications/types.js';
+export { NotificationType, NotificationActionStyle, NotificationPosition } from './notifications/types.js';
+export type { ToastNotification, NotificationAction, NotificationActionArgs } from './notifications/types.js';
 
 // Security
 export { TwoFactorService } from './security/twoFactorService.js';

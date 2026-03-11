@@ -39,7 +39,11 @@ export interface UseAuthReturn {
   completePasskeyRegistration: (appId: string, credential: unknown) => Promise<void>;
   sendTwoFactorCode: (sessionId: string) => Promise<TwoFactorSendCodeResponse>;
   verifyTwoFactorCode: (request: TwoFactorVerifyRequest) => Promise<TwoFactorVerifyResponse>;
-  verifyTwoFactorRecoveryCode: (sessionId: string, recoveryCode: string, ipAddress: string) => Promise<TwoFactorVerifyResponse>;
+  verifyTwoFactorRecoveryCode: (
+    sessionId: string,
+    recoveryCode: string,
+    ipAddress: string,
+  ) => Promise<TwoFactorVerifyResponse>;
 }
 
 export function useAuth(): UseAuthReturn {
@@ -69,21 +73,30 @@ export function useAuth(): UseAuthReturn {
     return unsub;
   }, [client]);
 
-  const login = useCallback(async (request: LoginRequest) => {
-    const response = await client.auth.login(request);
-    if (response.jwtToken && !response.requiresTwoFactor) {
-      await client.session.login(response);
-    }
-    return response;
-  }, [client]);
+  const login = useCallback(
+    async (request: LoginRequest) => {
+      const response = await client.auth.login(request);
+      if (response.jwtToken && !response.requiresTwoFactor) {
+        await client.session.login(response);
+      }
+      return response;
+    },
+    [client],
+  );
 
-  const register = useCallback(async (request: RegistrationRequest) => {
-    return client.auth.register(request);
-  }, [client]);
+  const register = useCallback(
+    async (request: RegistrationRequest) => {
+      return client.auth.register(request);
+    },
+    [client],
+  );
 
-  const registerWithToken = useCallback(async (request: RegistrationRequest) => {
-    return client.auth.registerWithToken(request);
-  }, [client]);
+  const registerWithToken = useCallback(
+    async (request: RegistrationRequest) => {
+      return client.auth.registerWithToken(request);
+    },
+    [client],
+  );
 
   const logout = useCallback(async () => {
     await client.auth.logout();
@@ -94,92 +107,163 @@ export function useAuth(): UseAuthReturn {
     return client.session.refreshToken();
   }, [client]);
 
-  const getAvailableProviders = useCallback(async (appId?: string) => {
-    return client.auth.getAvailableProviders(appId);
-  }, [client]);
+  const getAvailableProviders = useCallback(
+    async (appId?: string) => {
+      return client.auth.getAvailableProviders(appId);
+    },
+    [client],
+  );
 
-  const getCaptchaConfiguration = useCallback(async (appId: string) => {
-    return client.auth.getCaptchaConfiguration(appId);
-  }, [client]);
+  const getCaptchaConfiguration = useCallback(
+    async (appId: string) => {
+      return client.auth.getCaptchaConfiguration(appId);
+    },
+    [client],
+  );
 
-  const getAuthenticationConfiguration = useCallback(async (appId: string) => {
-    return client.auth.getAuthenticationConfiguration(appId);
-  }, [client]);
+  const getAuthenticationConfiguration = useCallback(
+    async (appId: string) => {
+      return client.auth.getAuthenticationConfiguration(appId);
+    },
+    [client],
+  );
 
-  const validatePassword = useCallback(async (password: string, appId: string) => {
-    return client.auth.validatePassword(password, appId);
-  }, [client]);
+  const validatePassword = useCallback(
+    async (password: string, appId: string) => {
+      return client.auth.validatePassword(password, appId);
+    },
+    [client],
+  );
 
-  const getPasswordRequirementsText = useCallback((config: AuthenticationConfiguration) => {
-    return client.auth.getPasswordRequirementsText(config);
-  }, [client]);
+  const getPasswordRequirementsText = useCallback(
+    (config: AuthenticationConfiguration) => {
+      return client.auth.getPasswordRequirementsText(config);
+    },
+    [client],
+  );
 
-  const requestPasswordReset = useCallback(async (email: string, appId: string) => {
-    return client.auth.requestPasswordReset(email, appId);
-  }, [client]);
+  const requestPasswordReset = useCallback(
+    async (email: string, appId: string) => {
+      return client.auth.requestPasswordReset(email, appId);
+    },
+    [client],
+  );
 
-  const resetPassword = useCallback(async (newPassword: string, confirmPassword: string, appId: string) => {
-    return client.auth.resetPassword(newPassword, confirmPassword, appId);
-  }, [client]);
+  const resetPassword = useCallback(
+    async (newPassword: string, confirmPassword: string, appId: string) => {
+      return client.auth.resetPassword(newPassword, confirmPassword, appId);
+    },
+    [client],
+  );
 
-  const validateLicenseToken = useCallback(async (token: string) => {
-    return client.auth.validateLicenseToken(token);
-  }, [client]);
+  const validateLicenseToken = useCallback(
+    async (token: string) => {
+      return client.auth.validateLicenseToken(token);
+    },
+    [client],
+  );
 
-  const hasRegistrationTokens = useCallback(async (appId: string) => {
-    return client.auth.hasRegistrationTokens(appId);
-  }, [client]);
+  const hasRegistrationTokens = useCallback(
+    async (appId: string) => {
+      return client.auth.hasRegistrationTokens(appId);
+    },
+    [client],
+  );
 
-  const validateRegistrationToken = useCallback(async (token: string) => {
-    return client.auth.validateRegistrationToken(token);
-  }, [client]);
+  const validateRegistrationToken = useCallback(
+    async (token: string) => {
+      return client.auth.validateRegistrationToken(token);
+    },
+    [client],
+  );
 
-  const getPasskeyAuthenticationOptions = useCallback(async (appId: string) => {
-    return client.auth.getPasskeyAuthenticationOptions(appId);
-  }, [client]);
+  const getPasskeyAuthenticationOptions = useCallback(
+    async (appId: string) => {
+      return client.auth.getPasskeyAuthenticationOptions(appId);
+    },
+    [client],
+  );
 
-  const verifyPasskeyAuthentication = useCallback(async (appId: string, credential: unknown) => {
-    return client.auth.verifyPasskeyAuthentication(appId, credential);
-  }, [client]);
+  const verifyPasskeyAuthentication = useCallback(
+    async (appId: string, credential: unknown) => {
+      return client.auth.verifyPasskeyAuthentication(appId, credential);
+    },
+    [client],
+  );
 
-  const getPasskeyRegistrationOptions = useCallback(async (appId: string) => {
-    return client.auth.getPasskeyRegistrationOptions(appId);
-  }, [client]);
+  const getPasskeyRegistrationOptions = useCallback(
+    async (appId: string) => {
+      return client.auth.getPasskeyRegistrationOptions(appId);
+    },
+    [client],
+  );
 
-  const completePasskeyRegistration = useCallback(async (appId: string, credential: unknown) => {
-    return client.auth.completePasskeyRegistration(appId, credential);
-  }, [client]);
+  const completePasskeyRegistration = useCallback(
+    async (appId: string, credential: unknown) => {
+      return client.auth.completePasskeyRegistration(appId, credential);
+    },
+    [client],
+  );
 
-  const sendTwoFactorCode = useCallback(async (sessionId: string) => {
-    return client.auth.sendTwoFactorCode(sessionId);
-  }, [client]);
+  const sendTwoFactorCode = useCallback(
+    async (sessionId: string) => {
+      return client.auth.sendTwoFactorCode(sessionId);
+    },
+    [client],
+  );
 
-  const verifyTwoFactorCode = useCallback(async (request: TwoFactorVerifyRequest) => {
-    const result = await client.auth.verifyTwoFactorCode(request);
-    if (result.success && result.authResponse) {
-      await client.session.login(result.authResponse);
-    }
-    return result;
-  }, [client]);
+  const verifyTwoFactorCode = useCallback(
+    async (request: TwoFactorVerifyRequest) => {
+      const result = await client.auth.verifyTwoFactorCode(request);
+      if (result.success && result.authResponse) {
+        await client.session.login(result.authResponse);
+      }
+      return result;
+    },
+    [client],
+  );
 
-  const verifyTwoFactorRecoveryCode = useCallback(async (sessionId: string, recoveryCode: string, ipAddress: string) => {
-    const result = await client.auth.verifyTwoFactorRecoveryCode(sessionId, recoveryCode, ipAddress);
-    if (result.success && result.authResponse) {
-      await client.session.login(result.authResponse);
-    }
-    return result;
-  }, [client]);
+  const verifyTwoFactorRecoveryCode = useCallback(
+    async (sessionId: string, recoveryCode: string, ipAddress: string) => {
+      const result = await client.auth.verifyTwoFactorRecoveryCode(sessionId, recoveryCode, ipAddress);
+      if (result.success && result.authResponse) {
+        await client.session.login(result.authResponse);
+      }
+      return result;
+    },
+    [client],
+  );
+
+  // Derive isAuthenticated from React state so it's reactive.
+  // Reading client.session.isAuthenticated directly is a non-reactive getter
+  // that won't trigger re-renders when auth state changes.
+  const isAuthenticated = !!user && !!user.jwtToken;
 
   return {
-    isAuthenticated: client.session.isAuthenticated,
+    isAuthenticated,
     isInitialized,
     user,
-    login, register, registerWithToken, logout, refreshToken,
-    getAvailableProviders, getCaptchaConfiguration, getAuthenticationConfiguration,
-    validatePassword, getPasswordRequirementsText, requestPasswordReset, resetPassword,
-    validateLicenseToken, hasRegistrationTokens, validateRegistrationToken,
-    getPasskeyAuthenticationOptions, verifyPasskeyAuthentication,
-    getPasskeyRegistrationOptions, completePasskeyRegistration,
-    sendTwoFactorCode, verifyTwoFactorCode, verifyTwoFactorRecoveryCode,
+    login,
+    register,
+    registerWithToken,
+    logout,
+    refreshToken,
+    getAvailableProviders,
+    getCaptchaConfiguration,
+    getAuthenticationConfiguration,
+    validatePassword,
+    getPasswordRequirementsText,
+    requestPasswordReset,
+    resetPassword,
+    validateLicenseToken,
+    hasRegistrationTokens,
+    validateRegistrationToken,
+    getPasskeyAuthenticationOptions,
+    verifyPasskeyAuthentication,
+    getPasskeyRegistrationOptions,
+    completePasskeyRegistration,
+    sendTwoFactorCode,
+    verifyTwoFactorCode,
+    verifyTwoFactorRecoveryCode,
   };
 }
