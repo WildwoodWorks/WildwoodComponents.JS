@@ -56,4 +56,22 @@ export class AppTierService {
     });
     return data;
   }
+
+  /**
+   * Get all limit statuses for the authenticated user.
+   * Returns current usage, max values, and whether limits are exceeded.
+   */
+  async getAllLimitStatuses(appId: string): Promise<AppTierLimitStatusModel[]> {
+    const { data } = await this.http.get<AppTierLimitStatusModel[]>(`api/apptiers/${appId}/limit-statuses`);
+    return data ?? [];
+  }
+
+  /**
+   * Get tiers for an app without requiring authentication.
+   * For use on public-facing pages like pricing displays.
+   */
+  async getPublicTiers(appId: string): Promise<AppTierModel[]> {
+    const { data } = await this.http.get<AppTierModel[]>(`api/app-tiers/${appId}/public`, { skipAuth: true });
+    return data ?? [];
+  }
 }

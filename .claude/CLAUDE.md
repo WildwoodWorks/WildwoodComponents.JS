@@ -157,6 +157,116 @@ Forcing logout on 401 causes login loops during token refresh.
 | Creating custom login forms | Use `<AuthenticationComponent>` from SDK |
 | Polling `session.isInitialized` manually | Use `useAuth().isInitialized` (reactive) |
 
+## Subscription Tiers, Usage & Pricing
+
+### Hooks
+
+#### `useUsageDashboard(options?)`
+
+Fetches all limit statuses and subscription info for the authenticated user. Auto-refreshes on interval.
+
+```jsx
+import { useUsageDashboard } from '@wildwood/react';
+
+const { limitStatuses, subscription, features, loading, error, refresh } = useUsageDashboard({
+  refreshInterval: 60000, // optional, ms
+});
+```
+
+### Components
+
+#### `UsageDashboardComponent` — Authenticated usage overview
+
+Shows progress bars (green/yellow/red) for each tier limit, current tier badge, period info, overage indicators, and upgrade CTA.
+
+```jsx
+import { UsageDashboardComponent } from '@wildwood/react';
+
+<UsageDashboardComponent
+  showOverageInfo={true}
+  warningThreshold={75}           // % at which bar turns yellow
+  onUpgradeClick={() => navigate('/upgrade')}
+/>
+```
+
+#### `OverageSummaryComponent` — Overage cost breakdown
+
+Shows per-limit overage counts and estimated cost for the current billing period.
+
+```jsx
+import { OverageSummaryComponent } from '@wildwood/react';
+
+<OverageSummaryComponent
+  overageRate={0.003}             // cost per overage unit
+  onViewDetails={() => console.log('details')}
+/>
+```
+
+#### `PricingDisplayComponent` — Public pricing grid (no auth required)
+
+Lightweight pricing grid for landing pages. Fetches tiers via `getPublicTiers()` — no authentication needed.
+
+```jsx
+import { PricingDisplayComponent } from '@wildwood/react';
+
+<PricingDisplayComponent
+  title="Choose Your Plan"
+  subtitle="Get started with the plan that fits your needs"
+  showBillingToggle={true}
+  showFeatureComparison={true}
+  showLimits={true}
+  enterpriseContactUrl="/contact"
+  onSelectTier={(tier) => navigate(`/signup?tier=${tier.id}`)}
+/>
+```
+
+#### `SignupWithSubscriptionComponent` — Register → Subscribe → Done
+
+Multi-step flow chaining existing SDK components: registration (via `TokenRegistrationComponent`) → tier selection (via `AppTierComponent`) → success callback.
+
+```jsx
+import { SignupWithSubscriptionComponent } from '@wildwood/react';
+
+<SignupWithSubscriptionComponent
+  appId={APP_ID}
+  preSelectedTierId={tierIdFromUrl}  // optional, from pricing page
+  allowOpenRegistration={true}
+  requireToken={false}
+  onComplete={(subscription) => navigate('/')}
+  onCancel={() => navigate('/pricing')}
+/>
+```
+
+### Core service methods
+
+```typescript
+import { createWildwoodClient } from '@wildwood/core';
+
+const client = createWildwoodClient(config);
+
+// Public — no auth required
+const tiers = await client.appTier.getPublicTiers(appId);
+
+// Authenticated — returns all limit statuses for the current user
+const limits = await client.appTier.getAllLimitStatuses(appId);
+```
+
+### Integration pattern: Landing page → Signup → Subscription
+
+1. **Landing page** (unauthenticated): Use `PricingDisplayComponent` with `onSelectTier` to navigate to signup with `?tier=<id>`
+2. **Signup page**: Use `SignupWithSubscriptionComponent` with `preSelectedTierId` from URL params
+3. **Dashboard** (authenticated): Use `UsageDashboardComponent` for usage overview
+4. **Subscription management page**: Combine `UsageDashboardComponent` + `OverageSummaryComponent` + `AppTierComponent`
+
+### Common mistakes to avoid (subscription/usage)
+
+| Mistake | Correct approach |
+|---------|-----------------|
+| Using `AppTierComponent` on public pages | Use `PricingDisplayComponent` (no auth required) |
+| Building custom usage progress bars | Use `UsageDashboardComponent` |
+| Manually calling tier check endpoints | Use `useUsageDashboard()` hook |
+| Custom signup + subscribe flow | Use `SignupWithSubscriptionComponent` |
+
 ## Real-World Integration Examples
 
 - **APIMCP**: `C:\Development\APIMCP\Dev\APIMCP\APIMCPAdmin\` — React + Vite admin app using all the patterns above

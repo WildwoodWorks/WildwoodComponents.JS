@@ -14,6 +14,7 @@ import { AIFlowTest } from './pages/AIFlowTest';
 import { MessagingTest } from './pages/MessagingTest';
 import { PaymentTest } from './pages/PaymentTest';
 import { SubscriptionTest } from './pages/SubscriptionTest';
+import { PricingDisplayTest } from './pages/PricingDisplayTest';
 
 const config = {
   baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.wildwoodworks.com.co/api/',
@@ -40,6 +41,7 @@ export function App() {
           <Route path="messaging" element={<MessagingTest />} />
           <Route path="payment" element={<PaymentTest />} />
           <Route path="subscription" element={<SubscriptionTest />} />
+          <Route path="pricing-display" element={<PricingDisplayTest />} />
         </Route>
       </Routes>
     </WildwoodProvider>

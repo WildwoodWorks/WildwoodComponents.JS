@@ -39,6 +39,8 @@ export { usePlatformDetection } from './hooks/usePlatformDetection.js';
 export type { UsePlatformDetectionReturn } from './hooks/usePlatformDetection.js';
 export { useExternalApi } from './hooks/useExternalApi.js';
 export type { ExternalApiClient, ExternalApiClientOptions } from './hooks/useExternalApi.js';
+export { useUsageDashboard } from './hooks/useUsageDashboard.js';
+export type { UseUsageDashboardReturn, UseUsageDashboardOptions } from './hooks/useUsageDashboard.js';
 
 // Routing
 export { ProtectedRoute } from './components/routing/ProtectedRoute.js';
@@ -75,6 +77,14 @@ export { SubscriptionManagerComponent } from './components/subscription/Subscrip
 export type { SubscriptionManagerComponentProps } from './components/subscription/SubscriptionManagerComponent.js';
 export { TokenRegistrationComponent } from './components/registration/TokenRegistrationComponent.js';
 export type { TokenRegistrationComponentProps } from './components/registration/TokenRegistrationComponent.js';
+export { SignupWithSubscriptionComponent } from './components/registration/SignupWithSubscriptionComponent.js';
+export type { SignupWithSubscriptionComponentProps } from './components/registration/SignupWithSubscriptionComponent.js';
+export { UsageDashboardComponent } from './components/usage/UsageDashboardComponent.js';
+export type { UsageDashboardComponentProps } from './components/usage/UsageDashboardComponent.js';
+export { OverageSummaryComponent } from './components/usage/OverageSummaryComponent.js';
+export type { OverageSummaryComponentProps } from './components/usage/OverageSummaryComponent.js';
+export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
+export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
 
 // Common Components
 export { LoadingSpinner } from './components/common/LoadingSpinner.js';
