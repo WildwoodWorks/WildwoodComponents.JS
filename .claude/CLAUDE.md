@@ -271,6 +271,18 @@ const limits = await client.appTier.getAllLimitStatuses(appId);
 | Manually calling tier check endpoints | Use `useUsageDashboard()` hook |
 | Custom signup + subscribe flow | Use `SignupWithSubscriptionComponent` |
 
+### Debugging empty subscription/tier data
+
+SDK service methods (`getUserSubscription`, `getUserFeatures`, `getFeatureDefinitions`, etc.) have try/catch blocks that return empty defaults (`null`, `[]`, `{}`) on failure. **A 401 error looks identical to "no data exists".**
+
+**Debugging checklist** (most common → least common):
+
+1. **Check `UserCompanies` table** — Does the user have a row matching the tier's `CompanyId`? Without it, the JWT has no `company_id` claim, and all tenant-filtered queries return empty.
+2. **Check JWT claims** — Decode the token to verify `company_id` is present. User must log out and back in after `UserCompanies` is populated.
+3. **Check `session.accessToken`** — Is it null? The getter is a property (`client.session.accessToken`), not a method.
+4. **Check API key middleware** — Tier endpoints (`/api/app-tiers/*`, `/api/app-tier-addons/*`, `/api/app-feature-definitions/*`) must be bypassed in `ApiKeyMiddleware`.
+5. **Check `[Authorize]` vs `[AllowAnonymous]`** — Public endpoints (like `/public` tiers) need `[AllowAnonymous]`; user-facing endpoints need `[Authorize]` (not `[Authorize(Roles = "Admin")]`).
+
 ## Real-World Integration Examples
 
 - **APIMCP**: `C:\Development\APIMCP\Dev\APIMCP\APIMCPAdmin\` — React + Vite admin app using all the patterns above
