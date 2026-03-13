@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import type { AuthenticationResponse, AuthenticationConfiguration } from '@wildwood/core';
+import type { AuthenticationResponse, AuthenticationConfiguration, RegistrationFormData } from '@wildwood/core';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface TokenRegistrationComponentProps {
@@ -14,10 +14,20 @@ export interface TokenRegistrationComponentProps {
   autoLogin?: boolean;
   /** URL to redirect after successful auto-login */
   redirectUrl?: string;
+  /** If true, form validates client-side but does NOT call the API. Instead calls onFormDataCollected. */
+  deferSubmission?: boolean;
+  /** Called when deferSubmission is true and form passes validation. */
+  onFormDataCollected?: (data: RegistrationFormData) => void;
+  /** Pre-fill form fields (e.g. when navigating back from a later step). */
+  initialFormData?: RegistrationFormData;
   onRegistrationSuccess?: (response: AuthenticationResponse) => void;
   onRegistrationError?: (error: string) => void;
   onAutoLoginSuccess?: (response: AuthenticationResponse) => void;
   onCancel?: () => void;
+  /** Custom submit button text. Default: "Create Account" (or "Continue" in deferred mode). */
+  submitButtonText?: string;
+  /** Hide the internal step indicator (useful when a parent component provides its own). */
+  hideStepIndicator?: boolean;
   className?: string;
 }
 
@@ -30,10 +40,15 @@ export function TokenRegistrationComponent({
   allowOpenRegistration = false,
   autoLogin = true,
   redirectUrl,
+  deferSubmission = false,
+  onFormDataCollected,
+  initialFormData,
   onRegistrationSuccess,
   onRegistrationError,
   onAutoLoginSuccess,
   onCancel,
+  submitButtonText,
+  hideStepIndicator = false,
   className,
 }: TokenRegistrationComponentProps) {
   const client = useWildwood();
@@ -51,12 +66,12 @@ export function TokenRegistrationComponent({
   const [useToken, setUseToken] = useState(!!initialToken);
 
   // Registration form state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState(initialFormData?.firstName ?? '');
+  const [lastName, setLastName] = useState(initialFormData?.lastName ?? '');
+  const [username, setUsername] = useState(initialFormData?.username ?? '');
+  const [email, setEmail] = useState(initialFormData?.email ?? '');
+  const [password, setPassword] = useState(initialFormData?.password ?? '');
+  const [confirmPassword, setConfirmPassword] = useState(initialFormData?.password ?? '');
   const [showPassword, setShowPassword] = useState(false);
 
   // UI state
@@ -213,6 +228,20 @@ export function TokenRegistrationComponent({
         return;
       }
 
+      // Deferred mode: collect data without calling API
+      if (deferSubmission) {
+        onFormDataCollected?.({
+          firstName,
+          lastName,
+          username: username || email,
+          email,
+          password,
+          registrationToken: useToken && token.trim() ? token : undefined,
+          useToken,
+        });
+        return;
+      }
+
       setIsLoading(true);
       try {
         let response: AuthenticationResponse;
@@ -284,8 +313,10 @@ export function TokenRegistrationComponent({
       useToken,
       autoLogin,
       redirectUrl,
+      deferSubmission,
       client,
       validatePassword,
+      onFormDataCollected,
       onRegistrationSuccess,
       onRegistrationError,
       onAutoLoginSuccess,
@@ -303,7 +334,7 @@ export function TokenRegistrationComponent({
   return (
     <div className={`ww-token-registration ${className ?? ''}`}>
       {/* Step Indicator */}
-      {currentStep !== 'success' && (
+      {!hideStepIndicator && currentStep !== 'success' && (
         <div className="ww-step-indicator">
           <div className="ww-steps">
             {tokenIsRequired && (
@@ -530,7 +561,7 @@ export function TokenRegistrationComponent({
                     Creating Account...
                   </>
                 ) : (
-                  'Create Account'
+                  (submitButtonText ?? (deferSubmission ? 'Continue' : 'Create Account'))
                 )}
               </button>
 

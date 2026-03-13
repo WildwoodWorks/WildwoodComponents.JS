@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
-import type { AuthenticationResponse } from '@wildwood/core';
+import { useState, useCallback, useRef } from 'react';
+import type { RegistrationFormData, AppTierModel, AppTierPricingModel } from '@wildwood/core';
 import { TokenRegistrationComponent } from './TokenRegistrationComponent.js';
-import { AppTierComponent } from '../apptier/AppTierComponent.js';
+import { PricingDisplayComponent } from '../pricing/PricingDisplayComponent.js';
+import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
@@ -15,13 +16,10 @@ export interface SignupWithSubscriptionComponentProps {
   className?: string;
 }
 
-type Step = 'register' | 'select-tier' | 'success';
+type Step = 'register' | 'select-tier' | 'processing' | 'success';
 
-const STEP_CONFIG: { key: Step; label: string; number: number }[] = [
-  { key: 'register', label: 'Create Account', number: 1 },
-  { key: 'select-tier', label: 'Choose Plan', number: 2 },
-  { key: 'success', label: 'Complete', number: 3 },
-];
+// Steps shown in the visual step indicator
+const VISIBLE_STEPS: Step[] = ['register', 'select-tier', 'success'];
 
 export function SignupWithSubscriptionComponent({
   appId,
@@ -34,17 +32,128 @@ export function SignupWithSubscriptionComponent({
   onCancel,
   className,
 }: SignupWithSubscriptionComponentProps) {
+  const client = useWildwood();
   const [currentStep, setCurrentStep] = useState<Step>('register');
-  const [selectedTierId, setSelectedTierId] = useState<string | undefined>(preSelectedTierId);
+  const [formData, setFormData] = useState<RegistrationFormData | null>(null);
+  const [selectedTier, setSelectedTier] = useState<AppTierModel | null>(null);
+  const [selectedPricing, setSelectedPricing] = useState<AppTierPricingModel | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [subscriptionFailed, setSubscriptionFailed] = useState(false);
+  const processingRef = useRef(false);
+  // Track completed sub-steps so retry doesn't re-register an already-created user
+  const registeredRef = useRef(false);
+  const loggedInRef = useRef(false);
 
-  const getStepIndex = (step: Step): number => STEP_CONFIG.findIndex((s) => s.key === step);
-  const isStepActive = (step: Step): boolean => getStepIndex(currentStep) >= getStepIndex(step);
-  const isStepCompleted = (step: Step): boolean => getStepIndex(currentStep) > getStepIndex(step);
+  const getVisibleStepIndex = (step: Step): number => {
+    // Map processing to the same index as success (step 3)
+    const mapped = step === 'processing' ? 'success' : step;
+    return VISIBLE_STEPS.indexOf(mapped);
+  };
+  const isStepActive = (step: Step): boolean => getVisibleStepIndex(currentStep) >= getVisibleStepIndex(step);
+  const isStepCompleted = (step: Step): boolean => getVisibleStepIndex(currentStep) > getVisibleStepIndex(step);
 
-  const handleAutoLoginSuccess = useCallback(
-    (_response: AuthenticationResponse) => {
-      if (skipTierSelection) {
+  // Step 3: Register user → login → subscribe (defined first, stored in ref for stable access)
+  const processSignup = useCallback(
+    async (data: RegistrationFormData, tier: AppTierModel | null, pricing: AppTierPricingModel | null) => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+      setCurrentStep('processing');
+      setProcessingError(null);
+
+      try {
+        const resolvedAppId = appId ?? client.config.appId ?? '';
+
+        // 1. Register the user (skip if already completed on a previous attempt)
+        if (!registeredRef.current) {
+          setProcessingStatus('Creating your account...');
+
+          let response;
+          if (data.useToken && data.registrationToken) {
+            response = await client.auth.registerWithToken({
+              registrationToken: data.registrationToken,
+              firstName: data.firstName,
+              lastName: data.lastName,
+              username: data.username,
+              email: data.email,
+              password: data.password,
+              appId: resolvedAppId,
+              platform: 'web',
+              deviceInfo: navigator.userAgent,
+            });
+          } else {
+            response = await client.auth.register({
+              firstName: data.firstName,
+              lastName: data.lastName,
+              username: data.username,
+              email: data.email,
+              password: data.password,
+              appId: resolvedAppId,
+              platform: 'web',
+              deviceInfo: navigator.userAgent,
+            });
+          }
+          registeredRef.current = true;
+
+          // 2. Auto-login
+          if (response.jwtToken) {
+            setProcessingStatus('Signing you in...');
+            await client.session.login(response);
+            loggedInRef.current = true;
+          }
+        } else if (!loggedInRef.current) {
+          // Registered but login failed last time — login with credentials
+          setProcessingStatus('Signing you in...');
+          const loginResponse = await client.auth.login({
+            username: data.email,
+            password: data.password ?? '',
+            appId: resolvedAppId,
+            platform: 'web',
+            deviceInfo: navigator.userAgent,
+          });
+          if (loginResponse.jwtToken) {
+            await client.session.login(loginResponse);
+          }
+          loggedInRef.current = true;
+        }
+
+        // Clear password from memory now that login is complete
+        if (data.password) {
+          data.password = '';
+        }
+
+        // 3. Subscribe to tier (if one was selected)
+        if (tier) {
+          setProcessingStatus('Activating your plan...');
+          const subscribeResult = await client.appTier.selfSubscribe(resolvedAppId, tier.id, pricing?.id);
+          if (!subscribeResult.success) {
+            // Non-fatal — account was created, subscription can be done later
+            console.warn('Tier subscription failed:', subscribeResult.errorMessage);
+            setSubscriptionFailed(true);
+          }
+        }
+
         setCurrentStep('success');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Signup failed';
+        setProcessingError(msg);
+      } finally {
+        processingRef.current = false;
+      }
+    },
+    [appId, client],
+  );
+
+  // Stable ref so handlers always call the latest processSignup
+  const processSignupRef = useRef(processSignup);
+  processSignupRef.current = processSignup;
+
+  // Step 1: Form data collected (not submitted to API)
+  const handleFormDataCollected = useCallback(
+    (data: RegistrationFormData) => {
+      setFormData(data);
+      if (skipTierSelection) {
+        processSignupRef.current(data, null, null);
       } else {
         setCurrentStep('select-tier');
       }
@@ -52,10 +161,25 @@ export function SignupWithSubscriptionComponent({
     [skipTierSelection],
   );
 
-  const handleTierChanged = useCallback((tierId: string) => {
-    setSelectedTierId(tierId);
-    setCurrentStep('success');
-  }, []);
+  // Step 2: Tier selected
+  const handleTierSelected = useCallback(
+    (tier: AppTierModel, pricing: AppTierPricingModel | null) => {
+      setSelectedTier(tier);
+      setSelectedPricing(pricing);
+
+      if (!formData) return;
+
+      // TODO: For paid tiers, insert payment step here before processSignup.
+      processSignupRef.current(formData, tier, pricing);
+    },
+    [formData],
+  );
+
+  const handleRetry = useCallback(() => {
+    if (formData && (selectedTier || skipTierSelection)) {
+      processSignup(formData, selectedTier, selectedPricing);
+    }
+  }, [formData, selectedTier, selectedPricing, skipTierSelection, processSignup]);
 
   const handleBack = useCallback(() => {
     if (currentStep === 'select-tier') {
@@ -66,29 +190,31 @@ export function SignupWithSubscriptionComponent({
   return (
     <div className={`ww-signup-subscription ${className ?? ''}`}>
       {/* Step Indicator */}
-      {currentStep !== 'success' && (
+      {currentStep !== 'success' && currentStep !== 'processing' && (
         <div className="ww-step-indicator">
           <div className="ww-steps">
-            {STEP_CONFIG.map((stepDef, index) => (
-              <div key={stepDef.key} className="ww-step-group">
+            {VISIBLE_STEPS.map((stepKey, index) => (
+              <div key={stepKey} className="ww-step-group">
                 {index > 0 && (
                   <div
-                    className={`ww-step-connector ${isStepCompleted(STEP_CONFIG[index - 1].key) ? 'ww-step-connector-completed' : ''}`}
+                    className={`ww-step-connector ${isStepCompleted(VISIBLE_STEPS[index - 1]) ? 'ww-step-connector-completed' : ''}`}
                   />
                 )}
                 <div
-                  className={`ww-step ${isStepActive(stepDef.key) ? 'ww-step-active' : ''} ${isStepCompleted(stepDef.key) ? 'ww-step-completed' : ''}`}
+                  className={`ww-step ${isStepActive(stepKey) ? 'ww-step-active' : ''} ${isStepCompleted(stepKey) ? 'ww-step-completed' : ''}`}
                 >
                   <span className="ww-step-number">
-                    {isStepCompleted(stepDef.key) ? (
+                    {isStepCompleted(stepKey) ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
-                      stepDef.number
+                      index + 1
                     )}
                   </span>
-                  <span className="ww-step-label">{stepDef.label}</span>
+                  <span className="ww-step-label">
+                    {stepKey === 'register' ? 'Create Account' : stepKey === 'select-tier' ? 'Choose Plan' : 'Complete'}
+                  </span>
                 </div>
               </div>
             ))}
@@ -96,7 +222,7 @@ export function SignupWithSubscriptionComponent({
         </div>
       )}
 
-      {/* Step 1: Registration */}
+      {/* Step 1: Collect Registration Data (no API call) */}
       {currentStep === 'register' && (
         <div className="ww-signup-step">
           <TokenRegistrationComponent
@@ -104,23 +230,32 @@ export function SignupWithSubscriptionComponent({
             registrationToken={registrationToken}
             requireToken={requireToken}
             allowOpenRegistration={allowOpenRegistration}
-            autoLogin={true}
-            onAutoLoginSuccess={handleAutoLoginSuccess}
+            deferSubmission={true}
+            onFormDataCollected={handleFormDataCollected}
+            initialFormData={formData ?? undefined}
+            hideStepIndicator={true}
+            submitButtonText={skipTierSelection ? 'Create Account' : 'Continue'}
             onCancel={onCancel}
           />
         </div>
       )}
 
-      {/* Step 2: Tier Selection */}
+      {/* Step 2: Tier Selection (uses public endpoint, no auth needed) */}
       {currentStep === 'select-tier' && (
         <div className="ww-signup-step">
-          <AppTierComponent
+          <PricingDisplayComponent
+            appId={appId}
+            preSelectedTierId={preSelectedTierId}
             title="Choose Your Plan"
-            subtitle="Select a plan that fits your needs. You can always change later."
-            showCurrentPlan={false}
-            onTierChanged={handleTierChanged}
-            onCancel={handleBack}
-            autoLoad={true}
+            subtitle={
+              preSelectedTierId
+                ? 'Confirm your selected plan or choose a different one.'
+                : 'Select a plan that fits your needs. You can always change later.'
+            }
+            showBillingToggle={true}
+            showFeatureComparison={true}
+            showLimits={true}
+            onSelectTier={handleTierSelected}
           />
           <div className="ww-signup-step-nav">
             <button type="button" className="ww-btn ww-btn-link" onClick={handleBack}>
@@ -138,6 +273,56 @@ export function SignupWithSubscriptionComponent({
         </div>
       )}
 
+      {/* Processing Step: Register → Login → Subscribe */}
+      {currentStep === 'processing' && (
+        <div className="ww-signup-step ww-signup-processing">
+          {processingError ? (
+            <>
+              <div className="ww-reg-success-icon">
+                <svg
+                  width="64"
+                  height="64"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--ww-danger, #dc3545)"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </div>
+              <h3>Something Went Wrong</h3>
+              <p className="ww-text-muted">{processingError}</p>
+              <div className="ww-signup-processing-actions">
+                <button type="button" className="ww-btn ww-btn-primary" onClick={handleRetry}>
+                  Try Again
+                </button>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-link"
+                  onClick={() => {
+                    registeredRef.current = false;
+                    loggedInRef.current = false;
+                    setCurrentStep('register');
+                  }}
+                >
+                  Start Over
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="ww-reg-success-icon">
+                <span className="ww-spinner ww-spinner-lg" />
+              </div>
+              <h3>{processingStatus}</h3>
+              <p className="ww-text-muted">Please wait while we set up your account.</p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Step 3: Success */}
       {currentStep === 'success' && (
         <div className="ww-signup-step ww-signup-success">
@@ -151,7 +336,9 @@ export function SignupWithSubscriptionComponent({
           <p className="ww-text-muted">
             {skipTierSelection
               ? 'Your account has been created successfully.'
-              : 'Your account has been created and your plan is active.'}
+              : subscriptionFailed
+                ? 'Your account is ready! Plan activation is pending — you can select a plan from your dashboard.'
+                : 'Your account has been created and your plan is active.'}
           </p>
           <button type="button" className="ww-btn ww-btn-primary ww-btn-lg" onClick={onComplete}>
             Get Started

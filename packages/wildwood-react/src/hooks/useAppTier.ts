@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type {
   AppTierModel,
   UserTierSubscriptionModel,
@@ -19,10 +19,14 @@ export interface UseAppTierReturn {
   checkFeature: (featureKey: string) => Promise<AppFeatureCheckResultModel>;
   getLimitStatus: (limitKey: string) => Promise<AppTierLimitStatusModel>;
   changeTier: (tierId: string, pricingModelId?: string) => Promise<AppTierChangeResultModel>;
+  selfSubscribe: (appTierId: string, appTierPricingId?: string) => Promise<AppTierChangeResultModel>;
 }
 
 export function useAppTier(): UseAppTierReturn {
   const client = useWildwood();
+  const clientRef = useRef(client);
+  clientRef.current = client;
+
   const [tiers, setTiers] = useState<AppTierModel[]>([]);
   const [userSubscription, setUserSubscription] = useState<UserTierSubscriptionModel | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,46 +38,90 @@ export function useAppTier(): UseAppTierReturn {
     setLoading(true);
     setError(null);
     try {
-      const result = await client.appTier.getTiers(appId);
+      const result = await clientRef.current.appTier.getTiers(appId);
       setTiers(result);
       return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tiers');
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [client, appId]);
+  }, [appId]);
 
   const getTier = useCallback(async (tierId: string) => {
-    return client.appTier.getTier(tierId);
-  }, [client]);
+    return clientRef.current.appTier.getTier(tierId);
+  }, []);
 
   const getUserSubscription = useCallback(async () => {
-    const result = await client.appTier.getUserSubscription();
+    const result = await clientRef.current.appTier.getUserSubscription(appId);
     setUserSubscription(result);
     return result;
-  }, [client]);
+  }, [appId]);
 
-  const checkFeature = useCallback(async (featureKey: string) => {
-    return client.appTier.checkFeature(featureKey);
-  }, [client]);
+  const checkFeature = useCallback(
+    async (featureKey: string) => {
+      return clientRef.current.appTier.checkFeature(featureKey, appId);
+    },
+    [appId],
+  );
 
-  const getLimitStatus = useCallback(async (limitKey: string) => {
-    return client.appTier.getLimitStatus(limitKey);
-  }, [client]);
+  const getLimitStatus = useCallback(
+    async (limitKey: string) => {
+      return clientRef.current.appTier.getLimitStatus(limitKey, appId);
+    },
+    [appId],
+  );
 
-  const changeTier = useCallback(async (tierId: string, pricingModelId?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await client.appTier.changeTier(tierId, pricingModelId);
-      await getUserSubscription();
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tier change failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [client, getUserSubscription]);
+  const changeTier = useCallback(
+    async (tierId: string, pricingModelId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await clientRef.current.appTier.changeTier(tierId, pricingModelId);
+        const sub = await clientRef.current.appTier.getUserSubscription(appId);
+        setUserSubscription(sub);
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Tier change failed');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [appId],
+  );
 
-  return { tiers, userSubscription, loading, error, getTiers, getTier, getUserSubscription, checkFeature, getLimitStatus, changeTier };
+  const selfSubscribe = useCallback(
+    async (appTierId: string, appTierPricingId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await clientRef.current.appTier.selfSubscribe(appId, appTierId, appTierPricingId);
+        const sub = await clientRef.current.appTier.getUserSubscription(appId);
+        setUserSubscription(sub);
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Subscription failed');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [appId],
+  );
+
+  return {
+    tiers,
+    userSubscription,
+    loading,
+    error,
+    getTiers,
+    getTier,
+    getUserSubscription,
+    checkFeature,
+    getLimitStatus,
+    changeTier,
+    selfSubscribe,
+  };
 }

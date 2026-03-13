@@ -22,8 +22,77 @@ export class AIService {
   constructor(private http: HttpClient) {}
 
   async sendMessage(request: AIChatRequest): Promise<AIChatResponse> {
-    const { data } = await this.http.post<AIChatResponse>('api/ai/chat', request);
-    return data;
+    try {
+      const { data } = await this.http.post<AIChatResponse>('api/ai/chat', request);
+      return data;
+    } catch (err: unknown) {
+      return this.parseErrorResponse(err);
+    }
+  }
+
+  /**
+   * Parses a structured API error response to extract user-friendly error messages and error codes.
+   * Handles the structured error JSON format: { "error": "...", "limitCode": "...", "currentUsage": N, "maxValue": N, ... }
+   */
+  private parseErrorResponse(err: unknown): AIChatResponse {
+    const response: AIChatResponse = {
+      id: '',
+      response: '',
+      tokensUsed: 0,
+      model: '',
+      providerType: '',
+      createdAt: new Date().toISOString(),
+      isError: true,
+    };
+
+    // Try to extract the response body from the error (WildwoodError stores it in 'details')
+    const errorBody = (err as { details?: unknown })?.details ?? (err as { body?: unknown })?.body;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    if (errorBody && typeof errorBody === 'object') {
+      const body = errorBody as Record<string, unknown>;
+
+      // Extract error code (e.g., "AI_TOKENS", "AI_REQUESTS")
+      if (typeof body.limitCode === 'string') {
+        response.errorCode = body.limitCode;
+      }
+
+      // Build user-friendly message
+      if (typeof body.error === 'string') {
+        let message = body.error;
+
+        // Append usage details if available
+        if (typeof body.currentUsage === 'number' && typeof body.maxValue === 'number') {
+          const unit = typeof body.unit === 'string' ? body.unit : 'units';
+          message += ` (${body.currentUsage.toLocaleString()}/${body.maxValue.toLocaleString()} ${unit})`;
+        }
+
+        // Append period end if available
+        if (typeof body.periodEnd === 'string') {
+          const periodEndDate = new Date(body.periodEnd);
+          if (!isNaN(periodEndDate.getTime())) {
+            message += `. Resets ${periodEndDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+          }
+        }
+
+        response.errorMessage = message;
+        return response;
+      }
+
+      // Fallback: try generic fields
+      if (typeof body.statusMessage === 'string') {
+        response.errorMessage = body.statusMessage;
+        return response;
+      }
+      if (typeof body.message === 'string') {
+        response.errorMessage = body.message;
+        return response;
+      }
+    }
+
+    // Final fallback
+    response.errorMessage = errorMessage || 'An error occurred while sending the message';
+    return response;
   }
 
   async getConfigurations(configurationType?: string): Promise<AIConfiguration[]> {

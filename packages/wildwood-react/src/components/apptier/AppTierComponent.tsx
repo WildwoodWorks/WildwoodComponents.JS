@@ -6,6 +6,8 @@ import { PaymentComponent } from '../payment/PaymentComponent.js';
 export interface AppTierComponentProps {
   title?: string;
   subtitle?: string;
+  /** Pre-selected tier ID to highlight (e.g. from a pricing page). */
+  preSelectedTierId?: string;
   showAddOns?: boolean;
   showBillingToggle?: boolean;
   showCurrentPlan?: boolean;
@@ -17,6 +19,8 @@ export interface AppTierComponentProps {
   onError?: (error: string) => void;
   onCancel?: () => void;
   autoLoad?: boolean;
+  /** When true, uses the self-service subscribe endpoint instead of admin changeTier. */
+  selfService?: boolean;
   className?: string;
 }
 
@@ -38,6 +42,7 @@ type Step = 'tiers' | 'confirm' | 'payment' | 'success' | 'cancel-confirm';
 export function AppTierComponent({
   title,
   subtitle,
+  preSelectedTierId,
   showAddOns = false,
   showBillingToggle = true,
   showCurrentPlan = true,
@@ -49,9 +54,11 @@ export function AppTierComponent({
   onError,
   onCancel,
   autoLoad = true,
+  selfService = false,
   className,
 }: AppTierComponentProps) {
-  const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier } = useAppTier();
+  const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier, selfSubscribe } =
+    useAppTier();
 
   const [step, setStep] = useState<Step>('tiers');
   const [billingAnnual, setBillingAnnual] = useState(false);
@@ -129,7 +136,9 @@ export function AppTierComponent({
       setChangeError(null);
       setChangeLoading(true);
       try {
-        const result = await changeTier(t.id, p?.pricingModelId);
+        const result = selfService
+          ? await selfSubscribe(t.id, p?.pricingModelId)
+          : await changeTier(t.id, p?.pricingModelId);
         if (result.success) {
           if (result.isScheduled) {
             setSuccessMessage(
@@ -152,7 +161,7 @@ export function AppTierComponent({
         setChangeLoading(false);
       }
     },
-    [selectedTier, selectedPricing, changeTier, onTierChanged],
+    [selectedTier, selectedPricing, selfService, selfSubscribe, changeTier, onTierChanged],
   );
 
   const handlePaymentSuccess = useCallback(async () => {
@@ -169,7 +178,7 @@ export function AppTierComponent({
       // Find the free tier and switch to it
       const freeTier = tiers.find((t) => t.isFreeTier);
       if (freeTier) {
-        const result = await changeTier(freeTier.id);
+        const result = selfService ? await selfSubscribe(freeTier.id) : await changeTier(freeTier.id);
         if (result.success) {
           setSuccessMessage(
             'Your plan has been cancelled. You will retain access until the end of your billing period.',
@@ -187,7 +196,7 @@ export function AppTierComponent({
     } finally {
       setChangeLoading(false);
     }
-  }, [userSubscription, tiers, changeTier, onTierChanged]);
+  }, [userSubscription, tiers, selfService, selfSubscribe, changeTier, onTierChanged]);
 
   // Success view
   if (step === 'success') {
@@ -518,15 +527,17 @@ export function AppTierComponent({
         <div className="ww-tier-grid">
           {tiers.map((tier) => {
             const isCurrent = userSubscription?.appTierId === tier.id;
+            const isPreSelected = preSelectedTierId === tier.id;
             const pricing = getPricing(tier);
             const discount = billingAnnual ? getAnnualDiscount(tier) : null;
 
             return (
               <div
                 key={tier.id}
-                className={`ww-tier-card ${isCurrent ? 'ww-tier-current' : ''} ${tier.isDefault ? 'ww-tier-default' : ''}`}
+                className={`ww-tier-card ${isCurrent ? 'ww-tier-current' : ''} ${isPreSelected ? 'ww-tier-preselected' : ''} ${tier.isDefault ? 'ww-tier-default' : ''}`}
               >
-                {tier.isDefault && !isCurrent && <div className="ww-tier-default-badge">Popular</div>}
+                {isPreSelected && !isCurrent && <div className="ww-tier-preselected-badge">Your Selection</div>}
+                {tier.isDefault && !isCurrent && !isPreSelected && <div className="ww-tier-default-badge">Popular</div>}
                 <div className="ww-tier-header">
                   {tier.iconClass && <span className={`ww-tier-icon ${tier.iconClass}`} />}
                   <h3>{tier.name}</h3>
@@ -613,15 +624,17 @@ export function AppTierComponent({
                   ) : (
                     <button
                       type="button"
-                      className={`ww-btn ${tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
+                      className={`ww-btn ${isPreSelected || tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
                       onClick={() => handleSelectTier(tier)}
                       disabled={changeLoading}
                     >
-                      {tier.isFreeTier
-                        ? 'Get Started Free'
-                        : userSubscription
-                          ? `Switch to ${tier.name}`
-                          : 'Select Plan'}
+                      {isPreSelected
+                        ? 'Continue with This Plan'
+                        : tier.isFreeTier
+                          ? 'Get Started Free'
+                          : userSubscription
+                            ? `Switch to ${tier.name}`
+                            : 'Select Plan'}
                     </button>
                   )}
                 </div>

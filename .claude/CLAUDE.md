@@ -220,9 +220,9 @@ import { PricingDisplayComponent } from '@wildwood/react';
 />
 ```
 
-#### `SignupWithSubscriptionComponent` — Register → Subscribe → Done
+#### `SignupWithSubscriptionComponent` — Collect Info → Choose Plan → Register + Subscribe
 
-Multi-step flow chaining existing SDK components: registration (via `TokenRegistrationComponent`) → tier selection (via `AppTierComponent`) → success callback.
+Multi-step flow with **deferred user creation**: collects registration data (Step 1), shows tier selection via `PricingDisplayComponent` (Step 2, no auth needed), then atomically registers the user, logs them in, and subscribes to the selected tier. User is NOT created until after they confirm their plan selection.
 
 ```jsx
 import { SignupWithSubscriptionComponent } from '@wildwood/react';
@@ -232,10 +232,14 @@ import { SignupWithSubscriptionComponent } from '@wildwood/react';
   preSelectedTierId={tierIdFromUrl}  // optional, from pricing page
   allowOpenRegistration={true}
   requireToken={false}
-  onComplete={(subscription) => navigate('/')}
+  onComplete={() => navigate('/')}
   onCancel={() => navigate('/pricing')}
 />
 ```
+
+**Key design decision**: User creation is deferred until after tier confirmation (or payment for paid tiers). This prevents orphaned user accounts when users abandon signup mid-flow. The `TokenRegistrationComponent` runs in `deferSubmission` mode — it validates the form client-side but does not call the API until the user completes all steps.
+
+**Blazor parity**: The Blazor `SignupWithSubscriptionComponent` (`WildwoodComponents.Blazor`) uses the same deferred pattern. Both JS and Blazor implementations share: deferred user creation, retry with sub-step tracking (`registered`/`loggedIn` flags), password clearing after login, non-fatal subscription failure with warning on the success step, and `PricingDisplayComponent` for unauthenticated tier selection with `PreSelectedTierId` highlight.
 
 ### Core service methods
 

@@ -22,6 +22,7 @@ export interface RegistrationRequest {
   firstName: string;
   lastName: string;
   password?: string;
+  confirmPassword?: string;
   providerName?: string;
   providerToken?: string;
   appId: string;
@@ -31,6 +32,17 @@ export interface RegistrationRequest {
   captchaResponse?: string;
   licenseToken?: string;
   registrationToken?: string;
+}
+
+/** Collected registration form data (not yet submitted to API). Used by deferred registration flows. */
+export interface RegistrationFormData {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+  registrationToken?: string;
+  useToken: boolean;
 }
 
 export interface AuthenticationResponse {

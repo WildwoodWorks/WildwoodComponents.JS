@@ -1533,17 +1533,31 @@
     background: var(--ww-bg-secondary, #f8f9fa);
 }
 
-.ww-tier-default-badge {
+.ww-tier-default-badge,
+.ww-tier-preselected-badge {
     position: absolute;
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--ww-primary, #D4882C);
     color: #fff;
     padding: 0.2rem 0.75rem;
     border-radius: 10px;
     font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+.ww-tier-default-badge {
+    background: var(--ww-primary, #D4882C);
+}
+
+.ww-tier-preselected-badge {
+    background: var(--ww-info, #0d6efd);
+}
+
+.ww-tier-preselected {
+    border-color: var(--ww-info, #0d6efd);
+    box-shadow: 0 0 0 1px var(--ww-info, #0d6efd), 0 4px 12px rgba(13, 110, 253, 0.15);
 }
 
 .ww-tier-header {

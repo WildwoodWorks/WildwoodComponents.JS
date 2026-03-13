@@ -2,13 +2,7 @@
 // Mirrors WildwoodComponents.Blazor DelegatingHandler pattern
 // Includes reactive 401 handling: on 401, refresh token and retry once (Blazor parity)
 
-import type {
-  WildwoodConfig,
-  RequestOptions,
-  ApiResponse,
-  RequestInterceptor,
-  ResponseInterceptor,
-} from './types.js';
+import type { WildwoodConfig, RequestOptions, ApiResponse, RequestInterceptor, ResponseInterceptor } from './types.js';
 import { WildwoodError } from './errors.js';
 
 export class HttpClient {
@@ -86,13 +80,10 @@ export class HttpClient {
         const result = await this.executeRequest<T>(method, url, body, options, timeoutMs);
         return result;
       } catch (err) {
-        lastError = err instanceof WildwoodError
-          ? err
-          : new WildwoodError(
-              err instanceof Error ? err.message : String(err),
-              0,
-              'NetworkError',
-            );
+        lastError =
+          err instanceof WildwoodError
+            ? err
+            : new WildwoodError(err instanceof Error ? err.message : String(err), 0, 'NetworkError');
 
         // Reactive 401 handling: refresh token and retry once (Blazor parity)
         if (lastError.status === 401 && !options?.skipAuth && this.on401Refresh && attempt === 0) {
@@ -122,9 +113,7 @@ export class HttpClient {
     timeoutMs?: number,
   ): Promise<ApiResponse<T>> {
     const controller = new AbortController();
-    const signal = options?.signal
-      ? this.combineSignals(options.signal, controller.signal)
-      : controller.signal;
+    const signal = options?.signal ? this.combineSignals(options.signal, controller.signal) : controller.signal;
 
     const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
@@ -170,17 +159,18 @@ export class HttpClient {
           errorBody = await response.text().catch(() => null);
         }
 
+        console.error(`[HttpClient] ${response.status} ${response.statusText} for ${url}`, errorBody);
         throw WildwoodError.fromResponse(response.status, errorBody, response.statusText);
       }
 
       const contentType = response.headers.get('content-type');
       let data: T;
       if (contentType?.includes('application/json')) {
-        data = await response.json() as T;
+        data = (await response.json()) as T;
       } else if (response.status === 204) {
         data = undefined as T;
       } else {
-        data = await response.text() as T;
+        data = (await response.text()) as T;
       }
 
       const headers: Record<string, string> = {};
@@ -204,6 +194,6 @@ export class HttpClient {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

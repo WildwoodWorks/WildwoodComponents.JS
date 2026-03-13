@@ -79,7 +79,11 @@ export class AuthService {
   // ---------------------------------------------------------------------------
 
   async register(request: RegistrationRequest): Promise<AuthenticationResponse> {
-    const { data } = await this.http.post<AuthenticationResponse>('api/auth/register', request, { skipAuth: true });
+    const registerDto = {
+      ...request,
+      confirmPassword: request.confirmPassword ?? request.password,
+    };
+    const { data } = await this.http.post<AuthenticationResponse>('api/auth/register', registerDto, { skipAuth: true });
 
     if (data.jwtToken) {
       await this.storeAuthentication(data);
@@ -155,10 +159,9 @@ export class AuthService {
   async getCaptchaConfiguration(appId: string): Promise<CaptchaConfiguration | null> {
     try {
       if (!appId) return null;
-      const { data } = await this.http.get<CaptchaConfiguration>(
-        `api/AppComponentConfigurations/${appId}/captcha`,
-        { skipAuth: true },
-      );
+      const { data } = await this.http.get<CaptchaConfiguration>(`api/AppComponentConfigurations/${appId}/captcha`, {
+        skipAuth: true,
+      });
       return data ?? null;
     } catch {
       return null;
@@ -175,6 +178,43 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // OAuth / Provider Login
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get the authorization URL for a given OAuth provider.
+   * The URL should be opened in a popup or redirect flow.
+   */
+  async getProviderAuthorizationUrl(providerName: string, appId: string, redirectUri?: string): Promise<string | null> {
+    try {
+      const params = new URLSearchParams({ providerName, appId });
+      if (redirectUri) params.set('redirectUri', redirectUri);
+      const { data } = await this.http.get<{ authorizationUrl: string }>(
+        `api/auth/provider-auth-url?${params.toString()}`,
+        { skipAuth: true },
+      );
+      return data?.authorizationUrl ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Complete an OAuth provider login using the token/code received from the provider callback.
+   */
+  async loginWithProvider(providerName: string, providerToken: string, appId: string): Promise<AuthenticationResponse> {
+    const request: LoginRequest = {
+      username: '',
+      providerName,
+      providerToken,
+      appId,
+      platform: 'web',
+      deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+    };
+    return this.login(request);
   }
 
   // ---------------------------------------------------------------------------
@@ -222,7 +262,11 @@ export class AuthService {
 
   async validateLicenseToken(token: string): Promise<boolean> {
     try {
-      const { data } = await this.http.post<{ isValid: boolean }>('api/auth/validate-license', { Token: token }, { skipAuth: true });
+      const { data } = await this.http.post<{ isValid: boolean }>(
+        'api/auth/validate-license',
+        { Token: token },
+        { skipAuth: true },
+      );
       return data?.isValid ?? false;
     } catch {
       return false;
@@ -231,7 +275,9 @@ export class AuthService {
 
   async hasRegistrationTokens(appId: string): Promise<boolean> {
     try {
-      const { data } = await this.http.get<boolean>(`api/registrationtokens/app/${appId}/has-tokens`, { skipAuth: true });
+      const { data } = await this.http.get<boolean>(`api/registrationtokens/app/${appId}/has-tokens`, {
+        skipAuth: true,
+      });
       return data ?? false;
     } catch {
       return false;
@@ -240,7 +286,9 @@ export class AuthService {
 
   async validateRegistrationToken(token: string): Promise<boolean> {
     try {
-      const { data } = await this.http.get<boolean>(`api/registrationtokens/validate-simple/${token}`, { skipAuth: true });
+      const { data } = await this.http.get<boolean>(`api/registrationtokens/validate-simple/${token}`, {
+        skipAuth: true,
+      });
       return data ?? false;
     } catch {
       return false;
@@ -365,7 +413,9 @@ export class AuthService {
 
   async verifyTwoFactorCode(request: TwoFactorVerifyRequest): Promise<TwoFactorVerifyResponse> {
     try {
-      const { data } = await this.http.post<TwoFactorVerifyResponse>('api/twofactor/verify', request, { skipAuth: true });
+      const { data } = await this.http.post<TwoFactorVerifyResponse>('api/twofactor/verify', request, {
+        skipAuth: true,
+      });
       if (data.success && data.authResponse) {
         await this.storeAuthentication(data.authResponse);
         this.onAuthChanged?.(data.authResponse);
@@ -449,7 +499,10 @@ export class AuthService {
     config: AuthenticationConfiguration,
   ): { isValid: boolean; errorMessage: string } {
     if (password.length < config.passwordMinimumLength) {
-      return { isValid: false, errorMessage: `Password must be at least ${config.passwordMinimumLength} characters long.` };
+      return {
+        isValid: false,
+        errorMessage: `Password must be at least ${config.passwordMinimumLength} characters long.`,
+      };
     }
     if (config.passwordRequireUppercase && !/[A-Z]/.test(password)) {
       return { isValid: false, errorMessage: 'Password must contain at least one uppercase letter (A-Z).' };

@@ -155,6 +155,16 @@ export interface AppTierLimitStatusModel {
   statusMessage: string;
 }
 
+export interface AppFeatureDefinitionModel {
+  featureCode: string;
+  displayName: string;
+  description: string;
+  category: string;
+  iconClass: string;
+  displayOrder: number;
+  isEnabled: boolean;
+}
+
 export interface AppTierChangeResultModel {
   success: boolean;
   errorMessage: string;

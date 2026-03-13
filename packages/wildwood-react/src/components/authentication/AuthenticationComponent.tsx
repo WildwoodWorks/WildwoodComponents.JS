@@ -12,6 +12,7 @@ import type {
   CaptchaConfiguration,
   TwoFactorMethodInfo,
 } from '@wildwood/core';
+import { openOAuthPopup, isPopupSupported } from '@wildwood/core';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 // Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
@@ -80,6 +81,7 @@ export function AuthenticationComponent({
   // Registration form
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
+  const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -217,7 +219,7 @@ export function AuthenticationComponent({
         firstName: regFirstName,
         lastName: regLastName,
         email: regEmail,
-        username: regEmail,
+        username: regUsername || regEmail,
         password: regPassword,
         appId: appId ?? '',
         platform: 'web',
@@ -484,8 +486,54 @@ export function AuthenticationComponent({
                       type="button"
                       className="ww-social-btn"
                       disabled={isLoading}
-                      onClick={() => {
-                        setErrorMessage(`OAuth login with ${provider.displayName} is not yet available.`);
+                      onClick={async () => {
+                        clearMessages();
+                        setIsLoading(true);
+                        try {
+                          const authUrl = await client.auth.getProviderAuthorizationUrl(
+                            provider.name,
+                            appId ?? '',
+                            provider.redirectUri,
+                          );
+                          if (!authUrl) {
+                            setErrorMessage(`Unable to get authorization URL for ${provider.displayName}.`);
+                            return;
+                          }
+                          if (!isPopupSupported()) {
+                            // Fallback to redirect if popups are blocked
+                            window.location.href = authUrl;
+                            return;
+                          }
+                          const result = await openOAuthPopup(authUrl);
+                          if (result.success && result.response) {
+                            const authResponse = result.response as AuthenticationResponse;
+                            if (authResponse.jwtToken) {
+                              await processAuthResponse(authResponse);
+                            } else {
+                              // Provider returned a token/code, complete via login
+                              const tokenOrCode =
+                                typeof result.response === 'string'
+                                  ? result.response
+                                  : (((result.response as Record<string, unknown>).token as string) ??
+                                    ((result.response as Record<string, unknown>).code as string) ??
+                                    '');
+                              if (tokenOrCode) {
+                                const response = await client.auth.loginWithProvider(
+                                  provider.name,
+                                  tokenOrCode,
+                                  appId ?? '',
+                                );
+                                await processAuthResponse(response);
+                              }
+                            }
+                          } else if (result.error) {
+                            setErrorMessage(result.error);
+                          }
+                        } catch (err) {
+                          handleError(err);
+                        } finally {
+                          setIsLoading(false);
+                        }
                       }}
                     >
                       {provider.icon && <i className={provider.icon} />}
@@ -541,6 +589,21 @@ export function AuthenticationComponent({
                   onChange={(e) => setRegEmail(e.target.value)}
                   required
                   autoComplete="email"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="ww-form-group">
+                <label htmlFor="ww-reg-username">Username</label>
+                <input
+                  id="ww-reg-username"
+                  type="text"
+                  className="ww-form-control"
+                  value={regUsername}
+                  onChange={(e) => setRegUsername(e.target.value)}
+                  placeholder="Leave blank to use email"
+                  autoComplete="username"
+                  maxLength={50}
                   disabled={isLoading}
                 />
               </div>

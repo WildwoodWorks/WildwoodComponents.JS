@@ -74,6 +74,8 @@ export interface AIChatResponse {
   createdAt: string;
   isError: boolean;
   errorMessage?: string;
+  /** Structured error code from usage limit errors (e.g. "AI_TOKENS", "AI_REQUESTS") */
+  errorCode?: string;
 }
 
 export interface AIChatSettings {

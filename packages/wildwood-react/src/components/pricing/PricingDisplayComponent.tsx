@@ -11,6 +11,8 @@ export interface PricingDisplayComponentProps {
   showLimits?: boolean;
   currency?: string;
   enterpriseContactUrl?: string;
+  /** Tier ID to visually highlight (e.g. from a pricing page selection). */
+  preSelectedTierId?: string;
   onSelectTier?: (tier: AppTierModel, pricing: AppTierPricingModel | null) => void;
   preloadedTiers?: AppTierModel[];
   className?: string;
@@ -38,6 +40,7 @@ export function PricingDisplayComponent({
   showLimits = true,
   currency = 'USD',
   enterpriseContactUrl,
+  preSelectedTierId,
   onSelectTier,
   preloadedTiers,
   className,
@@ -175,10 +178,15 @@ export function PricingDisplayComponent({
             const pricing = getPricing(tier);
             const discount = billingAnnual ? getAnnualDiscount(tier) : null;
             const enterprise = isEnterpriseTier(tier);
+            const isPreSelected = preSelectedTierId === tier.id;
 
             return (
-              <div key={tier.id} className={`ww-tier-card ${tier.isDefault ? 'ww-tier-default' : ''}`}>
-                {tier.isDefault && <div className="ww-tier-default-badge">Popular</div>}
+              <div
+                key={tier.id}
+                className={`ww-tier-card ${isPreSelected ? 'ww-tier-preselected' : ''} ${tier.isDefault && !isPreSelected ? 'ww-tier-default' : ''}`}
+              >
+                {isPreSelected && <div className="ww-tier-preselected-badge">Your Selection</div>}
+                {tier.isDefault && !isPreSelected && <div className="ww-tier-default-badge">Popular</div>}
                 <div className="ww-tier-header">
                   {tier.iconClass && <span className={`ww-tier-icon ${tier.iconClass}`} />}
                   <h3>{tier.name}</h3>
@@ -278,21 +286,13 @@ export function PricingDisplayComponent({
                     >
                       Contact Sales
                     </button>
-                  ) : tier.isFreeTier ? (
-                    <button
-                      type="button"
-                      className={`ww-btn ${tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
-                      onClick={() => handleSelect(tier)}
-                    >
-                      Get Started
-                    </button>
                   ) : (
                     <button
                       type="button"
-                      className={`ww-btn ${tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
+                      className={`ww-btn ${isPreSelected || tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
                       onClick={() => handleSelect(tier)}
                     >
-                      Subscribe
+                      {isPreSelected ? 'Continue with This Plan' : tier.isFreeTier ? 'Get Started' : 'Subscribe'}
                     </button>
                   )}
                 </div>

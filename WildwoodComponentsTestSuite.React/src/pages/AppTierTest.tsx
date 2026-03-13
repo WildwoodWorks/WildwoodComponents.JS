@@ -9,6 +9,7 @@ import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function AppTierTest() {
   const [autoLoad, setAutoLoad] = useState(true);
+  const [preSelectedTierId, setPreSelectedTierId] = useState('');
   const [lastTierId, setLastTierId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'tiers' | 'usage' | 'overage' | 'signup'>('tiers');
 
@@ -18,9 +19,11 @@ export function AppTierTest() {
       description="Browse tiers, view current subscription, compare features, and change plans."
       settings={{
         autoLoad: { type: 'boolean', value: autoLoad },
+        preSelectedTierId: { type: 'string', value: preSelectedTierId },
       }}
       onSettingChange={(key, value) => {
         if (key === 'autoLoad') setAutoLoad(value as boolean);
+        if (key === 'preSelectedTierId') setPreSelectedTierId(value as string);
       }}
     >
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -50,6 +53,7 @@ export function AppTierTest() {
         <>
           <AppTierComponent
             autoLoad={autoLoad}
+            preSelectedTierId={preSelectedTierId || undefined}
             onTierChanged={(tierId) => {
               setLastTierId(tierId);
               console.log('Tier changed to:', tierId);
@@ -83,6 +87,7 @@ export function AppTierTest() {
 
       {activeSection === 'signup' && (
         <SignupWithSubscriptionComponent
+          preSelectedTierId={preSelectedTierId || undefined}
           requireToken={false}
           allowOpenRegistration={true}
           onComplete={() => {

@@ -33,9 +33,12 @@ export {
   extractUserFromToken,
 } from './auth/tokenUtils.js';
 export type { JwtPayload } from './auth/tokenUtils.js';
+export { openOAuthPopup, isPopupSupported } from './auth/oauthPopup.js';
+export type { OAuthPopupResult } from './auth/oauthPopup.js';
 export type {
   LoginRequest,
   RegistrationRequest,
+  RegistrationFormData,
   AuthenticationResponse,
   TwoFactorMethodInfo,
   TwoFactorVerifyRequest,
@@ -169,6 +172,7 @@ export type {
   UserTierSubscriptionModel,
   UserAddOnSubscriptionModel,
   AppFeatureCheckResultModel,
+  AppFeatureDefinitionModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
 } from './features/types.js';

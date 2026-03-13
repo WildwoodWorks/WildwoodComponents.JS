@@ -17,6 +17,9 @@ export interface UseUsageDashboardReturn {
 
 export function useUsageDashboard(options?: UseUsageDashboardOptions): UseUsageDashboardReturn {
   const client = useWildwood();
+  const clientRef = useRef(client);
+  clientRef.current = client;
+
   const [limitStatuses, setLimitStatuses] = useState<AppTierLimitStatusModel[]>([]);
   const [subscription, setSubscription] = useState<UserTierSubscriptionModel | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,8 +32,8 @@ export function useUsageDashboard(options?: UseUsageDashboardOptions): UseUsageD
     setError(null);
     try {
       const [statuses, sub] = await Promise.all([
-        client.appTier.getAllLimitStatuses(appId),
-        client.appTier.getUserSubscription(),
+        clientRef.current.appTier.getAllLimitStatuses(appId),
+        clientRef.current.appTier.getUserSubscription(appId),
       ]);
       setLimitStatuses(statuses);
       setSubscription(sub);
@@ -39,7 +42,7 @@ export function useUsageDashboard(options?: UseUsageDashboardOptions): UseUsageD
     } finally {
       setLoading(false);
     }
-  }, [client, appId]);
+  }, [appId]);
 
   // Fetch on mount
   useEffect(() => {

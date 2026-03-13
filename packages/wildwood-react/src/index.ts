@@ -41,6 +41,8 @@ export { useExternalApi } from './hooks/useExternalApi.js';
 export type { ExternalApiClient, ExternalApiClientOptions } from './hooks/useExternalApi.js';
 export { useUsageDashboard } from './hooks/useUsageDashboard.js';
 export type { UseUsageDashboardReturn, UseUsageDashboardOptions } from './hooks/useUsageDashboard.js';
+export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
+export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
 
 // Routing
 export { ProtectedRoute } from './components/routing/ProtectedRoute.js';
@@ -75,6 +77,21 @@ export { SubscriptionComponent } from './components/subscription/SubscriptionCom
 export type { SubscriptionComponentProps } from './components/subscription/SubscriptionComponent.js';
 export { SubscriptionManagerComponent } from './components/subscription/SubscriptionManagerComponent.js';
 export type { SubscriptionManagerComponentProps } from './components/subscription/SubscriptionManagerComponent.js';
+export { SubscriptionAdminComponent } from './components/subscription/admin/SubscriptionAdminComponent.js';
+export type {
+  SubscriptionAdminComponentProps,
+  SubscriptionAdminDisplayMode,
+} from './components/subscription/admin/SubscriptionAdminComponent.js';
+export { SubscriptionStatusPanel } from './components/subscription/admin/SubscriptionStatusPanel.js';
+export type { SubscriptionStatusPanelProps } from './components/subscription/admin/SubscriptionStatusPanel.js';
+export { TierPlansPanel } from './components/subscription/admin/TierPlansPanel.js';
+export type { TierPlansPanelProps, TierSelectedEventArgs } from './components/subscription/admin/TierPlansPanel.js';
+export { FeaturesPanel } from './components/subscription/admin/FeaturesPanel.js';
+export type { FeaturesPanelProps } from './components/subscription/admin/FeaturesPanel.js';
+export { AddOnsPanel } from './components/subscription/admin/AddOnsPanel.js';
+export type { AddOnsPanelProps } from './components/subscription/admin/AddOnsPanel.js';
+export { UsageLimitsPanel } from './components/subscription/admin/UsageLimitsPanel.js';
+export type { UsageLimitsPanelProps } from './components/subscription/admin/UsageLimitsPanel.js';
 export { TokenRegistrationComponent } from './components/registration/TokenRegistrationComponent.js';
 export type { TokenRegistrationComponentProps } from './components/registration/TokenRegistrationComponent.js';
 export { SignupWithSubscriptionComponent } from './components/registration/SignupWithSubscriptionComponent.js';
@@ -99,5 +116,6 @@ export type {
   AuthenticationResponse,
   LoginRequest,
   RegistrationRequest,
+  RegistrationFormData,
   ThemeName,
 } from '@wildwood/core';
