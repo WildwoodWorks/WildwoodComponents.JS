@@ -202,6 +202,28 @@ import { OverageSummaryComponent } from '@wildwood/react';
 />
 ```
 
+#### `SubscriptionAdminComponent` — Full subscription management (authenticated)
+
+Tabbed admin interface for subscription management. Includes panels for subscription status, tier plans, features & add-ons, and usage limits. This is the recommended single-component solution for subscription management pages.
+
+```jsx
+import { SubscriptionAdminComponent } from '@wildwood/react';
+
+<SubscriptionAdminComponent
+  appId={APP_ID}
+  showStatusAboveTabs={true}     // prominent status card above tabs
+  selfService={true}              // use self-service endpoints (end-user mode)
+  showBillingToggle={true}
+  currency="USD"
+/>
+```
+
+Props:
+- `selfService` (default `false`): When true, uses `POST /my-subscription` (end-user). When false, uses admin subscribe endpoint.
+- `showStatusAboveTabs` (default `false`): When true, renders subscription status in a prominent card above tabs and removes the Subscription tab.
+- `companyId` (optional): When provided, uses company-scoped endpoints for admin management of a specific company's subscription.
+- `displayMode` (default `'tabs'`): Set to `'subscription'`, `'tiers'`, `'features'`, or `'usage'` to render a single panel instead of tabs.
+
 #### `PricingDisplayComponent` — Public pricing grid (no auth required)
 
 Lightweight pricing grid for landing pages. Fetches tiers via `getPublicTiers()` — no authentication needed.
@@ -260,7 +282,7 @@ const limits = await client.appTier.getAllLimitStatuses(appId);
 1. **Landing page** (unauthenticated): Use `PricingDisplayComponent` with `onSelectTier` to navigate to signup with `?tier=<id>`
 2. **Signup page**: Use `SignupWithSubscriptionComponent` with `preSelectedTierId` from URL params
 3. **Dashboard** (authenticated): Use `UsageDashboardComponent` for usage overview
-4. **Subscription management page**: Combine `UsageDashboardComponent` + `OverageSummaryComponent` + `AppTierComponent`
+4. **Subscription management page**: Use `SubscriptionAdminComponent` — single component with tabbed UI for subscription status, tier plans, features & add-ons, and usage
 
 ### Common mistakes to avoid (subscription/usage)
 
@@ -270,6 +292,8 @@ const limits = await client.appTier.getAllLimitStatuses(appId);
 | Building custom usage progress bars | Use `UsageDashboardComponent` |
 | Manually calling tier check endpoints | Use `useUsageDashboard()` hook |
 | Custom signup + subscribe flow | Use `SignupWithSubscriptionComponent` |
+| Manually wiring individual subscription panels | Use `SubscriptionAdminComponent` (single component with tabs) |
+| Using admin subscribe endpoint for end-users | Set `selfService={true}` on `SubscriptionAdminComponent` |
 
 ### Debugging empty subscription/tier data
 

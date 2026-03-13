@@ -58,13 +58,16 @@ export function SubscriptionStatusPanel({
 
   return (
     <div className={`ww-sub-status-panel ${className ?? ''}`}>
+      {/* Header: tier name + badges + cancel */}
       <div className="ww-sub-status-header">
-        <div className="ww-sub-status-info">
+        <div className="ww-sub-status-title-row">
           <h4 className="ww-sub-status-tier-name">{subscription.tierName}</h4>
-          <span className={`ww-badge ${STATUS_BADGE[subscription.status] ?? 'ww-badge-secondary'}`}>
-            {subscription.status}
-          </span>
-          {subscription.isFreeTier && <span className="ww-badge ww-badge-secondary">Free</span>}
+          <div className="ww-sub-status-badges">
+            <span className={`ww-badge ${STATUS_BADGE[subscription.status] ?? 'ww-badge-secondary'}`}>
+              {subscription.status}
+            </span>
+            {subscription.isFreeTier && <span className="ww-badge ww-badge-secondary">Free</span>}
+          </div>
         </div>
         {!subscription.isFreeTier && subscription.status === 'Active' && onCancelRequested && (
           <button
@@ -77,29 +80,46 @@ export function SubscriptionStatusPanel({
         )}
       </div>
 
-      {subscription.tierDescription && <p className="ww-text-muted ww-text-sm">{subscription.tierDescription}</p>}
+      {/* Description */}
+      {subscription.tierDescription && <p className="ww-sub-status-desc">{subscription.tierDescription}</p>}
 
+      {/* Date fields as mini-cards */}
       <div className="ww-sub-status-details">
         <div className="ww-sub-status-field">
-          <span className="ww-sub-status-label">Start Date</span>
-          <span>{new Date(subscription.startDate).toLocaleDateString()}</span>
+          <span className="ww-sub-status-field-icon ww-sub-status-field-icon-calendar" />
+          <div className="ww-sub-status-field-content">
+            <span className="ww-sub-status-field-label">Start Date</span>
+            <span className="ww-sub-status-field-value">{new Date(subscription.startDate).toLocaleDateString()}</span>
+          </div>
         </div>
         {subscription.currentPeriodEnd && (
           <div className="ww-sub-status-field">
-            <span className="ww-sub-status-label">Current Period Ends</span>
-            <span>{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
+            <span className="ww-sub-status-field-icon ww-sub-status-field-icon-clock" />
+            <div className="ww-sub-status-field-content">
+              <span className="ww-sub-status-field-label">Current Period Ends</span>
+              <span className="ww-sub-status-field-value">
+                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              </span>
+            </div>
           </div>
         )}
         {subscription.trialEndDate && (
           <div className="ww-sub-status-field">
-            <span className="ww-sub-status-label">Trial Ends</span>
-            <span>{new Date(subscription.trialEndDate).toLocaleDateString()}</span>
+            <span className="ww-sub-status-field-icon ww-sub-status-field-icon-trial" />
+            <div className="ww-sub-status-field-content">
+              <span className="ww-sub-status-field-label">Trial Ends</span>
+              <span className="ww-sub-status-field-value">
+                {new Date(subscription.trialEndDate).toLocaleDateString()}
+              </span>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Pending change notice */}
       {subscription.pendingTierName && (
-        <div className="ww-alert ww-alert-info ww-sub-status-pending">
+        <div className="ww-sub-status-pending">
+          <span className="ww-sub-status-pending-icon" />
           Pending change to <strong>{subscription.pendingTierName}</strong>
           {subscription.pendingChangeDate && ` on ${new Date(subscription.pendingChangeDate).toLocaleDateString()}`}
         </div>

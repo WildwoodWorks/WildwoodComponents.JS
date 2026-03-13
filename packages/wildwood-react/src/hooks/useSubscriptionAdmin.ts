@@ -25,6 +25,7 @@ export interface UseSubscriptionAdminReturn {
   // State
   loading: boolean;
   error: string | null;
+  clearError: () => void;
 
   // Tier browsing
   getTiers: (appId: string) => Promise<AppTierModel[]>;
@@ -50,6 +51,7 @@ export interface UseSubscriptionAdminReturn {
 
   // Actions
   subscribeTo: (appId: string, tierId: string, pricingId?: string) => Promise<AppTierChangeResultModel>;
+  selfSubscribeTo: (appId: string, tierId: string, pricingId?: string) => Promise<AppTierChangeResultModel>;
   changeTier: (
     appId: string,
     tierId: string,
@@ -96,6 +98,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   const [featureStatus, setFeatureStatus] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const wrap = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
     setLoading(true);
@@ -196,6 +199,13 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     [wrap],
   );
 
+  const selfSubscribeTo = useCallback(
+    async (appId: string, tierId: string, pricingId?: string) => {
+      return wrap(() => clientRef.current.appTier.selfSubscribe(appId, tierId, pricingId));
+    },
+    [wrap],
+  );
+
   const changeTier = useCallback(
     async (appId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
       return wrap(() => clientRef.current.appTier.changeTierAdvanced(appId, tierId, pricingId, immediate));
@@ -288,7 +298,12 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
           );
         }
 
-        await Promise.all(promises);
+        const results = await Promise.allSettled(promises);
+        const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        if (failures.length > 0) {
+          const msg = failures.map((f) => (f.reason instanceof Error ? f.reason.message : String(f.reason))).join('; ');
+          setError(msg);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load subscription data');
       } finally {
@@ -321,6 +336,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     featureStatus,
     loading,
     error,
+    clearError,
     getTiers,
     getAvailableAddOns,
     getAllAddOns,
@@ -334,6 +350,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getUserFeatures,
     getLimitStatuses,
     subscribeTo,
+    selfSubscribeTo,
     changeTier,
     cancelSubscription,
     subscribeToAddOn,

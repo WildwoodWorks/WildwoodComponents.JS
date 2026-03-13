@@ -36,7 +36,8 @@ export function FeaturesPanel({ features, loading, className }: FeaturesPanelPro
   return (
     <div className={`ww-features-panel ${className ?? ''}`}>
       <div className="ww-features-summary">
-        <span className="ww-text-muted">
+        <span className="ww-features-summary-icon" />
+        <span>
           {enabledCount} of {features.length} features enabled
         </span>
       </div>
@@ -44,20 +45,27 @@ export function FeaturesPanel({ features, loading, className }: FeaturesPanelPro
       {categories.map((category) => {
         const catFeatures = features.filter((f) => (f.category || '') === category);
         return (
-          <div key={category || '_uncategorized'} className="ww-features-category">
-            {category && <h5 className="ww-features-category-name">{category}</h5>}
-            <div className="ww-features-list">
+          <div key={category || '_uncategorized'} className="ww-features-category-card">
+            {category && (
+              <div className="ww-features-category-header">
+                <span className="ww-features-category-icon" />
+                <h5 className="ww-features-category-name">{category}</h5>
+              </div>
+            )}
+            <div className="ww-features-card-list">
               {catFeatures.map((f) => (
                 <div
                   key={f.featureCode}
-                  className={`ww-feature-item ${f.isEnabled ? 'ww-feature-enabled' : 'ww-feature-locked'}`}
+                  className={`ww-feature-card ${f.isEnabled ? 'ww-feature-card-enabled' : 'ww-feature-card-locked'}`}
                 >
-                  <span className={f.isEnabled ? 'ww-icon-check ww-text-success' : 'ww-icon-lock ww-text-muted'} />
-                  <div className="ww-feature-info">
-                    <span className={`ww-feature-name ${!f.isEnabled ? 'ww-text-muted' : ''}`}>{f.displayName}</span>
-                    {f.description && (
-                      <span className="ww-feature-description ww-text-muted ww-text-sm">{f.description}</span>
-                    )}
+                  <div
+                    className={`ww-feature-card-icon ${f.isEnabled ? 'ww-feature-card-icon-enabled' : 'ww-feature-card-icon-locked'}`}
+                  >
+                    <span className={f.isEnabled ? 'ww-icon-check' : 'ww-icon-lock'} />
+                  </div>
+                  <div className="ww-feature-card-body">
+                    <span className="ww-feature-card-name">{f.displayName}</span>
+                    {f.description && <span className="ww-feature-card-desc">{f.description}</span>}
                   </div>
                   <span className={`ww-badge ${f.isEnabled ? 'ww-badge-success' : 'ww-badge-secondary'}`}>
                     {f.isEnabled ? 'Enabled' : 'Locked'}

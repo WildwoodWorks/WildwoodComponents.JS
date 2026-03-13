@@ -2037,12 +2037,13 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s ease;
 }
 
 .ww-tier-card:hover {
     border-color: var(--ww-primary, #D4882C);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
 }
 
 .ww-tier-current {
@@ -2139,22 +2140,47 @@
     border-top: 1px solid var(--ww-border-color, #dee2e6);
     padding-top: 0.75rem;
     margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.ww-tier-limits::before {
+    content: 'Limits';
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ww-text-muted, #6c757d);
+    margin-bottom: 0.125rem;
 }
 
 .ww-tier-limit-item {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    padding: 0.25rem 0;
-    font-size: 0.85rem;
+    padding: 0.4rem 0.625rem;
+    font-size: 0.8rem;
+    background: color-mix(in srgb, var(--ww-secondary, #6c757d) 5%, transparent);
+    border-radius: 0.375rem;
+    transition: background-color 0.15s ease;
+}
+
+.ww-tier-limit-item:hover {
+    background: color-mix(in srgb, var(--ww-secondary, #6c757d) 10%, transparent);
 }
 
 .ww-tier-limit-value {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.8rem;
     color: var(--ww-primary, #D4882C);
+    white-space: nowrap;
 }
 
 .ww-tier-limit-name {
     color: var(--ww-text-secondary, #495057);
+    font-size: 0.8rem;
+    text-align: right;
 }
 
 .ww-tier-footer {
@@ -3775,4 +3801,500 @@ img.ww-avatar {
     width: 14px;
     height: 14px;
     border-width: 2px;
+}
+
+/* ── Subscription Admin ── */
+
+.ww-sub-admin-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--ww-border-color, #dee2e6);
+    margin-bottom: 1.25rem;
+}
+
+.ww-sub-admin-tab {
+    position: relative;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ww-text-muted, #6c757d);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.ww-sub-admin-tab:hover {
+    color: var(--ww-primary, #0d6efd);
+}
+
+.ww-sub-admin-tab-active {
+    color: var(--ww-primary, #0d6efd);
+    border-bottom-color: var(--ww-primary, #0d6efd);
+}
+
+.ww-sub-admin-content {
+    padding-top: 0.25rem;
+}
+
+/* Status card — prominent display above tabs */
+.ww-sub-status-card {
+    border-left: 4px solid var(--ww-primary, #0d6efd);
+    background: var(--ww-bg-primary, #fff);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* ── Subscription Status Panel ── */
+
+.ww-sub-status-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+
+.ww-sub-status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.ww-sub-status-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+}
+
+.ww-sub-status-tier-name {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-sub-status-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.ww-sub-status-desc {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ww-text-muted, #6c757d);
+    line-height: 1.5;
+}
+
+.ww-sub-status-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+}
+
+.ww-sub-status-field {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    background: var(--ww-bg-secondary, #f8f9fa);
+    border: 1px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.5rem);
+}
+
+.ww-sub-status-field-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--ww-primary, #0d6efd) 10%, transparent);
+    color: var(--ww-primary, #0d6efd);
+    font-size: 0.85rem;
+}
+
+.ww-sub-status-field-icon-calendar::before {
+    content: "\25A3";
+}
+
+.ww-sub-status-field-icon-clock::before {
+    content: "\25F7";
+}
+
+.ww-sub-status-field-icon-trial::before {
+    content: "\2606";
+}
+
+.ww-sub-status-field-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.ww-sub-status-field-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ww-text-muted, #6c757d);
+    line-height: 1.2;
+}
+
+.ww-sub-status-field-value {
+    font-size: 0.925rem;
+    font-weight: 600;
+    color: var(--ww-text-primary, #212529);
+    line-height: 1.3;
+}
+
+.ww-sub-status-pending {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: var(--ww-border-radius, 0.5rem);
+    background: color-mix(in srgb, var(--ww-info, #17a2b8) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ww-info, #17a2b8) 25%, transparent);
+    font-size: 0.85rem;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-sub-status-pending-icon::before {
+    content: "\21BB";
+    font-size: 0.9rem;
+}
+
+/* Add-on card hover lift */
+.ww-addon-card {
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s ease;
+}
+
+.ww-addon-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+/* ── Features Panel (card layout) ── */
+
+.ww-features-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.ww-features-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-features-summary-icon::before {
+    content: "\2713";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: bold;
+    background: var(--ww-success, #28a745);
+    color: #fff;
+}
+
+.ww-features-category-card {
+    border: 1px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    overflow: hidden;
+    background: var(--ww-bg-primary, #fff);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.ww-features-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ww-border-color, #dee2e6);
+    background: var(--ww-bg-secondary, #f8f9fa);
+}
+
+.ww-features-category-icon::before {
+    content: "\25A1";
+    font-size: 0.875rem;
+}
+
+.ww-features-category-name {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-features-card-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.ww-feature-card {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--ww-border-color, #dee2e6);
+    transition: background 0.15s ease;
+}
+
+.ww-feature-card:last-child {
+    border-bottom: none;
+}
+
+.ww-feature-card:hover {
+    background: var(--ww-bg-secondary, #f8f9fa);
+}
+
+.ww-feature-card-enabled {
+    border-left: 3px solid var(--ww-success, #28a745);
+}
+
+.ww-feature-card-locked {
+    border-left: 3px solid transparent;
+    opacity: 0.75;
+}
+
+.ww-feature-card-locked:hover {
+    opacity: 1;
+}
+
+.ww-feature-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+}
+
+.ww-feature-card-icon-enabled {
+    background: color-mix(in srgb, var(--ww-success, #28a745) 12%, transparent);
+    color: var(--ww-success, #28a745);
+}
+
+.ww-feature-card-icon-locked {
+    background: color-mix(in srgb, var(--ww-text-muted, #6c757d) 12%, transparent);
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-icon-check::before {
+    content: "\2713";
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.ww-icon-lock::before {
+    content: "\2716";
+    font-size: 0.75rem;
+}
+
+.ww-feature-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.ww-feature-card-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ww-text-primary, #212529);
+    line-height: 1.3;
+}
+
+.ww-feature-card-locked .ww-feature-card-name {
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-feature-card-desc {
+    font-size: 0.8rem;
+    color: var(--ww-text-muted, #6c757d);
+    margin-top: 0.15rem;
+    line-height: 1.4;
+}
+
+/* ── Usage Limits Panel (card layout) ── */
+
+.ww-usage-limits-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.ww-usage-limits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.ww-usage-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    background: var(--ww-bg-primary, #fff);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s, transform 0.15s ease;
+    border-top: 3px solid transparent;
+}
+
+.ww-usage-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+
+.ww-usage-card-success {
+    border-top-color: var(--ww-success, #28a745);
+}
+
+.ww-usage-card-warning {
+    border-top-color: var(--ww-warning, #ffc107);
+}
+
+.ww-usage-card-danger {
+    border-top-color: var(--ww-danger, #dc3545);
+}
+
+.ww-usage-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.ww-usage-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.ww-usage-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    font-size: 0.75rem;
+}
+
+.ww-usage-card-icon-success {
+    background: color-mix(in srgb, var(--ww-success, #28a745) 12%, transparent);
+    color: var(--ww-success, #28a745);
+}
+
+.ww-usage-card-icon-success::before {
+    content: "\2713";
+    font-weight: bold;
+}
+
+.ww-usage-card-icon-warning {
+    background: color-mix(in srgb, var(--ww-warning, #ffc107) 15%, transparent);
+    color: var(--ww-warning-text, #856404);
+}
+
+.ww-usage-card-icon-warning::before {
+    content: "\26A0";
+}
+
+.ww-usage-card-icon-danger {
+    background: color-mix(in srgb, var(--ww-danger, #dc3545) 12%, transparent);
+    color: var(--ww-danger, #dc3545);
+}
+
+.ww-usage-card-icon-danger::before {
+    content: "\2718";
+    font-weight: bold;
+}
+
+.ww-usage-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ww-text-primary, #212529);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ww-usage-card-unit {
+    font-size: 0.775rem;
+    color: var(--ww-text-muted, #6c757d);
+    margin-top: -0.25rem;
+}
+
+.ww-usage-card-bar-wrapper {
+    padding-top: 0.125rem;
+}
+
+.ww-usage-card-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--ww-bg-secondary, #e9ecef);
+    overflow: hidden;
+}
+
+.ww-usage-card-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.ww-bar-success {
+    background: var(--ww-success, #28a745);
+}
+
+.ww-bar-warning {
+    background: var(--ww-warning, #ffc107);
+}
+
+.ww-bar-danger {
+    background: var(--ww-danger, #dc3545);
+}
+
+.ww-usage-card-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ww-usage-card-count {
+    font-size: 0.8rem;
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-usage-card-percent {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-usage-card-message {
+    font-size: 0.775rem;
+    color: var(--ww-text-muted, #6c757d);
+    padding-top: 0.25rem;
+    border-top: 1px solid var(--ww-border-color, #dee2e6);
+    line-height: 1.4;
 }

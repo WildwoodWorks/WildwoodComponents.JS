@@ -46,43 +46,49 @@ export function UsageLimitsPanel({ limitStatuses, loading, className }: UsageLim
 
   return (
     <div className={`ww-usage-limits-panel ${className ?? ''}`}>
-      {limitStatuses.map((limit) => {
-        const badge = getStatusBadge(limit);
-        const barWidth = limit.isUnlimited ? 100 : Math.min(limit.usagePercent, 100);
+      <div className="ww-usage-limits-grid">
+        {limitStatuses.map((limit) => {
+          const badge = getStatusBadge(limit);
+          const barWidth = limit.isUnlimited ? 100 : Math.min(limit.usagePercent, 100);
+          const statusKey =
+            limit.isHardBlocked || limit.isExceeded ? 'danger' : limit.isAtWarningThreshold ? 'warning' : 'success';
 
-        return (
-          <div key={limit.limitCode} className="ww-usage-limit-item">
-            <div className="ww-usage-limit-header">
-              <span className="ww-usage-limit-name">
-                {limit.displayName}
-                {limit.unit && <span className="ww-text-muted ww-text-sm"> ({limit.unit})</span>}
-              </span>
-              <span className={`ww-badge ${badge.cls}`}>{badge.text}</span>
+          return (
+            <div key={limit.limitCode} className={`ww-usage-card ww-usage-card-${statusKey}`}>
+              <div className="ww-usage-card-header">
+                <div className="ww-usage-card-title">
+                  <span className={`ww-usage-card-icon ww-usage-card-icon-${statusKey}`} />
+                  <span className="ww-usage-card-name">{limit.displayName}</span>
+                </div>
+                <span className={`ww-badge ${badge.cls}`}>{badge.text}</span>
+              </div>
+
+              {limit.unit && <span className="ww-usage-card-unit">{limit.unit}</span>}
+
+              <div className="ww-usage-card-bar-wrapper">
+                <div className="ww-usage-card-bar">
+                  <div className={`ww-usage-card-bar-fill ww-bar-${statusKey}`} style={{ width: `${barWidth}%` }} />
+                </div>
+              </div>
+
+              <div className="ww-usage-card-stats">
+                {limit.isUnlimited ? (
+                  <span className="ww-usage-card-count">{limit.currentUsage.toLocaleString()} used</span>
+                ) : (
+                  <>
+                    <span className="ww-usage-card-count">
+                      {limit.currentUsage.toLocaleString()} / {limit.maxValue.toLocaleString()}
+                    </span>
+                    <span className="ww-usage-card-percent">{Math.round(limit.usagePercent)}%</span>
+                  </>
+                )}
+              </div>
+
+              {limit.statusMessage && <div className="ww-usage-card-message">{limit.statusMessage}</div>}
             </div>
-
-            <div className="ww-usage-limit-bar">
-              <div className={`ww-usage-limit-bar-fill ${getBarClass(limit)}`} style={{ width: `${barWidth}%` }} />
-            </div>
-
-            <div className="ww-usage-limit-details ww-text-sm ww-text-muted">
-              {limit.isUnlimited ? (
-                <span>{limit.currentUsage.toLocaleString()} used</span>
-              ) : (
-                <>
-                  <span>
-                    {limit.currentUsage.toLocaleString()} / {limit.maxValue.toLocaleString()}
-                  </span>
-                  <span>{Math.round(limit.usagePercent)}%</span>
-                </>
-              )}
-            </div>
-
-            {limit.statusMessage && (
-              <div className="ww-usage-limit-message ww-text-sm ww-text-muted">{limit.statusMessage}</div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
