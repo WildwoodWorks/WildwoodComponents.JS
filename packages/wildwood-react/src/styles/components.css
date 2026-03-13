@@ -293,6 +293,475 @@
 
 
 /* ========================================
+   BASE COMPONENT CLASSES
+   Mirrors wildwood-themes.css from Blazor
+   ======================================== */
+
+/* Buttons */
+.ww-btn {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    border-radius: var(--ww-border-radius, 0.375rem);
+    transition: all 0.15s ease-in-out;
+    text-decoration: none;
+}
+
+.ww-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.ww-btn-primary {
+    background: var(--ww-gradient-button, var(--ww-primary, #D4882C));
+    border: none;
+    color: var(--ww-btn-primary-text, white);
+    box-shadow: var(--ww-shadow-button, 0 2px 4px rgba(0, 0, 0, 0.2));
+    transition: all 0.3s ease;
+}
+
+.ww-btn-primary:hover:not(:disabled) {
+    background: var(--ww-gradient-button-hover, var(--ww-primary-light, #E8A33C));
+    transform: translateY(-1px);
+    box-shadow: var(--ww-shadow-button-hover, 0 4px 8px rgba(0, 0, 0, 0.25));
+}
+
+.ww-btn-success {
+    background: var(--ww-success, #28a745);
+    border: 1px solid var(--ww-success, #28a745);
+    color: var(--ww-btn-success-text, white);
+}
+
+.ww-btn-success:hover:not(:disabled) {
+    background: var(--ww-success-light, #48c774);
+    border-color: var(--ww-success-light, #48c774);
+}
+
+/* Alerts */
+.ww-alert {
+    padding: 0.75rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--ww-border-radius, 0.375rem);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.ww-alert .ww-btn-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    padding: 0;
+    line-height: 1;
+}
+
+.ww-alert .ww-btn-close:hover {
+    opacity: 1;
+}
+
+.ww-alert-info {
+    background-color: var(--ww-info-bg, rgba(23, 162, 184, 0.15));
+    border-color: var(--ww-info, #17a2b8);
+    color: var(--ww-info-text, #055160);
+}
+
+.ww-alert-danger {
+    background-color: var(--ww-danger-bg, rgba(220, 53, 69, 0.15));
+    border-color: var(--ww-danger, #dc3545);
+    color: var(--ww-danger-text, #842029);
+}
+
+.ww-alert-success {
+    background-color: var(--ww-success-bg, rgba(40, 167, 69, 0.15));
+    border-color: var(--ww-success, #28a745);
+    color: var(--ww-success-text, #0f5132);
+}
+
+.ww-alert-warning {
+    background-color: var(--ww-warning-bg, rgba(255, 193, 7, 0.15));
+    border-color: var(--ww-warning, #ffc107);
+    color: var(--ww-warning-text, #664d03);
+}
+
+/* Badge variants */
+.ww-badge-success {
+    background: var(--ww-success, #28a745);
+    color: #fff;
+}
+
+.ww-badge-info {
+    background: var(--ww-info, #17a2b8);
+    color: #fff;
+}
+
+.ww-badge-secondary {
+    background: var(--ww-text-muted, #6c757d);
+    color: #fff;
+}
+
+/* Text utilities */
+.ww-text-muted {
+    color: var(--ww-text-muted, #6c757d);
+}
+
+/* ========================================
+   FORM STYLING
+   ======================================== */
+
+.ww-form-group {
+    margin-bottom: 0.75rem;
+}
+
+.ww-form-group label,
+.ww-form-label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: block;
+    color: var(--ww-text-primary, #212529);
+    font-size: 0.875rem;
+}
+
+.ww-form-control {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--ww-text-primary, #212529);
+    background-color: var(--ww-input-bg, #ffffff);
+    border: 1px solid var(--ww-border-color, #ced4da);
+    border-radius: var(--ww-border-radius, 0.375rem);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ww-form-control::placeholder {
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-form-control:focus {
+    outline: none;
+    background-color: var(--ww-input-bg, #ffffff);
+    border-color: var(--ww-focus-border, var(--ww-primary, #D4882C));
+    box-shadow: 0 0 0 0.25rem var(--ww-focus-ring, rgba(212, 136, 44, 0.25));
+}
+
+.ww-form-control:disabled {
+    background-color: var(--ww-bg-tertiary, #e9ecef);
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.ww-form-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.ww-form-row > .ww-form-group {
+    flex: 1;
+}
+
+.ww-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.ww-input-group .ww-form-control {
+    flex: 1;
+}
+
+.ww-password-input-container {
+    position: relative;
+}
+
+.ww-password-input-container .ww-form-control {
+    padding-right: 2.5rem;
+}
+
+.ww-password-toggle {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ww-text-muted, #6c757d);
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+}
+
+.ww-password-toggle:hover {
+    color: var(--ww-text-primary, #212529);
+}
+
+/* Responsive form */
+@media (max-width: 576px) {
+    .ww-form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .ww-form-control {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+
+/* ========================================
+   SIGNUP WITH SUBSCRIPTION COMPONENT
+   ======================================== */
+
+.ww-signup-subscription {
+    max-width: 700px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Plan Summary Card — shown above registration when tier is pre-selected */
+.ww-plan-summary-card {
+    background: var(--ww-bg-secondary, #f8f9fa);
+    border: 1px solid var(--ww-primary, #0d6efd);
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ww-plan-summary-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ww-plan-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ww-plan-info .ww-plan-name {
+    font-weight: 600;
+    font-size: 1.125rem;
+    color: var(--ww-text-primary, #212529);
+    margin: 0 0 0.25rem;
+}
+
+.ww-plan-info .ww-plan-desc {
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.ww-plan-price {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.ww-plan-price .ww-price-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ww-primary, #0d6efd);
+}
+
+.ww-plan-price .ww-price-period {
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+}
+
+.ww-plan-change-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--ww-primary, #0d6efd);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: none;
+}
+
+.ww-plan-change-link:hover {
+    text-decoration: underline;
+    color: var(--ww-primary-dark, #0b5ed7);
+}
+
+@media (max-width: 480px) {
+    .ww-plan-summary-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ww-plan-price {
+        text-align: left;
+    }
+}
+
+/* Step Group (step + connector together) */
+.ww-step-group {
+    display: flex;
+    align-items: center;
+}
+
+/* Signup Step Content */
+.ww-signup-step {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Step Navigation */
+.ww-signup-step-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ww-border-color, #dee2e6);
+}
+
+/* Success Step */
+.ww-signup-success {
+    text-align: center;
+    padding: 2rem 1.5rem;
+}
+
+.ww-signup-success .ww-reg-success-icon {
+    margin-bottom: 1rem;
+    color: var(--ww-success, #28a745);
+}
+
+.ww-signup-success h3 {
+    color: var(--ww-text-primary, #212529);
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+}
+
+/* Processing Step */
+.ww-signup-processing {
+    text-align: center;
+    padding: 2rem 1.5rem;
+}
+
+.ww-signup-processing h3 {
+    color: var(--ww-text-primary, #212529);
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+}
+
+.ww-signup-processing .ww-reg-success-icon {
+    margin-bottom: 1.5rem;
+}
+
+.ww-reg-error-icon {
+    margin-bottom: 1rem;
+    color: var(--ww-danger, #dc3545);
+}
+
+.ww-signup-processing-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+/* Tier Price (within pricing cards) */
+.ww-tier-price {
+    margin-top: 0.5rem;
+}
+
+/* Payment Amount */
+.ww-payment-amount {
+    margin-bottom: 1rem;
+}
+
+.ww-payment-summary {
+    background: var(--ww-bg-secondary, #f8f9fa);
+    border: 1px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.ww-payment-summary-header {
+    margin-bottom: 0.75rem;
+}
+
+.ww-payment-summary-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-payment-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-payment-summary-price {
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--ww-primary, #0d6efd);
+}
+
+.ww-payment-summary-period {
+    font-weight: 400;
+    font-size: 0.8125rem;
+    color: var(--ww-text-muted, #6c757d);
+}
+
+.ww-payment-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ww-text-primary, #212529);
+}
+
+.ww-payment-currency {
+    font-size: 0.9rem;
+    color: var(--ww-text-muted, #6c757d);
+    margin-left: 0.25rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .ww-signup-subscription {
+        max-width: 100%;
+    }
+
+    .ww-signup-step {
+        max-width: 100%;
+    }
+
+    .ww-step-group .ww-step-connector {
+        width: 24px;
+    }
+
+    .ww-step-group .ww-step-number {
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+    }
+}
+
+
+/* ========================================
    AI CHAT COMPONENT
    ======================================== */
 
@@ -1182,6 +1651,54 @@
 
 .ww-form-group-sm {
     max-width: 120px;
+}
+
+/* Stripe Card Element */
+.ww-stripe-card-section {
+    margin-bottom: 1.5rem;
+}
+
+.ww-stripe-card-section .ww-form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.ww-stripe-card-element {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.375rem);
+    background: var(--ww-bg-primary, #fff);
+    transition: border-color 0.2s;
+    min-height: 44px;
+}
+
+.ww-stripe-card-element:focus-within {
+    border-color: var(--ww-primary, #D4882C);
+    box-shadow: 0 0 0 3px rgba(212, 136, 44, 0.15);
+}
+
+.ww-stripe-card-element.ww-stripe-card-error {
+    border-color: var(--ww-danger, #dc3545);
+}
+
+.ww-stripe-card-element.ww-stripe-card-complete {
+    border-color: var(--ww-success, #198754);
+}
+
+.ww-stripe-card-error-text {
+    color: var(--ww-danger, #dc3545);
+    font-size: 0.8125rem;
+    margin-top: 0.375rem;
+}
+
+.ww-stripe-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
 }
 
 /* Submit */

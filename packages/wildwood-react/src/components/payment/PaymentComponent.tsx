@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   AppPaymentConfigurationDto,
   PaymentProviderDto,
   SavedPaymentMethodDto,
   PaymentCompletionResult,
-  PaymentProviderType,
 } from '@wildwood/core';
+import { PaymentProviderType, loadStripe } from '@wildwood/core';
 import { usePayment } from '../../hooks/usePayment.js';
 
 export interface PaymentComponentProps {
@@ -60,6 +60,41 @@ function formatAmount(amount: number, currency: string): string {
   }
 }
 
+// Stripe types (minimal, from @stripe/stripe-js)
+interface StripeInstance {
+  elements: (options?: Record<string, unknown>) => StripeElements;
+  confirmCardPayment: (
+    clientSecret: string,
+    data?: { payment_method: { card: StripeCardElement } },
+  ) => Promise<{
+    paymentIntent?: { id: string; status: string };
+    error?: { message: string; code?: string };
+  }>;
+}
+
+interface StripeElements {
+  create: (type: 'card', options?: Record<string, unknown>) => StripeCardElement;
+}
+
+interface StripeCardElement {
+  mount: (domElement: string | HTMLElement) => void;
+  unmount: () => void;
+  destroy: () => void;
+  on: (event: string, handler: (e: StripeCardEvent) => void) => void;
+}
+
+interface StripeCardEvent {
+  complete: boolean;
+  error?: { message: string };
+  empty: boolean;
+}
+
+declare global {
+  interface Window {
+    Stripe?: (publishableKey: string) => StripeInstance;
+  }
+}
+
 export function PaymentComponent({
   appId,
   amount,
@@ -89,6 +124,7 @@ export function PaymentComponent({
     savedMethods,
     getAppPaymentConfiguration,
     initiatePayment,
+    confirmPayment,
     getSavedPaymentMethods,
     deleteSavedPaymentMethod,
     setDefaultPaymentMethod,
@@ -116,6 +152,19 @@ export function PaymentComponent({
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
   const [billingCountry, setBillingCountry] = useState('US');
+
+  // Stripe Elements state
+  const stripeRef = useRef<StripeInstance | null>(null);
+  const cardElementRef = useRef<StripeCardElement | null>(null);
+  const cardContainerRef = useRef<HTMLDivElement>(null);
+  const [stripeReady, setStripeReady] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const [cardComplete, setCardComplete] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+
+  // Is the selected provider Stripe?
+  const isStripeProvider = selectedProvider?.providerType === PaymentProviderType.Stripe;
 
   // Load providers
   useEffect(() => {
@@ -146,6 +195,102 @@ export function PaymentComponent({
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Initialize Stripe Elements when a Stripe provider is selected
+  useEffect(() => {
+    if (!isStripeProvider || !selectedProvider?.publishableKey) return;
+
+    const publishableKey = selectedProvider.publishableKey;
+    let cancelled = false;
+
+    const initStripe = async () => {
+      setStripeLoading(true);
+      setStripeError(null);
+      setStripeReady(false);
+
+      try {
+        // Load Stripe.js from CDN
+        await loadStripe();
+
+        if (cancelled) return;
+
+        if (!window.Stripe) {
+          setStripeError('Failed to load Stripe. Please refresh and try again.');
+          return;
+        }
+
+        // Create Stripe instance
+        const stripe = window.Stripe(publishableKey);
+        stripeRef.current = stripe;
+
+        // Create card element with styling
+        const elements = stripe.elements();
+        const style = {
+          base: {
+            fontSize: '16px',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--ww-text-primary').trim() || '#32325d',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            '::placeholder': {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--ww-text-muted').trim() || '#aab7c4',
+            },
+          },
+          invalid: {
+            color: getComputedStyle(document.documentElement).getPropertyValue('--ww-danger').trim() || '#dc3545',
+            iconColor: getComputedStyle(document.documentElement).getPropertyValue('--ww-danger').trim() || '#dc3545',
+          },
+        };
+
+        const card = elements.create('card', { style });
+        cardElementRef.current = card;
+
+        // Listen for card validation events
+        card.on('change', (event: StripeCardEvent) => {
+          setCardComplete(event.complete);
+          setCardError(event.error?.message ?? null);
+        });
+
+        // Mount when the container is available
+        const mountCard = () => {
+          if (cancelled) return;
+          if (cardContainerRef.current) {
+            card.mount(cardContainerRef.current);
+            setStripeReady(true);
+          } else {
+            // Container not yet in DOM, retry on next frame
+            requestAnimationFrame(mountCard);
+          }
+        };
+        mountCard();
+      } catch (err) {
+        if (!cancelled) {
+          setStripeError(err instanceof Error ? err.message : 'Failed to initialize payment form.');
+        }
+      } finally {
+        if (!cancelled) {
+          setStripeLoading(false);
+        }
+      }
+    };
+
+    initStripe();
+
+    return () => {
+      cancelled = true;
+      if (cardElementRef.current) {
+        try {
+          cardElementRef.current.destroy();
+        } catch {
+          // element may already be destroyed
+        }
+        cardElementRef.current = null;
+      }
+      stripeRef.current = null;
+      setStripeReady(false);
+      setCardComplete(false);
+      setCardError(null);
+    };
+  }, [isStripeProvider, selectedProvider?.publishableKey]);
+
+  // Handle payment
   const handlePay = useCallback(async () => {
     setPaymentError(null);
 
@@ -160,9 +305,16 @@ export function PaymentComponent({
       return;
     }
 
+    // Stripe: validate card is complete
+    if (isStripeProvider && !cardComplete) {
+      setPaymentError('Please enter your card details.');
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      const result = await initiatePayment({
+      // Step 1: Initiate payment on the server → get clientSecret
+      const initResult = await initiatePayment({
         providerId,
         appId: appId ?? config?.appId ?? '',
         amount,
@@ -179,40 +331,86 @@ export function PaymentComponent({
         metadata,
       });
 
-      if (result.success) {
-        if (result.redirectUrl || result.approvalUrl) {
-          const url = result.redirectUrl ?? result.approvalUrl!;
-          try {
-            const parsed = new URL(url, window.location.origin);
-            if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-              window.location.href = parsed.href;
-              return;
-            }
-          } catch {
-            /* fall through */
+      if (!initResult.success) {
+        const msg = initResult.errorMessage ?? 'Payment initiation failed';
+        setPaymentError(msg);
+        onPaymentFailure?.(msg);
+        return;
+      }
+
+      // Handle redirect-based providers (PayPal, etc.)
+      if (initResult.redirectUrl || initResult.approvalUrl) {
+        const url = initResult.redirectUrl ?? initResult.approvalUrl!;
+        try {
+          const parsed = new URL(url, window.location.origin);
+          if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+            window.location.href = parsed.href;
+            return;
           }
-          setPaymentError('Invalid redirect URL');
+        } catch {
+          /* fall through */
+        }
+        setPaymentError('Invalid redirect URL');
+        return;
+      }
+
+      // Step 2: For Stripe, confirm payment client-side with card element
+      if (isStripeProvider && initResult.clientSecret && stripeRef.current && cardElementRef.current) {
+        const { paymentIntent, error: stripeConfirmError } = await stripeRef.current.confirmCardPayment(
+          initResult.clientSecret,
+          {
+            payment_method: {
+              card: cardElementRef.current,
+            },
+          },
+        );
+
+        if (stripeConfirmError) {
+          const msg = stripeConfirmError.message ?? 'Card payment failed';
+          setPaymentError(msg);
+          onPaymentFailure?.(msg);
           return;
         }
 
-        const completionResult: PaymentCompletionResult = {
-          success: true,
-          transactionId: result.paymentIntentId,
-          paymentIntentId: result.paymentIntentId,
-          subscriptionId: result.subscriptionId,
-          amountPaid: amount,
-          currency,
-          status: 'Completed',
-          completedAt: new Date().toISOString(),
-        };
-        setPaymentResult(completionResult);
-        setPaymentComplete(true);
-        onPaymentSuccess?.(completionResult);
-      } else {
-        const msg = result.errorMessage ?? 'Payment failed';
-        setPaymentError(msg);
-        onPaymentFailure?.(msg);
+        if (!paymentIntent || paymentIntent.status !== 'succeeded') {
+          const msg = paymentIntent
+            ? `Payment status: ${paymentIntent.status}. Please try again.`
+            : 'Payment confirmation failed';
+          setPaymentError(msg);
+          onPaymentFailure?.(msg);
+          return;
+        }
+
+        // Step 3: Confirm on the server
+        const serverResult = await confirmPayment(paymentIntent.id, PaymentProviderType.Stripe);
+
+        if (serverResult.success) {
+          setPaymentResult(serverResult);
+          setPaymentComplete(true);
+          onPaymentSuccess?.(serverResult);
+        } else {
+          const msg = serverResult.errorMessage ?? 'Payment confirmation failed';
+          setPaymentError(msg);
+          onPaymentFailure?.(msg);
+        }
+        return;
       }
+
+      // Non-Stripe provider without redirect: treat initiation as completion
+      // (This fallback handles simple payment providers)
+      const completionResult: PaymentCompletionResult = {
+        success: true,
+        transactionId: initResult.paymentIntentId,
+        paymentIntentId: initResult.paymentIntentId,
+        subscriptionId: initResult.subscriptionId,
+        amountPaid: amount,
+        currency,
+        status: 'Completed',
+        completedAt: new Date().toISOString(),
+      };
+      setPaymentResult(completionResult);
+      setPaymentComplete(true);
+      onPaymentSuccess?.(completionResult);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Payment failed';
       setPaymentError(msg);
@@ -236,7 +434,10 @@ export function PaymentComponent({
     returnUrl,
     cancelUrl,
     metadata,
+    isStripeProvider,
+    cardComplete,
     initiatePayment,
+    confirmPayment,
     onPaymentSuccess,
     onPaymentFailure,
   ]);
@@ -264,8 +465,11 @@ export function PaymentComponent({
     setPaymentResult(null);
   };
 
+  // Can submit?
+  const canSubmit = isStripeProvider ? stripeReady && cardComplete && !isProcessing : !isProcessing && !loading;
+
   // Loading state
-  if (loading && !paymentComplete) {
+  if (loading && !paymentComplete && !providers.length) {
     return (
       <div className={`ww-payment ${className ?? ''}`}>
         <div className="ww-payment-loading">
@@ -315,7 +519,7 @@ export function PaymentComponent({
     );
   }
 
-  // Error state (full page)
+  // Error state (full page — no providers loaded)
   if (paymentError && !providers.length) {
     return (
       <div className={`ww-payment ${className ?? ''}`}>
@@ -367,6 +571,25 @@ export function PaymentComponent({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Stripe Card Element */}
+      {isStripeProvider && (
+        <div className="ww-stripe-card-section">
+          <label className="ww-form-label">Card Details</label>
+          {stripeLoading && (
+            <div className="ww-stripe-loading">
+              <span className="ww-spinner ww-spinner-sm" />
+              <span className="ww-text-muted">Loading card form...</span>
+            </div>
+          )}
+          {stripeError && <div className="ww-alert ww-alert-danger">{stripeError}</div>}
+          <div
+            ref={cardContainerRef}
+            className={`ww-stripe-card-element ${cardError ? 'ww-stripe-card-error' : ''} ${cardComplete ? 'ww-stripe-card-complete' : ''}`}
+          />
+          {cardError && <div className="ww-stripe-card-error-text">{cardError}</div>}
         </div>
       )}
 
@@ -506,7 +729,7 @@ export function PaymentComponent({
             type="button"
             className="ww-btn ww-btn-primary ww-btn-block ww-btn-lg"
             onClick={handlePay}
-            disabled={isProcessing || loading}
+            disabled={!canSubmit}
           >
             {isProcessing ? (
               <>

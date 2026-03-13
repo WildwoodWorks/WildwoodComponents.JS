@@ -15,6 +15,8 @@ import type {
   TwoFactorSendCodeResponse,
   TwoFactorVerifyRequest,
   TwoFactorVerifyResponse,
+  ValidateRegistrationRequest,
+  ValidateRegistrationResponse,
 } from './types.js';
 
 const STORAGE_KEYS = {
@@ -117,6 +119,21 @@ export class AuthService {
       this.onAuthChanged?.(data);
       this.events.emit('authChanged', data);
     }
+    return data;
+  }
+
+  async validateRegistration(request: ValidateRegistrationRequest): Promise<ValidateRegistrationResponse> {
+    const { data } = await this.http.post<ValidateRegistrationResponse>(
+      'api/userregistration/validate',
+      {
+        Username: request.username ?? request.email,
+        Email: request.email,
+        Password: request.password,
+        Token: request.token,
+        AppId: request.appId,
+      },
+      { skipAuth: true },
+    );
     return data;
   }
 

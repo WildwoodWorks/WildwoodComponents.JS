@@ -20,7 +20,7 @@ export class PaymentService {
   // Configuration
   async getAppPaymentConfiguration(appId: string): Promise<AppPaymentConfigurationDto | null> {
     try {
-      const { data } = await this.http.get<AppPaymentConfigurationDto>(`api/payments/${appId}/configuration`);
+      const { data } = await this.http.get<AppPaymentConfigurationDto>(`api/payment/configuration/${appId}`);
       return data ?? null;
     } catch {
       return null;
@@ -28,13 +28,13 @@ export class PaymentService {
   }
 
   async getAvailableProviders(appId: string): Promise<PlatformFilteredProvidersDto> {
-    const { data } = await this.http.get<PlatformFilteredProvidersDto>(`api/payments/${appId}/providers`);
+    const { data } = await this.http.get<PlatformFilteredProvidersDto>(`api/payment/providers/${appId}`);
     return data;
   }
 
   // Payment operations
   async initiatePayment(request: InitiatePaymentRequest): Promise<InitiatePaymentResponse> {
-    const { data } = await this.http.post<InitiatePaymentResponse>('api/payments/initiate', request);
+    const { data } = await this.http.post<InitiatePaymentResponse>('api/payment/initiate', request);
     return data;
   }
 
@@ -43,7 +43,7 @@ export class PaymentService {
     providerType: PaymentProviderType,
     confirmationData?: Record<string, unknown>,
   ): Promise<PaymentCompletionResult> {
-    const { data } = await this.http.post<PaymentCompletionResult>('api/payments/confirm', {
+    const { data } = await this.http.post<PaymentCompletionResult>('api/payment/confirm', {
       paymentIntentId,
       providerType,
       confirmationData,
@@ -56,7 +56,7 @@ export class PaymentService {
     receiptData: string,
     providerType: PaymentProviderType,
   ): Promise<PaymentCompletionResult> {
-    const { data } = await this.http.post<PaymentCompletionResult>('api/payments/validate-receipt', {
+    const { data } = await this.http.post<PaymentCompletionResult>('api/payment/validate-receipt', {
       appId,
       receiptData,
       providerType,
@@ -65,12 +65,12 @@ export class PaymentService {
   }
 
   async getPaymentStatus(transactionId: string): Promise<PaymentCompletionResult> {
-    const { data } = await this.http.get<PaymentCompletionResult>(`api/payments/status/${transactionId}`);
+    const { data } = await this.http.get<PaymentCompletionResult>(`api/payment/status/${transactionId}`);
     return data;
   }
 
   async requestRefund(transactionId: string, amount?: number, reason?: string): Promise<PaymentCompletionResult> {
-    const { data } = await this.http.post<PaymentCompletionResult>('api/payments/refund', {
+    const { data } = await this.http.post<PaymentCompletionResult>('api/payment/refund', {
       transactionId,
       amount,
       reason,
@@ -80,13 +80,13 @@ export class PaymentService {
 
   // Saved payment methods
   async getSavedPaymentMethods(customerId: string): Promise<SavedPaymentMethodDto[]> {
-    const { data } = await this.http.get<SavedPaymentMethodDto[]>(`api/payments/methods/${customerId}`);
+    const { data } = await this.http.get<SavedPaymentMethodDto[]>(`api/payment/methods/${customerId}`);
     return data ?? [];
   }
 
   async deleteSavedPaymentMethod(paymentMethodId: string): Promise<boolean> {
     try {
-      await this.http.delete(`api/payments/methods/${paymentMethodId}`);
+      await this.http.delete(`api/payment/methods/${paymentMethodId}`);
       return true;
     } catch {
       return false;
@@ -95,7 +95,7 @@ export class PaymentService {
 
   async setDefaultPaymentMethod(paymentMethodId: string): Promise<boolean> {
     try {
-      await this.http.post(`api/payments/methods/${paymentMethodId}/default`);
+      await this.http.post(`api/payment/methods/${paymentMethodId}/default`);
       return true;
     } catch {
       return false;
@@ -108,7 +108,7 @@ export class PaymentService {
     companyClientId?: string,
   ): Promise<boolean> {
     try {
-      await this.http.post('api/payments/link-transaction', {
+      await this.http.post('api/payment/link-transaction', {
         externalTransactionId,
         userId,
         companyClientId,

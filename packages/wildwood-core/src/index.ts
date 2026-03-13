@@ -54,6 +54,8 @@ export type {
   ResetPasswordRequest,
   RefreshTokenRequest,
   PendingDisclaimerModel,
+  ValidateRegistrationRequest,
+  ValidateRegistrationResponse,
 } from './auth/types.js';
 
 // AI

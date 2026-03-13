@@ -228,6 +228,38 @@ export function TokenRegistrationComponent({
         return;
       }
 
+      // Server-side validation: check username/email availability
+      setIsLoading(true);
+      try {
+        const validation = await client.auth.validateRegistration({
+          username: username || email,
+          email,
+          password,
+          token: useToken && token.trim() ? token : undefined,
+          appId: appId ?? '',
+        });
+
+        if (!validation.usernameAvailable) {
+          setError('This username is already taken. Please choose a different one.');
+          setIsLoading(false);
+          return;
+        }
+        if (!validation.emailAvailable) {
+          setError('An account with this email address already exists.');
+          setIsLoading(false);
+          return;
+        }
+        if (!validation.passwordValid && validation.passwordErrors?.length > 0) {
+          setError(validation.passwordErrors.join(' '));
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        // If validation endpoint fails, continue with registration
+        // (the register endpoint will catch real issues)
+      }
+      setIsLoading(false);
+
       // Deferred mode: collect data without calling API
       if (deferSubmission) {
         onFormDataCollected?.({

@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
-import type { RegistrationFormData, AppTierModel, AppTierPricingModel } from '@wildwood/core';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { RegistrationFormData, AppTierModel, AppTierPricingModel, PaymentCompletionResult } from '@wildwood/core';
 import { TokenRegistrationComponent } from './TokenRegistrationComponent.js';
 import { PricingDisplayComponent } from '../pricing/PricingDisplayComponent.js';
+import { PaymentComponent } from '../payment/PaymentComponent.js';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface SignupWithSubscriptionComponentProps {
@@ -11,15 +12,25 @@ export interface SignupWithSubscriptionComponentProps {
   requireToken?: boolean;
   allowOpenRegistration?: boolean;
   skipTierSelection?: boolean;
+  requireBillingAddress?: boolean;
   onComplete?: () => void;
   onCancel?: () => void;
   className?: string;
 }
 
-type Step = 'register' | 'select-tier' | 'processing' | 'success';
+type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'success';
 
-// Steps shown in the visual step indicator
-const VISIBLE_STEPS: Step[] = ['register', 'select-tier', 'success'];
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  EUR: '\u20AC',
+  GBP: '\u00A3',
+  JPY: '\u00A5',
+};
+
+function formatPrice(amount: number, currency = 'USD'): string {
+  const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
+  return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(0)}`;
+}
 
 export function SignupWithSubscriptionComponent({
   appId,
@@ -28,11 +39,13 @@ export function SignupWithSubscriptionComponent({
   requireToken = false,
   allowOpenRegistration = true,
   skipTierSelection = false,
+  requireBillingAddress = false,
   onComplete,
   onCancel,
   className,
 }: SignupWithSubscriptionComponentProps) {
   const client = useWildwood();
+  const resolvedAppId = appId ?? client.config.appId ?? '';
   const [currentStep, setCurrentStep] = useState<Step>('register');
   const [formData, setFormData] = useState<RegistrationFormData | null>(null);
   const [selectedTier, setSelectedTier] = useState<AppTierModel | null>(null);
@@ -40,29 +53,94 @@ export function SignupWithSubscriptionComponent({
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState('');
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
+  const [paymentTransactionId, setPaymentTransactionId] = useState<string | undefined>();
   const processingRef = useRef(false);
   // Track completed sub-steps so retry doesn't re-register an already-created user
   const registeredRef = useRef(false);
   const loggedInRef = useRef(false);
 
+  // Pre-selected tier: fetch tier details and show summary card instead of tier selection step
+  const [preSelectedTier, setPreSelectedTier] = useState<AppTierModel | null>(null);
+  const [preSelectedTierPricing, setPreSelectedTierPricing] = useState<AppTierPricingModel | null>(null);
+  const [tierLoading, setTierLoading] = useState(!!preSelectedTierId);
+  // When true, user clicked "Change plan" — show full tier grid even though we had a preSelectedTierId
+  const [showFullTierSelection, setShowFullTierSelection] = useState(false);
+
+  // Fetch tier details when preSelectedTierId is provided
+  useEffect(() => {
+    if (!preSelectedTierId || !resolvedAppId) {
+      setTierLoading(false);
+      return;
+    }
+
+    client.appTier
+      .getPublicTiers(resolvedAppId)
+      .then((tiers) => {
+        const tier = tiers.find((t) => t.id === preSelectedTierId);
+        if (tier) {
+          setPreSelectedTier(tier);
+          const pricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0] ?? null;
+          setPreSelectedTierPricing(pricing);
+          setSelectedTier(tier);
+          setSelectedPricing(pricing);
+        }
+      })
+      .catch(() => {
+        // If fetch fails, fall back to showing the full tier selection
+      })
+      .finally(() => {
+        setTierLoading(false);
+      });
+  }, [preSelectedTierId, resolvedAppId, client.appTier]);
+
+  // Determine the effective flow
+  const hasPreSelectedTier = !!preSelectedTier && !showFullTierSelection;
+  const effectiveSkipTierSelection = skipTierSelection || hasPreSelectedTier;
+
+  // Is the selected tier a paid tier that requires payment?
+  const requiresPayment =
+    selectedTier != null && !selectedTier.isFreeTier && selectedPricing != null && selectedPricing.price > 0;
+
+  // Build visible steps dynamically based on flow
+  const visibleSteps: Step[] = (() => {
+    const steps: Step[] = ['register'];
+    if (!effectiveSkipTierSelection) steps.push('select-tier');
+    if (requiresPayment) steps.push('payment');
+    steps.push('success');
+    return steps;
+  })();
+
   const getVisibleStepIndex = (step: Step): number => {
-    // Map processing to the same index as success (step 3)
+    // Map processing to same position as success in the indicator
     const mapped = step === 'processing' ? 'success' : step;
-    return VISIBLE_STEPS.indexOf(mapped);
+    return visibleSteps.indexOf(mapped);
   };
   const isStepActive = (step: Step): boolean => getVisibleStepIndex(currentStep) >= getVisibleStepIndex(step);
   const isStepCompleted = (step: Step): boolean => getVisibleStepIndex(currentStep) > getVisibleStepIndex(step);
 
-  // Step 3: Register user → login → subscribe (defined first, stored in ref for stable access)
+  const stepLabels: Record<Step, string> = {
+    register: 'Create Account',
+    'select-tier': 'Choose Plan',
+    payment: 'Payment',
+    processing: 'Processing',
+    success: 'Complete',
+  };
+
+  // Processing: Register user → login → subscribe
   const processSignup = useCallback(
-    async (data: RegistrationFormData, tier: AppTierModel | null, pricing: AppTierPricingModel | null) => {
+    async (
+      data: RegistrationFormData,
+      tier: AppTierModel | null,
+      pricing: AppTierPricingModel | null,
+      txnId?: string,
+    ) => {
       if (processingRef.current) return;
       processingRef.current = true;
       setCurrentStep('processing');
       setProcessingError(null);
 
       try {
-        const resolvedAppId = appId ?? client.config.appId ?? '';
+        const appIdForRequest = appId ?? client.config.appId ?? '';
 
         // 1. Register the user (skip if already completed on a previous attempt)
         if (!registeredRef.current) {
@@ -77,7 +155,7 @@ export function SignupWithSubscriptionComponent({
               username: data.username,
               email: data.email,
               password: data.password,
-              appId: resolvedAppId,
+              appId: appIdForRequest,
               platform: 'web',
               deviceInfo: navigator.userAgent,
             });
@@ -88,7 +166,7 @@ export function SignupWithSubscriptionComponent({
               username: data.username,
               email: data.email,
               password: data.password,
-              appId: resolvedAppId,
+              appId: appIdForRequest,
               platform: 'web',
               deviceInfo: navigator.userAgent,
             });
@@ -107,7 +185,7 @@ export function SignupWithSubscriptionComponent({
           const loginResponse = await client.auth.login({
             username: data.email,
             password: data.password ?? '',
-            appId: resolvedAppId,
+            appId: appIdForRequest,
             platform: 'web',
             deviceInfo: navigator.userAgent,
           });
@@ -125,7 +203,7 @@ export function SignupWithSubscriptionComponent({
         // 3. Subscribe to tier (if one was selected)
         if (tier) {
           setProcessingStatus('Activating your plan...');
-          const subscribeResult = await client.appTier.selfSubscribe(resolvedAppId, tier.id, pricing?.id);
+          const subscribeResult = await client.appTier.selfSubscribe(appIdForRequest, tier.id, pricing?.id, txnId);
           if (!subscribeResult.success) {
             // Non-fatal — account was created, subscription can be done later
             console.warn('Tier subscription failed:', subscribeResult.errorMessage);
@@ -148,20 +226,25 @@ export function SignupWithSubscriptionComponent({
   const processSignupRef = useRef(processSignup);
   processSignupRef.current = processSignup;
 
-  // Step 1: Form data collected (not submitted to API)
+  // After registration form: decide next step
   const handleFormDataCollected = useCallback(
     (data: RegistrationFormData) => {
       setFormData(data);
-      if (skipTierSelection) {
-        processSignupRef.current(data, null, null);
+      if (effectiveSkipTierSelection) {
+        // Tier already selected (pre-selected) or skipped
+        if (requiresPayment) {
+          setCurrentStep('payment');
+        } else {
+          processSignupRef.current(data, selectedTier, selectedPricing);
+        }
       } else {
         setCurrentStep('select-tier');
       }
     },
-    [skipTierSelection],
+    [effectiveSkipTierSelection, requiresPayment, selectedTier, selectedPricing],
   );
 
-  // Step 2: Tier selected
+  // Tier selected from full grid
   const handleTierSelected = useCallback(
     (tier: AppTierModel, pricing: AppTierPricingModel | null) => {
       setSelectedTier(tier);
@@ -169,23 +252,73 @@ export function SignupWithSubscriptionComponent({
 
       if (!formData) return;
 
-      // TODO: For paid tiers, insert payment step here before processSignup.
-      processSignupRef.current(formData, tier, pricing);
+      // Check if this tier requires payment
+      const isPaid = !tier.isFreeTier && pricing != null && pricing.price > 0;
+      if (isPaid) {
+        setCurrentStep('payment');
+      } else {
+        processSignupRef.current(formData, tier, pricing);
+      }
     },
     [formData],
   );
 
+  // Payment completed successfully
+  const handlePaymentSuccess = useCallback(
+    (result: PaymentCompletionResult) => {
+      const txnId = result.transactionId ?? result.paymentIntentId;
+      setPaymentTransactionId(txnId);
+
+      if (!formData) return;
+      processSignupRef.current(formData, selectedTier, selectedPricing, txnId);
+    },
+    [formData, selectedTier, selectedPricing],
+  );
+
+  // Payment failed
+  const handlePaymentFailure = useCallback((errorMsg: string) => {
+    // Stay on payment step, PaymentComponent shows its own error
+    console.warn('Payment failed:', errorMsg);
+  }, []);
+
   const handleRetry = useCallback(() => {
     if (formData && (selectedTier || skipTierSelection)) {
-      processSignup(formData, selectedTier, selectedPricing);
+      processSignup(formData, selectedTier, selectedPricing, paymentTransactionId);
     }
-  }, [formData, selectedTier, selectedPricing, skipTierSelection, processSignup]);
+  }, [formData, selectedTier, selectedPricing, skipTierSelection, processSignup, paymentTransactionId]);
 
   const handleBack = useCallback(() => {
     if (currentStep === 'select-tier') {
       setCurrentStep('register');
+      if (preSelectedTier) {
+        setShowFullTierSelection(false);
+      }
+    } else if (currentStep === 'payment') {
+      if (effectiveSkipTierSelection) {
+        setCurrentStep('register');
+      } else {
+        setCurrentStep('select-tier');
+      }
     }
-  }, [currentStep]);
+  }, [currentStep, preSelectedTier, effectiveSkipTierSelection]);
+
+  const handleChangePlan = useCallback(() => {
+    setShowFullTierSelection(true);
+    setCurrentStep('select-tier');
+  }, []);
+
+  if (tierLoading) {
+    return (
+      <div className={`ww-signup-subscription ${className ?? ''}`}>
+        <div className="ww-signup-step ww-signup-processing">
+          <div className="ww-reg-success-icon">
+            <span className="ww-spinner ww-spinner-lg" />
+          </div>
+          <p className="ww-text-muted">Loading plan details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`ww-signup-subscription ${className ?? ''}`}>
@@ -193,11 +326,11 @@ export function SignupWithSubscriptionComponent({
       {currentStep !== 'success' && currentStep !== 'processing' && (
         <div className="ww-step-indicator">
           <div className="ww-steps">
-            {VISIBLE_STEPS.map((stepKey, index) => (
+            {visibleSteps.map((stepKey, index) => (
               <div key={stepKey} className="ww-step-group">
                 {index > 0 && (
                   <div
-                    className={`ww-step-connector ${isStepCompleted(VISIBLE_STEPS[index - 1]) ? 'ww-step-connector-completed' : ''}`}
+                    className={`ww-step-connector ${isStepCompleted(visibleSteps[index - 1]) ? 'ww-step-connector-completed' : ''}`}
                   />
                 )}
                 <div
@@ -212,13 +345,38 @@ export function SignupWithSubscriptionComponent({
                       index + 1
                     )}
                   </span>
-                  <span className="ww-step-label">
-                    {stepKey === 'register' ? 'Create Account' : stepKey === 'select-tier' ? 'Choose Plan' : 'Complete'}
-                  </span>
+                  <span className="ww-step-label">{stepLabels[stepKey]}</span>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Plan Summary Card — shown above registration when a tier is pre-selected */}
+      {hasPreSelectedTier && currentStep === 'register' && preSelectedTier && (
+        <div className="ww-plan-summary-card">
+          <div className="ww-plan-summary-content">
+            <div className="ww-plan-info">
+              <h5 className="ww-plan-name">{preSelectedTier.name}</h5>
+              {preSelectedTier.description && <p className="ww-plan-desc">{preSelectedTier.description}</p>}
+            </div>
+            <div className="ww-plan-price">
+              {preSelectedTier.isFreeTier && !preSelectedTierPricing ? (
+                <span className="ww-price-amount">Free</span>
+              ) : preSelectedTierPricing ? (
+                <>
+                  <span className="ww-price-amount">{formatPrice(preSelectedTierPricing.price)}</span>
+                  <span className="ww-price-period">
+                    /{preSelectedTierPricing.billingFrequency?.toLowerCase() ?? 'month'}
+                  </span>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <button type="button" className="ww-plan-change-link" onClick={handleChangePlan}>
+            Change plan
+          </button>
         </div>
       )}
 
@@ -234,7 +392,7 @@ export function SignupWithSubscriptionComponent({
             onFormDataCollected={handleFormDataCollected}
             initialFormData={formData ?? undefined}
             hideStepIndicator={true}
-            submitButtonText={skipTierSelection ? 'Create Account' : 'Continue'}
+            submitButtonText={effectiveSkipTierSelection ? 'Create Account' : 'Continue'}
             onCancel={onCancel}
           />
         </div>
@@ -269,6 +427,50 @@ export function SignupWithSubscriptionComponent({
                 Cancel
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Step — shown for paid tiers before account creation */}
+      {currentStep === 'payment' && selectedTier && selectedPricing && (
+        <div className="ww-signup-step">
+          {/* Order summary above payment */}
+          <div className="ww-payment-summary">
+            <div className="ww-payment-summary-header">
+              <h4>Order Summary</h4>
+            </div>
+            <div className="ww-payment-summary-row">
+              <span>{selectedTier.name}</span>
+              <span className="ww-payment-summary-price">
+                {formatPrice(selectedPricing.price)}
+                <span className="ww-payment-summary-period">
+                  /{selectedPricing.billingFrequency?.toLowerCase() ?? 'month'}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <PaymentComponent
+            appId={appId}
+            amount={selectedPricing.price}
+            currency="USD"
+            description={`${selectedTier.name} Subscription`}
+            pricingModelId={selectedPricing.pricingModelId}
+            isSubscription={true}
+            showAmount={false}
+            requireBillingAddress={requireBillingAddress}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentFailure={handlePaymentFailure}
+            onCancel={handleBack}
+          />
+
+          <div className="ww-signup-step-nav">
+            <button type="button" className="ww-btn ww-btn-link" onClick={handleBack}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back
+            </button>
           </div>
         </div>
       )}
@@ -323,7 +525,7 @@ export function SignupWithSubscriptionComponent({
         </div>
       )}
 
-      {/* Step 3: Success */}
+      {/* Success */}
       {currentStep === 'success' && (
         <div className="ww-signup-step ww-signup-success">
           <div className="ww-reg-success-icon">
@@ -334,7 +536,7 @@ export function SignupWithSubscriptionComponent({
           </div>
           <h3>You&apos;re All Set!</h3>
           <p className="ww-text-muted">
-            {skipTierSelection
+            {skipTierSelection && !hasPreSelectedTier
               ? 'Your account has been created successfully.'
               : subscriptionFailed
                 ? 'Your account is ready! Plan activation is pending — you can select a plan from your dashboard.'

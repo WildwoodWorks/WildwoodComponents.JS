@@ -196,6 +196,21 @@ export interface RefreshTokenRequest {
 }
 
 // Re-export disclaimer model used in auth response
+export interface ValidateRegistrationRequest {
+  username?: string;
+  email: string;
+  password: string;
+  token?: string;
+  appId: string;
+}
+
+export interface ValidateRegistrationResponse {
+  usernameAvailable: boolean;
+  emailAvailable: boolean;
+  passwordValid: boolean;
+  passwordErrors: string[];
+}
+
 export interface PendingDisclaimerModel {
   disclaimerId: string;
   versionId: string;
