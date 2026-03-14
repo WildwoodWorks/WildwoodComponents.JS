@@ -54,6 +54,7 @@ export function SignupWithSubscriptionComponent({
   const [processingStatus, setProcessingStatus] = useState('');
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
   const [paymentTransactionId, setPaymentTransactionId] = useState<string | undefined>();
+  const [paymentExternalId, setPaymentExternalId] = useState<string | undefined>();
   const processingRef = useRef(false);
   // Track completed sub-steps so retry doesn't re-register an already-created user
   const registeredRef = useRef(false);
@@ -133,6 +134,7 @@ export function SignupWithSubscriptionComponent({
       tier: AppTierModel | null,
       pricing: AppTierPricingModel | null,
       txnId?: string,
+      externalId?: string,
     ) => {
       if (processingRef.current) return;
       processingRef.current = true;
@@ -201,9 +203,12 @@ export function SignupWithSubscriptionComponent({
         }
 
         // 3. Link payment transaction to newly created user (if payment was made before registration)
-        if (txnId && client.session.userId) {
+        // Use the external/provider ID (e.g. Stripe PaymentIntent pi_xxx) for linking,
+        // since the backend looks up by ExternalTransactionId.
+        const linkId = externalId ?? txnId;
+        if (linkId && client.session.userId) {
           try {
-            await client.payment.linkTransactionToUser(txnId, client.session.userId);
+            await client.payment.linkTransactionToUser(linkId, client.session.userId);
           } catch (linkErr) {
             // Non-fatal — payment was successful, linking can be retried
             console.warn('Failed to link payment transaction to user:', linkErr);
@@ -277,10 +282,12 @@ export function SignupWithSubscriptionComponent({
   const handlePaymentSuccess = useCallback(
     (result: PaymentCompletionResult) => {
       const txnId = result.transactionId ?? result.paymentIntentId;
+      const extId = result.paymentIntentId;
       setPaymentTransactionId(txnId);
+      setPaymentExternalId(extId);
 
       if (!formData) return;
-      processSignupRef.current(formData, selectedTier, selectedPricing, txnId);
+      processSignupRef.current(formData, selectedTier, selectedPricing, txnId, extId);
     },
     [formData, selectedTier, selectedPricing],
   );
@@ -293,9 +300,17 @@ export function SignupWithSubscriptionComponent({
 
   const handleRetry = useCallback(() => {
     if (formData && (selectedTier || skipTierSelection)) {
-      processSignup(formData, selectedTier, selectedPricing, paymentTransactionId);
+      processSignup(formData, selectedTier, selectedPricing, paymentTransactionId, paymentExternalId);
     }
-  }, [formData, selectedTier, selectedPricing, skipTierSelection, processSignup, paymentTransactionId]);
+  }, [
+    formData,
+    selectedTier,
+    selectedPricing,
+    skipTierSelection,
+    processSignup,
+    paymentTransactionId,
+    paymentExternalId,
+  ]);
 
   const handleBack = useCallback(() => {
     if (currentStep === 'select-tier') {
