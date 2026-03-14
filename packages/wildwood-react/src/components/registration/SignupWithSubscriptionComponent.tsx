@@ -200,7 +200,17 @@ export function SignupWithSubscriptionComponent({
           data.password = '';
         }
 
-        // 3. Subscribe to tier (if one was selected)
+        // 3. Link payment transaction to newly created user (if payment was made before registration)
+        if (txnId && client.session.userId) {
+          try {
+            await client.payment.linkTransactionToUser(txnId, client.session.userId);
+          } catch (linkErr) {
+            // Non-fatal — payment was successful, linking can be retried
+            console.warn('Failed to link payment transaction to user:', linkErr);
+          }
+        }
+
+        // 4. Subscribe to tier (if one was selected)
         if (tier) {
           setProcessingStatus('Activating your plan...');
           const subscribeResult = await client.appTier.selfSubscribe(appIdForRequest, tier.id, pricing?.id, txnId);

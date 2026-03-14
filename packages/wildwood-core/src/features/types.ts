@@ -33,6 +33,11 @@ export interface AppTierModel {
   status: string;
   badgeColor: string;
   iconClass: string;
+  showSubscribeButton: boolean;
+  showContactButton: boolean;
+  contactButtonUrl?: string;
+  showPrice: boolean;
+  customBadgeText?: string;
   pricingOptions: AppTierPricingModel[];
   features: AppTierFeatureModel[];
   limits: AppTierLimitModel[];

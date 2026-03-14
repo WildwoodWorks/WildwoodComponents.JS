@@ -185,26 +185,31 @@ export function PricingDisplayComponent({
                 key={tier.id}
                 className={`ww-tier-card ${isPreSelected ? 'ww-tier-preselected' : ''} ${tier.isDefault && !isPreSelected ? 'ww-tier-default' : ''}`}
               >
-                {isPreSelected && <div className="ww-tier-preselected-badge">Your Selection</div>}
-                {tier.isDefault && !isPreSelected && <div className="ww-tier-default-badge">Popular</div>}
+                {tier.customBadgeText ? (
+                  <div className="ww-tier-default-badge">{tier.customBadgeText}</div>
+                ) : isPreSelected ? (
+                  <div className="ww-tier-preselected-badge">Your Selection</div>
+                ) : null}
                 <div className="ww-tier-header">
                   {tier.iconClass && <span className={`ww-tier-icon ${tier.iconClass}`} />}
                   <h3>{tier.name}</h3>
                   {tier.badgeColor && <span className={`ww-badge ww-badge-${tier.badgeColor}`}>{tier.status}</span>}
-                  <div className="ww-tier-price">
-                    {enterprise ? (
-                      <span className="ww-tier-price-amount">Custom</span>
-                    ) : tier.isFreeTier && !pricing ? (
-                      <span className="ww-tier-price-amount">Free</span>
-                    ) : pricing ? (
-                      <>
-                        <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
-                        <span className="ww-tier-price-interval">
-                          /{pricing.billingFrequency?.toLowerCase() ?? 'month'}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
+                  {tier.showPrice !== false && (
+                    <div className="ww-tier-price">
+                      {enterprise ? (
+                        <span className="ww-tier-price-amount">Custom</span>
+                      ) : tier.isFreeTier && !pricing ? (
+                        <span className="ww-tier-price-amount">Free</span>
+                      ) : pricing ? (
+                        <>
+                          <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
+                          <span className="ww-tier-price-interval">
+                            /{pricing.billingFrequency?.toLowerCase() ?? 'month'}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
                   {discount && <div className="ww-tier-discount">Save {discount}%</div>}
                 </div>
 
@@ -268,7 +273,17 @@ export function PricingDisplayComponent({
                 )}
 
                 <div className="ww-tier-footer">
-                  {enterprise && enterpriseContactUrl ? (
+                  {tier.showContactButton && tier.contactButtonUrl ? (
+                    <a
+                      href={tier.contactButtonUrl}
+                      className="ww-btn ww-btn-outline ww-btn-block"
+                      {...(tier.contactButtonUrl.startsWith('http')
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
+                      Contact Us
+                    </a>
+                  ) : enterprise && enterpriseContactUrl ? (
                     <a
                       href={enterpriseContactUrl}
                       className="ww-btn ww-btn-outline ww-btn-block"
@@ -286,7 +301,7 @@ export function PricingDisplayComponent({
                     >
                       Contact Sales
                     </button>
-                  ) : (
+                  ) : tier.showSubscribeButton !== false ? (
                     <button
                       type="button"
                       className={`ww-btn ${isPreSelected || tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
@@ -294,7 +309,7 @@ export function PricingDisplayComponent({
                     >
                       {isPreSelected ? 'Continue with This Plan' : tier.isFreeTier ? 'Get Started' : 'Subscribe'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

@@ -108,7 +108,7 @@ export class PaymentService {
     companyClientId?: string,
   ): Promise<boolean> {
     try {
-      await this.http.post('api/payment/link-transaction', {
+      await this.http.post('api/paymenttransactions/link-by-external-id', {
         externalTransactionId,
         userId,
         companyClientId,

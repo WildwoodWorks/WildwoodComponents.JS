@@ -1,12 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { useAppTier } from '../hooks/useAppTier';
 
 export interface AppTierComponentProps {
@@ -14,10 +7,7 @@ export interface AppTierComponentProps {
   onTierChanged?: (tierId: string) => void;
 }
 
-export function AppTierComponent({
-  autoLoad = true,
-  onTierChanged,
-}: AppTierComponentProps) {
+export function AppTierComponent({ autoLoad = true, onTierChanged }: AppTierComponentProps) {
   const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier } = useAppTier();
   const [changeError, setChangeError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -29,21 +19,24 @@ export function AppTierComponent({
     }
   }, [autoLoad, getTiers, getUserSubscription]);
 
-  const handleChangeTier = useCallback(async (tierId: string) => {
-    setChangeError(null);
-    setSuccessMessage('');
-    try {
-      const result = await changeTier(tierId);
-      if (result.success) {
-        setSuccessMessage('Tier changed successfully');
-        onTierChanged?.(tierId);
-      } else {
-        setChangeError(result.errorMessage ?? 'Tier change failed');
+  const handleChangeTier = useCallback(
+    async (tierId: string) => {
+      setChangeError(null);
+      setSuccessMessage('');
+      try {
+        const result = await changeTier(tierId);
+        if (result.success) {
+          setSuccessMessage('Tier changed successfully');
+          onTierChanged?.(tierId);
+        } else {
+          setChangeError(result.errorMessage ?? 'Tier change failed');
+        }
+      } catch (err) {
+        setChangeError(err instanceof Error ? err.message : 'Tier change failed');
       }
-    } catch (err) {
-      setChangeError(err instanceof Error ? err.message : 'Tier change failed');
-    }
-  }, [changeTier, onTierChanged]);
+    },
+    [changeTier, onTierChanged],
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -72,7 +65,8 @@ export function AppTierComponent({
             <Text style={styles.currentTierName}>{userSubscription.tierName}</Text>
             {userSubscription.endDate && (
               <Text style={styles.currentTierExpiry}>
-                {' '}Expires: {new Date(userSubscription.endDate).toLocaleDateString()}
+                {' '}
+                Expires: {new Date(userSubscription.endDate).toLocaleDateString()}
               </Text>
             )}
           </View>
@@ -92,14 +86,18 @@ export function AppTierComponent({
             const isCurrent = userSubscription?.appTierId === tier.id;
             const defaultPricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0];
             return (
-              <View
-                key={tier.id}
-                style={[styles.tierCard, isCurrent && styles.tierCardCurrent]}
-              >
+              <View key={tier.id} style={[styles.tierCard, isCurrent && styles.tierCardCurrent]}>
+                {/* Badge */}
+                {tier.customBadgeText && !isCurrent ? (
+                  <View style={styles.currentPlanBadge}>
+                    <Text style={styles.currentPlanBadgeText}>{tier.customBadgeText}</Text>
+                  </View>
+                ) : null}
+
                 {/* Header */}
                 <View style={styles.tierHeader}>
                   <Text style={styles.tierName}>{tier.name}</Text>
-                  {defaultPricing && (
+                  {tier.showPrice !== false && defaultPricing && (
                     <Text style={styles.tierPrice}>
                       ${defaultPricing.price}
                       {defaultPricing.billingFrequency ? (
@@ -107,15 +105,13 @@ export function AppTierComponent({
                       ) : null}
                     </Text>
                   )}
-                  {tier.isFreeTier && !defaultPricing && (
+                  {tier.showPrice !== false && tier.isFreeTier && !defaultPricing && (
                     <Text style={styles.tierPrice}>Free</Text>
                   )}
                 </View>
 
                 {/* Description */}
-                {tier.description ? (
-                  <Text style={styles.tierDescription}>{tier.description}</Text>
-                ) : null}
+                {tier.description ? <Text style={styles.tierDescription}>{tier.description}</Text> : null}
 
                 {/* Features list */}
                 {tier.features && tier.features.length > 0 && (
@@ -135,7 +131,7 @@ export function AppTierComponent({
                     <View style={styles.currentPlanBadge}>
                       <Text style={styles.currentPlanBadgeText}>Current Plan</Text>
                     </View>
-                  ) : (
+                  ) : tier.showSubscribeButton !== false ? (
                     <Pressable
                       style={[styles.selectButton, loading && styles.buttonDisabled]}
                       onPress={() => handleChangeTier(tier.id)}
@@ -147,7 +143,7 @@ export function AppTierComponent({
                         <Text style={styles.selectButtonText}>Select Plan</Text>
                       )}
                     </Pressable>
-                  )}
+                  ) : null}
                 </View>
               </View>
             );

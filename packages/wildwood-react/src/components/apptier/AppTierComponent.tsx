@@ -536,24 +536,29 @@ export function AppTierComponent({
                 key={tier.id}
                 className={`ww-tier-card ${isCurrent ? 'ww-tier-current' : ''} ${isPreSelected ? 'ww-tier-preselected' : ''} ${tier.isDefault ? 'ww-tier-default' : ''}`}
               >
-                {isPreSelected && !isCurrent && <div className="ww-tier-preselected-badge">Your Selection</div>}
-                {tier.isDefault && !isCurrent && !isPreSelected && <div className="ww-tier-default-badge">Popular</div>}
+                {tier.customBadgeText && !isCurrent ? (
+                  <div className="ww-tier-default-badge">{tier.customBadgeText}</div>
+                ) : isPreSelected && !isCurrent ? (
+                  <div className="ww-tier-preselected-badge">Your Selection</div>
+                ) : null}
                 <div className="ww-tier-header">
                   {tier.iconClass && <span className={`ww-tier-icon ${tier.iconClass}`} />}
                   <h3>{tier.name}</h3>
                   {tier.badgeColor && <span className={`ww-badge ww-badge-${tier.badgeColor}`}>{tier.status}</span>}
-                  <div className="ww-tier-price">
-                    {tier.isFreeTier && !pricing ? (
-                      <span className="ww-tier-price-amount">Free</span>
-                    ) : pricing ? (
-                      <>
-                        <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
-                        <span className="ww-tier-price-interval">
-                          /{pricing.billingFrequency?.toLowerCase() ?? 'month'}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
+                  {tier.showPrice !== false && (
+                    <div className="ww-tier-price">
+                      {tier.isFreeTier && !pricing ? (
+                        <span className="ww-tier-price-amount">Free</span>
+                      ) : pricing ? (
+                        <>
+                          <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
+                          <span className="ww-tier-price-interval">
+                            /{pricing.billingFrequency?.toLowerCase() ?? 'month'}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
                   {discount && <div className="ww-tier-discount">Save {discount}%</div>}
                 </div>
 
@@ -621,7 +626,17 @@ export function AppTierComponent({
                 <div className="ww-tier-footer">
                   {isCurrent ? (
                     <span className="ww-badge ww-badge-success">Current Plan</span>
-                  ) : (
+                  ) : tier.showContactButton && tier.contactButtonUrl ? (
+                    <a
+                      href={tier.contactButtonUrl}
+                      className={`ww-btn ${tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
+                      {...(tier.contactButtonUrl.startsWith('http')
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
+                      Contact Us
+                    </a>
+                  ) : tier.showSubscribeButton !== false ? (
                     <button
                       type="button"
                       className={`ww-btn ${isPreSelected || tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
@@ -636,7 +651,7 @@ export function AppTierComponent({
                             ? `Switch to ${tier.name}`
                             : 'Select Plan'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
