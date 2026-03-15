@@ -1,9 +1,3 @@
-import { useMemo } from 'react';
-import { detectPlatform } from '@wildwood/core';
-import type { PlatformInfo } from '@wildwood/core';
-
-export interface UsePlatformDetectionReturn extends PlatformInfo {}
-
-export function usePlatformDetection(): UsePlatformDetectionReturn {
-  return useMemo(() => detectPlatform(), []);
-}
+'use client';
+export { usePlatformDetection } from '@wildwood/react-shared';
+export type { UsePlatformDetectionReturn } from '@wildwood/react-shared';

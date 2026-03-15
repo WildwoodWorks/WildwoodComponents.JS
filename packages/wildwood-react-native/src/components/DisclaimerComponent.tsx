@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { PendingDisclaimersResponse } from '@wildwood/core';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 
@@ -18,6 +11,7 @@ export interface DisclaimerComponentProps {
   onDisclaimerAccepted?: (disclaimerId: string) => void;
   /** Whether to auto-load pending disclaimers on mount */
   autoLoad?: boolean;
+  style?: ViewStyle;
 }
 
 const stripHtml = (html: string): string => {
@@ -42,14 +36,9 @@ export function DisclaimerComponent({
   onAllAccepted,
   onDisclaimerAccepted,
   autoLoad = true,
+  style,
 }: DisclaimerComponentProps) {
-  const {
-    disclaimers,
-    loading,
-    getPendingDisclaimers,
-    acceptDisclaimer,
-    acceptAllDisclaimers,
-  } = useDisclaimer();
+  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
 
   const [accepting, setAccepting] = useState(false);
 
@@ -61,17 +50,20 @@ export function DisclaimerComponent({
     }
   }, [autoLoad, getPendingDisclaimers]);
 
-  const handleAcceptSingle = useCallback(async (disclaimerId: string, versionId: string) => {
-    setAccepting(true);
-    try {
-      await acceptDisclaimer(disclaimerId, versionId);
-      onDisclaimerAccepted?.(disclaimerId);
-    } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept disclaimer');
-    } finally {
-      setAccepting(false);
-    }
-  }, [acceptDisclaimer, onDisclaimerAccepted]);
+  const handleAcceptSingle = useCallback(
+    async (disclaimerId: string, versionId: string) => {
+      setAccepting(true);
+      try {
+        await acceptDisclaimer(disclaimerId, versionId);
+        onDisclaimerAccepted?.(disclaimerId);
+      } catch (err) {
+        Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept disclaimer');
+      } finally {
+        setAccepting(false);
+      }
+    },
+    [acceptDisclaimer, onDisclaimerAccepted],
+  );
 
   const handleAcceptAll = useCallback(async () => {
     if (!disclaimers?.disclaimers?.length) return;
@@ -115,7 +107,7 @@ export function DisclaimerComponent({
   const pendingList = disclaimers.disclaimers;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
       {pendingList.map((d) => (
         <View key={d.disclaimerId} style={styles.card}>
           <View style={styles.cardHeader}>
@@ -125,13 +117,8 @@ export function DisclaimerComponent({
             </View>
           </View>
 
-          <ScrollView
-            style={styles.contentArea}
-            nestedScrollEnabled
-          >
-            <Text style={styles.contentText}>
-              {d.contentFormat === 'html' ? stripHtml(d.content) : d.content}
-            </Text>
+          <ScrollView style={styles.contentArea} nestedScrollEnabled>
+            <Text style={styles.contentText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
           </ScrollView>
 
           <Pressable
@@ -157,9 +144,7 @@ export function DisclaimerComponent({
           {accepting ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.acceptAllButtonText}>
-              Accept All ({pendingList.length})
-            </Text>
+            <Text style={styles.acceptAllButtonText}>Accept All ({pendingList.length})</Text>
           )}
         </Pressable>
       )}

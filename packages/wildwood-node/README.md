@@ -71,15 +71,15 @@ const apps = await admin.getApps();
 Validate JWT tokens without API calls:
 
 ```typescript
-import { validateToken } from '@wildwood/node';
+import { validateTokenClaims } from '@wildwood/node';
 
-const result = validateToken(token, {
+const result = validateTokenClaims(token, {
   issuer: 'WildwoodAPI',
   audience: 'WildwoodApp',
 });
 
 if (result.valid) {
-  console.log('User ID:', result.claims.sub);
+  console.log('User ID:', result.payload?.sub);
 }
 ```
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { formatPrice } from '@wildwood/core';
 import type { RegistrationFormData, AppTierModel, AppTierPricingModel, PaymentCompletionResult } from '@wildwood/core';
 import { TokenRegistrationComponent } from './TokenRegistrationComponent.js';
 import { PricingDisplayComponent } from '../pricing/PricingDisplayComponent.js';
@@ -19,18 +20,6 @@ export interface SignupWithSubscriptionComponentProps {
 }
 
 type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'success';
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '\u20AC',
-  GBP: '\u00A3',
-  JPY: '\u00A5',
-};
-
-function formatPrice(amount: number, currency = 'USD'): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
-  return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(0)}`;
-}
 
 export function SignupWithSubscriptionComponent({
   appId,
@@ -86,8 +75,8 @@ export function SignupWithSubscriptionComponent({
           setSelectedPricing(pricing);
         }
       })
-      .catch(() => {
-        // If fetch fails, fall back to showing the full tier selection
+      .catch((err: unknown) => {
+        console.warn('Failed to load pre-selected tier:', err);
       })
       .finally(() => {
         setTierLoading(false);
@@ -197,10 +186,7 @@ export function SignupWithSubscriptionComponent({
           loggedInRef.current = true;
         }
 
-        // Clear password from memory now that login is complete
-        if (data.password) {
-          data.password = '';
-        }
+        // Avoid mutating the formData state object — no further use of `data` below
 
         // 3. Link payment transaction to newly created user (if payment was made before registration)
         // Use the external/provider ID (e.g. Stripe PaymentIntent pi_xxx) for linking,
@@ -391,7 +377,7 @@ export function SignupWithSubscriptionComponent({
                 <span className="ww-price-amount">Free</span>
               ) : preSelectedTierPricing ? (
                 <>
-                  <span className="ww-price-amount">{formatPrice(preSelectedTierPricing.price)}</span>
+                  <span className="ww-price-amount">{formatPrice(preSelectedTierPricing.price, 'USD')}</span>
                   <span className="ww-price-period">
                     /{preSelectedTierPricing.billingFrequency?.toLowerCase() ?? 'month'}
                   </span>
@@ -467,7 +453,7 @@ export function SignupWithSubscriptionComponent({
             <div className="ww-payment-summary-row">
               <span>{selectedTier.name}</span>
               <span className="ww-payment-summary-price">
-                {formatPrice(selectedPricing.price)}
+                {formatPrice(selectedPricing.price, 'USD')}
                 <span className="ww-payment-summary-period">
                   /{selectedPricing.billingFrequency?.toLowerCase() ?? 'month'}
                 </span>

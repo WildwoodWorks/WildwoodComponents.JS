@@ -248,15 +248,20 @@ export function PaymentComponent({
           setCardError(event.error?.message ?? null);
         });
 
-        // Mount when the container is available
+        // Mount when the container is available (max 50 attempts / ~800ms)
+        let mountAttempts = 0;
+        const MAX_MOUNT_ATTEMPTS = 50;
         const mountCard = () => {
           if (cancelled) return;
           if (cardContainerRef.current) {
             card.mount(cardContainerRef.current);
             setStripeReady(true);
-          } else {
+          } else if (mountAttempts < MAX_MOUNT_ATTEMPTS) {
+            mountAttempts++;
             // Container not yet in DOM, retry on next frame
             requestAnimationFrame(mountCard);
+          } else {
+            setStripeError('Card form container not found. Please refresh and try again.');
           }
         };
         mountCard();

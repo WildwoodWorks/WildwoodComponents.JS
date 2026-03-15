@@ -22,6 +22,7 @@ export type {
 } from './client/externalApiClient.js';
 
 // Auth
+export { validatePasswordClientSide } from './auth/passwordUtils.js';
 export { AuthService } from './auth/authService.js';
 export { SessionManager } from './auth/sessionManager.js';
 export {
@@ -160,6 +161,16 @@ export type {
 // Features
 export { DisclaimerService } from './features/disclaimerService.js';
 export { AppTierService } from './features/appTierService.js';
+export {
+  CURRENCY_SYMBOLS,
+  getCurrencySymbol,
+  formatPrice,
+  isAnnualFrequency,
+  hasAnnualPricing,
+  isEnterpriseTier,
+  getSelectedPricing,
+  computeAnnualDiscount,
+} from './features/tierUtils.js';
 export type {
   DisclaimerAcceptanceResult,
   PendingDisclaimersResponse,
@@ -187,6 +198,9 @@ export type { ComponentTheme, ThemeName } from './theme/types.js';
 export type { Platform, PlatformInfo, StorageAdapter } from './platform/types.js';
 export { LocalStorageAdapter, MemoryStorageAdapter, createStorageAdapter } from './platform/storageService.js';
 export { detectPlatform } from './platform/platformDetection.js';
+
+// Utils
+export { formatTimestamp, formatFileSize } from './utils/formatUtils.js';
 
 // Events
 export { WildwoodEventEmitter } from './events/eventEmitter.js';

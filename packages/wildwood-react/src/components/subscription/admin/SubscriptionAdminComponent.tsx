@@ -44,7 +44,7 @@ export function SubscriptionAdminComponent({
 
   useEffect(() => {
     if (appId) {
-      admin.refreshAll(appId, companyId);
+      admin.refreshAll(appId, companyId).catch((err) => console.warn('Failed to load subscription data:', err));
     }
   }, [appId, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -17,9 +17,9 @@ export interface WildwoodConfig {
   enableRetry?: boolean;
   /** Maximum retry attempts (default: 3) */
   maxRetryAttempts?: number;
-  /** Enable response caching (default: true) */
+  /** @deprecated Not yet implemented — reserved for future use */
   enableCaching?: boolean;
-  /** Cache duration in minutes (default: 10) */
+  /** @deprecated Not yet implemented — reserved for future use */
   cacheDurationMinutes?: number;
   /** Session expiration in minutes (default: 60) */
   sessionExpirationMinutes?: number;
@@ -27,7 +27,7 @@ export interface WildwoodConfig {
   enableAutoTokenRefresh?: boolean;
   /** Extend session on activity (default: true) */
   slidingExpiration?: boolean;
-  /** Persist session across browser restarts (default: false) */
+  /** @deprecated Not yet implemented — reserved for future use */
   persistentSession?: boolean;
   /** Storage adapter - 'localStorage', 'memory', or custom StorageAdapter (default: 'localStorage') */
   storage?: 'localStorage' | 'memory' | StorageAdapter;
@@ -38,6 +38,8 @@ export interface RequestOptions {
   signal?: AbortSignal;
   skipAuth?: boolean;
   timeout?: number;
+  /** Hint to parse response body as 'arraybuffer' for binary downloads */
+  responseType?: 'arraybuffer';
 }
 
 export interface ApiResponse<T = unknown> {

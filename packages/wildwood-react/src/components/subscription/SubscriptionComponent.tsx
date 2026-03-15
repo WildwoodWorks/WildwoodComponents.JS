@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { SubscriptionStatus, BillingInterval } from '@wildwood/core';
+import { SubscriptionStatus, BillingInterval, formatPrice } from '@wildwood/core';
 import type { SubscriptionPlan } from '@wildwood/core';
 import { useSubscription } from '../../hooks/useSubscription.js';
 import { PaymentComponent } from '../payment/PaymentComponent.js';
@@ -21,19 +21,6 @@ export interface SubscriptionComponentProps {
   onCancel?: () => void;
   autoLoad?: boolean;
   className?: string;
-}
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '\u20AC',
-  GBP: '\u00A3',
-  JPY: '\u00A5',
-  INR: '\u20B9',
-};
-
-function formatPrice(amount: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
-  return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(2)}`;
 }
 
 export function SubscriptionComponent({

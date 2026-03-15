@@ -1,104 +1,43 @@
-import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import { useTwoFactor } from '../../hooks/useTwoFactor.js';
+import { useTwoFactorLogic } from '@wildwood/react-shared';
 
 export interface TwoFactorSettingsComponentProps {
   className?: string;
   onStatusChange?: (enabled: boolean) => void;
 }
 
-type SettingsView = 'overview' | 'enrollEmail' | 'enrollAuthenticator' | 'recoveryCodes' | 'trustedDevices';
-
-export function TwoFactorSettingsComponent({
-  className,
-  onStatusChange,
-}: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFactorSettingsComponentProps) {
   const {
-    status, credentials, trustedDevices, loading, error,
-    getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
-    removeCredential, getRecoveryCodeInfo, regenerateRecoveryCodes,
-    getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
-  } = useTwoFactor();
-
-  const [view, setView] = useState<SettingsView>('overview');
-  const [emailCredentialId, setEmailCredentialId] = useState('');
-  const [emailCode, setEmailCode] = useState('');
-  const [authenticatorCredentialId, setAuthenticatorCredentialId] = useState('');
-  const [authenticatorCode, setAuthenticatorCode] = useState('');
-  const [authenticatorQrUri, setAuthenticatorQrUri] = useState('');
-  const [authenticatorSecret, setAuthenticatorSecret] = useState('');
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-  const [recoveryCodeCount, setRecoveryCodeCount] = useState(0);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  useEffect(() => {
-    getStatus();
-    getCredentials();
-  }, [getStatus, getCredentials]);
-
-  const handleEnrollEmail = useCallback(async () => {
-    setSuccessMessage('');
-    const result = await enrollEmail();
-    setEmailCredentialId(result.credentialId);
-    setView('enrollEmail');
-    setSuccessMessage('Verification code sent to your email');
-  }, [enrollEmail]);
-
-  const handleVerifyEmail = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    await verifyEmailEnrollment(emailCredentialId, emailCode);
-    setEmailCode('');
-    setEmailCredentialId('');
-    setView('overview');
-    setSuccessMessage('Email 2FA enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, onStatusChange]);
-
-  const handleBeginAuthenticator = useCallback(async () => {
-    setSuccessMessage('');
-    const result = await beginAuthenticatorEnrollment();
-    setAuthenticatorCredentialId(result.credentialId);
-    setAuthenticatorQrUri(result.qrCodeDataUrl ?? '');
-    setAuthenticatorSecret(result.manualEntryKey ?? '');
-    setView('enrollAuthenticator');
-  }, [beginAuthenticatorEnrollment]);
-
-  const handleCompleteAuthenticator = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    await completeAuthenticatorEnrollment(authenticatorCredentialId, authenticatorCode);
-    setAuthenticatorCode('');
-    setAuthenticatorCredentialId('');
-    setView('overview');
-    setSuccessMessage('Authenticator enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange]);
-
-  const handleRemoveCredential = useCallback(async (credentialId: string) => {
-    await removeCredential(credentialId);
-    await getStatus();
-    if (credentials.length <= 1) {
-      onStatusChange?.(false);
-    }
-  }, [removeCredential, getStatus, credentials.length, onStatusChange]);
-
-  const handleViewRecoveryCodes = useCallback(async () => {
-    const info = await getRecoveryCodeInfo();
-    setRecoveryCodeCount(info.remaining ?? 0);
-    setView('recoveryCodes');
-  }, [getRecoveryCodeInfo]);
-
-  const handleRegenerateCodes = useCallback(async () => {
-    const result = await regenerateRecoveryCodes();
-    setRecoveryCodes(result.codes ?? []);
-  }, [regenerateRecoveryCodes]);
-
-  const handleViewTrustedDevices = useCallback(async () => {
-    await getTrustedDevices();
-    setView('trustedDevices');
-  }, [getTrustedDevices]);
+    view,
+    emailCode,
+    authenticatorCode,
+    authenticatorQrUri,
+    authenticatorSecret,
+    recoveryCodes,
+    recoveryCodeCount,
+    successMessage,
+    status,
+    credentials,
+    trustedDevices,
+    loading,
+    error,
+    handleEnrollEmail,
+    handleVerifyEmail,
+    handleBeginAuthenticator,
+    handleCompleteAuthenticator,
+    handleRemoveCredential,
+    handleViewRecoveryCodes,
+    handleRegenerateCodes,
+    handleViewTrustedDevices,
+    handleRevokeAllDevices,
+    revokeTrustedDevice,
+    cancelView,
+    setEmailCode,
+    setAuthenticatorCode,
+  } = useTwoFactorLogic({
+    onStatusChange,
+    confirmAction: (title, msg) => Promise.resolve(window.confirm(msg)),
+  });
 
   return (
     <div className={`ww-twofactor-settings ${className ?? ''}`}>
@@ -142,15 +81,30 @@ export function TwoFactorSettingsComponent({
             <button type="button" className="ww-btn ww-btn-outline" onClick={handleEnrollEmail} disabled={loading}>
               Add Email
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={handleBeginAuthenticator} disabled={loading}>
+            <button
+              type="button"
+              className="ww-btn ww-btn-outline"
+              onClick={handleBeginAuthenticator}
+              disabled={loading}
+            >
               Add Authenticator
             </button>
             {status?.isEnabled && (
               <>
-                <button type="button" className="ww-btn ww-btn-outline" onClick={handleViewRecoveryCodes} disabled={loading}>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleViewRecoveryCodes}
+                  disabled={loading}
+                >
                   Recovery Codes
                 </button>
-                <button type="button" className="ww-btn ww-btn-outline" onClick={handleViewTrustedDevices} disabled={loading}>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleViewTrustedDevices}
+                  disabled={loading}
+                >
                   Trusted Devices
                 </button>
               </>
@@ -161,7 +115,13 @@ export function TwoFactorSettingsComponent({
 
       {/* ENROLL EMAIL */}
       {view === 'enrollEmail' && (
-        <form onSubmit={handleVerifyEmail} className="ww-twofactor-enroll">
+        <form
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            handleVerifyEmail();
+          }}
+          className="ww-twofactor-enroll"
+        >
           <h4>Verify Email</h4>
           <p className="ww-text-muted">Enter the code sent to your email address.</p>
           <div className="ww-form-group">
@@ -169,7 +129,7 @@ export function TwoFactorSettingsComponent({
               type="text"
               className="ww-form-control ww-code-input"
               value={emailCode}
-              onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setEmailCode(e.target.value)}
               maxLength={6}
               inputMode="numeric"
               placeholder="000000"
@@ -181,7 +141,7 @@ export function TwoFactorSettingsComponent({
             <button type="submit" className="ww-btn ww-btn-primary" disabled={loading}>
               {loading ? 'Verifying...' : 'Verify'}
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={() => setView('overview')}>
+            <button type="button" className="ww-btn ww-btn-outline" onClick={cancelView}>
               Cancel
             </button>
           </div>
@@ -190,11 +150,15 @@ export function TwoFactorSettingsComponent({
 
       {/* ENROLL AUTHENTICATOR */}
       {view === 'enrollAuthenticator' && (
-        <form onSubmit={handleCompleteAuthenticator} className="ww-twofactor-enroll">
+        <form
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            handleCompleteAuthenticator();
+          }}
+          className="ww-twofactor-enroll"
+        >
           <h4>Setup Authenticator</h4>
-          <p className="ww-text-muted">
-            Scan the QR code with your authenticator app, or enter the key manually.
-          </p>
+          <p className="ww-text-muted">Scan the QR code with your authenticator app, or enter the key manually.</p>
           {authenticatorQrUri && (
             <div className="ww-qr-code">
               <img src={authenticatorQrUri} alt="QR Code" />
@@ -212,7 +176,7 @@ export function TwoFactorSettingsComponent({
               type="text"
               className="ww-form-control ww-code-input"
               value={authenticatorCode}
-              onChange={(e) => setAuthenticatorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setAuthenticatorCode(e.target.value)}
               maxLength={6}
               inputMode="numeric"
               placeholder="000000"
@@ -224,7 +188,7 @@ export function TwoFactorSettingsComponent({
             <button type="submit" className="ww-btn ww-btn-primary" disabled={loading}>
               {loading ? 'Verifying...' : 'Verify & Enable'}
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={() => setView('overview')}>
+            <button type="button" className="ww-btn ww-btn-outline" onClick={cancelView}>
               Cancel
             </button>
           </div>
@@ -237,12 +201,12 @@ export function TwoFactorSettingsComponent({
           <h4>Recovery Codes</h4>
           {recoveryCodes.length > 0 ? (
             <>
-              <p className="ww-text-muted">
-                Save these codes in a safe place. Each code can only be used once.
-              </p>
+              <p className="ww-text-muted">Save these codes in a safe place. Each code can only be used once.</p>
               <div className="ww-code-grid">
                 {recoveryCodes.map((code, i) => (
-                  <code key={i} className="ww-recovery-code">{code}</code>
+                  <code key={i} className="ww-recovery-code">
+                    {code}
+                  </code>
                 ))}
               </div>
             </>
@@ -255,7 +219,7 @@ export function TwoFactorSettingsComponent({
             <button type="button" className="ww-btn ww-btn-warning" onClick={handleRegenerateCodes} disabled={loading}>
               {loading ? 'Generating...' : 'Regenerate Codes'}
             </button>
-            <button type="button" className="ww-btn ww-btn-outline" onClick={() => { setRecoveryCodes([]); setView('overview'); }}>
+            <button type="button" className="ww-btn ww-btn-outline" onClick={cancelView}>
               Back
             </button>
           </div>
@@ -275,7 +239,10 @@ export function TwoFactorSettingsComponent({
                   <div className="ww-device-info">
                     <strong>{device.deviceName ?? 'Unknown Device'}</strong>
                     {device.lastUsedAt && (
-                      <span className="ww-text-muted"> - Last used: {new Date(device.lastUsedAt).toLocaleDateString()}</span>
+                      <span className="ww-text-muted">
+                        {' '}
+                        - Last used: {new Date(device.lastUsedAt).toLocaleDateString()}
+                      </span>
                     )}
                   </div>
                   <button
@@ -292,11 +259,16 @@ export function TwoFactorSettingsComponent({
           )}
           <div className="ww-twofactor-actions">
             {trustedDevices.length > 0 && (
-              <button type="button" className="ww-btn ww-btn-danger" onClick={revokeAllTrustedDevices} disabled={loading}>
+              <button
+                type="button"
+                className="ww-btn ww-btn-danger"
+                onClick={handleRevokeAllDevices}
+                disabled={loading}
+              >
                 Revoke All
               </button>
             )}
-            <button type="button" className="ww-btn ww-btn-outline" onClick={() => setView('overview')}>
+            <button type="button" className="ww-btn ww-btn-outline" onClick={cancelView}>
               Back
             </button>
           </div>

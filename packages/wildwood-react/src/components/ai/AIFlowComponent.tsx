@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FlowDefinition, FlowExecution, FlowInputField } from '@wildwood/core';
-import { useAIFlow } from '../../hooks/useAIFlow.js';
+import { useAIFlowLogic, TERMINAL_STATUSES, getInputType, formatDuration } from '@wildwood/react-shared';
 
 export interface AIFlowComponentProps {
   flowId?: string;
@@ -12,32 +11,6 @@ export interface AIFlowComponentProps {
   onFlowFailed?: (execution: FlowExecution) => void;
   onAuthenticationFailed?: () => void;
   className?: string;
-}
-
-function getInputType(fieldType: string): string {
-  switch (fieldType.toLowerCase()) {
-    case 'number':
-    case 'integer':
-    case 'float':
-    case 'decimal':
-      return 'number';
-    case 'email':
-      return 'email';
-    case 'url':
-      return 'url';
-    case 'date':
-      return 'date';
-    case 'datetime':
-      return 'datetime-local';
-    case 'boolean':
-      return 'checkbox';
-    case 'textarea':
-    case 'text_area':
-    case 'longtext':
-      return 'textarea';
-    default:
-      return 'text';
-  }
 }
 
 function getStatusIcon(status: string) {
@@ -159,17 +132,6 @@ function getStatusBadgeClass(status: string): string {
   }
 }
 
-function formatDuration(startedAt: string, completedAt?: string): string {
-  const start = new Date(startedAt).getTime();
-  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-  const ms = end - start;
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
-}
-
-const TERMINAL_STATUSES = ['Completed', 'Failed', 'Cancelled', 'TimedOut'];
-
 export function AIFlowComponent({
   flowId,
   autoLoad = true,
@@ -182,166 +144,35 @@ export function AIFlowComponent({
   className,
 }: AIFlowComponentProps) {
   const {
+    selectedFlow,
+    inputValues,
+    activeExecution,
+    executionError,
+    executing,
+    cancelling,
     definitions,
     executions,
     loading,
     error,
-    getFlowDefinitions,
-    getFlowDefinition,
-    executeFlow,
-    cancelFlowExecution,
-    getFlowExecution,
-    getFlowExecutions,
-  } = useAIFlow();
-
-  const [selectedFlow, setSelectedFlow] = useState<FlowDefinition | null>(null);
-  const [inputValues, setInputValues] = useState<Record<string, string>>({});
-  const [activeExecution, setActiveExecution] = useState<FlowExecution | null>(null);
-  const [executionError, setExecutionError] = useState<string | null>(null);
-  const [executing, setExecuting] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Load flows
-  useEffect(() => {
-    if (autoLoad) {
-      if (flowId) {
-        getFlowDefinition(flowId).then((flow) => {
-          if (flow) {
-            setSelectedFlow(flow);
-            initializeInputs(flow);
-          }
-        });
-      } else {
-        getFlowDefinitions();
-      }
-      if (showHistory) {
-        getFlowExecutions(flowId);
-      }
-    }
-  }, [autoLoad, flowId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Poll running execution
-  useEffect(() => {
-    if (activeExecution && !TERMINAL_STATUSES.includes(activeExecution.status)) {
-      pollingRef.current = setInterval(async () => {
-        try {
-          const updated = await getFlowExecution(activeExecution.id);
-          if (updated) {
-            setActiveExecution(updated);
-            if (updated.status === 'Completed') {
-              onFlowCompleted?.(updated);
-              clearPolling();
-            } else if (TERMINAL_STATUSES.includes(updated.status) && updated.status !== 'Completed') {
-              onFlowFailed?.(updated);
-              clearPolling();
-            }
-          }
-        } catch (err) {
-          if (err instanceof Error && (err.message.includes('401') || err.message.includes('Unauthorized'))) {
-            onAuthenticationFailed?.();
-            clearPolling();
-          }
-        }
-      }, pollingIntervalMs);
-    }
-    return clearPolling;
-  }, [activeExecution?.id, activeExecution?.status]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function clearPolling() {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }
-
-  function initializeInputs(flow: FlowDefinition) {
-    const defaults: Record<string, string> = {};
-    for (const field of flow.inputFields) {
-      defaults[field.name] = field.defaultValue ?? '';
-    }
-    setInputValues(defaults);
-  }
-
-  const handleSelectFlow = useCallback(
-    (flow: FlowDefinition) => {
-      setSelectedFlow(flow);
-      setActiveExecution(null);
-      setExecutionError(null);
-      initializeInputs(flow);
-      if (showHistory) {
-        getFlowExecutions(flow.id);
-      }
-    },
-    [showHistory, getFlowExecutions],
-  );
-
-  const handleInputChange = useCallback((fieldName: string, value: string) => {
-    setInputValues((prev) => ({ ...prev, [fieldName]: value }));
-  }, []);
-
-  const handleExecute = useCallback(async () => {
-    if (!selectedFlow) return;
-
-    // Validate required fields
-    for (const field of selectedFlow.inputFields) {
-      if (field.isRequired && !inputValues[field.name]?.trim()) {
-        setExecutionError(`${field.displayName} is required`);
-        return;
-      }
-      if (field.validationPattern) {
-        const regex = new RegExp(field.validationPattern);
-        if (inputValues[field.name] && !regex.test(inputValues[field.name])) {
-          setExecutionError(field.validationMessage ?? `${field.displayName} is invalid`);
-          return;
-        }
-      }
-    }
-
-    setExecutionError(null);
-    setExecuting(true);
-    try {
-      const execution = await executeFlow({
-        flowDefinitionId: selectedFlow.id,
-        inputValues,
-      });
-      setActiveExecution(execution);
-    } catch (err) {
-      if (err instanceof Error && (err.message.includes('401') || err.message.includes('Unauthorized'))) {
-        onAuthenticationFailed?.();
-      }
-      setExecutionError(err instanceof Error ? err.message : 'Execution failed');
-    } finally {
-      setExecuting(false);
-    }
-  }, [selectedFlow, inputValues, executeFlow, onAuthenticationFailed]);
-
-  const handleCancel = useCallback(async () => {
-    if (!activeExecution) return;
-    setCancelling(true);
-    try {
-      const success = await cancelFlowExecution(activeExecution.id);
-      if (success) {
-        const updated = await getFlowExecution(activeExecution.id);
-        if (updated) setActiveExecution(updated);
-        clearPolling();
-      } else {
-        setExecutionError('Failed to cancel execution');
-      }
-    } catch (err) {
-      setExecutionError(err instanceof Error ? err.message : 'Cancel failed');
-    } finally {
-      setCancelling(false);
-    }
-  }, [activeExecution, cancelFlowExecution, getFlowExecution]);
-
-  const handleReset = useCallback(() => {
-    setActiveExecution(null);
-    setExecutionError(null);
-    if (selectedFlow) {
-      initializeInputs(selectedFlow);
-    }
-  }, [selectedFlow]);
+    handleSelectFlow,
+    handleInputChange,
+    handleExecute,
+    handleCancel,
+    handleReset,
+    clearSelectedFlow,
+    clearActiveExecution,
+    setActiveExecutionFromHistory,
+    dismissError,
+  } = useAIFlowLogic({
+    flowId,
+    autoLoad,
+    showHistory,
+    pollingIntervalMs,
+    outputKeyFilter,
+    onFlowCompleted,
+    onFlowFailed,
+    onAuthenticationFailed,
+  });
 
   const renderInputField = (field: FlowInputField) => {
     const inputType = getInputType(field.fieldType);
@@ -457,7 +288,7 @@ export function AIFlowComponent({
         <div className="ww-alert ww-alert-danger">
           {error || executionError}
           {executionError && (
-            <button type="button" className="ww-alert-dismiss" onClick={() => setExecutionError(null)}>
+            <button type="button" className="ww-alert-dismiss" onClick={dismissError}>
               &times;
             </button>
           )}
@@ -515,12 +346,7 @@ export function AIFlowComponent({
         <div className="ww-flow-form">
           <div className="ww-flow-form-header">
             {!flowId && (
-              <button
-                type="button"
-                className="ww-btn-icon"
-                onClick={() => setSelectedFlow(null)}
-                aria-label="Back to flow list"
-              >
+              <button type="button" className="ww-btn-icon" onClick={clearSelectedFlow} aria-label="Back to flow list">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
@@ -651,14 +477,7 @@ export function AIFlowComponent({
               </button>
             )}
             {!flowId && (
-              <button
-                type="button"
-                className="ww-btn ww-btn-outline"
-                onClick={() => {
-                  setActiveExecution(null);
-                  setSelectedFlow(null);
-                }}
-              >
+              <button type="button" className="ww-btn ww-btn-outline" onClick={clearActiveExecution}>
                 Back to Flows
               </button>
             )}
@@ -675,10 +494,10 @@ export function AIFlowComponent({
               <div
                 key={exec.id}
                 className="ww-flow-history-item"
-                onClick={() => setActiveExecution(exec)}
+                onClick={() => setActiveExecutionFromHistory(exec)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && setActiveExecution(exec)}
+                onKeyDown={(e) => e.key === 'Enter' && setActiveExecutionFromHistory(exec)}
               >
                 <div className="ww-flow-history-name">{exec.flowName}</div>
                 <div className="ww-flow-history-meta">

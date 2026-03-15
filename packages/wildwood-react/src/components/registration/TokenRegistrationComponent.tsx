@@ -97,7 +97,7 @@ export function TokenRegistrationComponent({
           setPasswordRequirements(client.auth.getPasswordRequirementsText(config));
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn('Failed to load auth configuration:', err));
   }, [appId, client.auth]);
 
   // Get step number for display

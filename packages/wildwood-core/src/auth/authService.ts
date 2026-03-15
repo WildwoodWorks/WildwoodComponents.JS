@@ -60,7 +60,7 @@ export class AuthService {
       ProviderName: request.providerName,
       ProviderToken: request.providerToken,
       TrustedDeviceToken: request.trustedDeviceToken,
-      AppVersion: '1.0.0',
+      AppVersion: request.appVersion ?? '1.0.0',
     };
 
     const { data } = await this.http.post<AuthenticationResponse>('api/auth/login', loginDto, { skipAuth: true });
@@ -264,12 +264,22 @@ export class AuthService {
     return true;
   }
 
-  async resetPassword(newPassword: string, confirmPassword: string, appId: string): Promise<boolean> {
-    await this.http.post('api/auth/reset-password', {
-      NewPassword: newPassword,
-      ConfirmPassword: confirmPassword,
-      AppId: appId,
-    });
+  async resetPassword(
+    newPassword: string,
+    confirmPassword: string,
+    appId: string,
+    resetToken?: string,
+  ): Promise<boolean> {
+    await this.http.post(
+      'api/auth/reset-password',
+      {
+        ...(resetToken ? { ResetToken: resetToken } : {}),
+        NewPassword: newPassword,
+        ConfirmPassword: confirmPassword,
+        AppId: appId,
+      },
+      { skipAuth: true },
+    );
     return true;
   }
 

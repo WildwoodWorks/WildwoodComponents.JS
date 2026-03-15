@@ -14,6 +14,7 @@ export interface LoginRequest {
   platform?: string;
   deviceInfo?: string;
   trustedDeviceToken?: string;
+  appVersion?: string;
 }
 
 export interface RegistrationRequest {
@@ -186,6 +187,7 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
+  resetToken?: string;
   newPassword: string;
   confirmPassword: string;
   appId: string;

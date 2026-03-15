@@ -103,6 +103,18 @@ export type { OverageSummaryComponentProps } from './components/usage/OverageSum
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
 
+// Tier Card (shared sub-components)
+export { TierCard } from './components/tier/TierCard.js';
+export type { TierCardProps } from './components/tier/TierCard.js';
+export { TierCardHeader } from './components/tier/TierCardHeader.js';
+export type { TierCardHeaderProps } from './components/tier/TierCardHeader.js';
+export { TierCardFeatures } from './components/tier/TierCardFeatures.js';
+export type { TierCardFeaturesProps } from './components/tier/TierCardFeatures.js';
+export { TierCardLimits } from './components/tier/TierCardLimits.js';
+export type { TierCardLimitsProps } from './components/tier/TierCardLimits.js';
+export { TierCardFooter } from './components/tier/TierCardFooter.js';
+export type { TierCardFooterProps } from './components/tier/TierCardFooter.js';
+
 // Common Components
 export { LoadingSpinner } from './components/common/LoadingSpinner.js';
 export type { LoadingSpinnerProps } from './components/common/LoadingSpinner.js';
@@ -118,4 +130,33 @@ export type {
   RegistrationRequest,
   RegistrationFormData,
   ThemeName,
+  TwoFactorMethodInfo,
+  TwoFactorVerifyResponse,
+  AuthProvider,
+  AuthenticationConfiguration,
+  PendingDisclaimerModel,
+  ToastNotification,
+  NotificationType,
+  AppTierModel,
+  UserTierSubscriptionModel,
+  PendingDisclaimersResponse,
+  AIChatRequest,
+  AIChatResponse,
+  AISession,
+  AISessionSummary,
+  AIConfiguration,
+  MessageThread,
+  SecureMessage,
+  SubscriptionPlan,
+  Subscription,
+  SubscriptionResult,
+  PlatformInfo,
+  AppTierPricingModel,
+  AppTierAddOnModel,
+  UserAddOnSubscriptionModel,
+  AppTierLimitStatusModel,
+  AppFeatureDefinitionModel,
+  FlowDefinition,
+  FlowExecution,
+  PaymentCompletionResult,
 } from '@wildwood/core';

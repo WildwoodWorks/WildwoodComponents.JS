@@ -1,7 +1,7 @@
 // AuthenticationComponent - ported from WildwoodComponents.Blazor AuthenticationComponent
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
+// State management and handlers delegated to useAuthenticationLogic from @wildwood/react-shared
 
-import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,8 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import type {
-  AuthenticationResponse,
-  LoginRequest,
-  AuthProvider,
-  AuthenticationConfiguration,
-  TwoFactorMethodInfo,
-  PendingDisclaimerModel,
-} from '@wildwood/core';
-import { useWildwood } from '../hooks/useWildwood';
+import type { AuthenticationResponse, PendingDisclaimerModel } from '@wildwood/core';
+import { useAuthenticationLogic } from '@wildwood/react-shared';
 
 export interface AuthenticationComponentProps {
   appId?: string;
@@ -32,8 +25,6 @@ export interface AuthenticationComponentProps {
   onAuthenticationError?: (error: string) => void;
 }
 
-type AuthView = 'login' | 'register' | 'twoFactor' | 'passwordReset' | 'forgotPassword' | 'disclaimers';
-
 export function AuthenticationComponent({
   appId,
   title,
@@ -42,280 +33,87 @@ export function AuthenticationComponent({
   onAuthenticationSuccess,
   onAuthenticationError,
 }: AuthenticationComponentProps) {
-  const client = useWildwood();
-  const resolvedAppId = appId ?? client.config.appId;
+  const {
+    // State
+    view,
+    setView,
+    isLoading: loading,
+    errorMessage: error,
+    setErrorMessage: setError,
+    successMessage,
 
-  // View state
-  const [view, setView] = useState<AuthView>('login');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    // Config
+    authConfig,
+    providers,
 
-  // Config
-  const [authConfig, setAuthConfig] = useState<AuthenticationConfiguration | null>(null);
-  const [providers, setProviders] = useState<AuthProvider[]>([]);
+    // Login form
+    username,
+    setUsername,
+    password,
+    setPassword,
+    showPassword,
+    setShowPassword,
+    rememberMe,
+    setRememberMe,
 
-  // Login form
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+    // 2FA
+    twoFactorMethods,
+    selectedTwoFactorMethod,
+    setSelectedTwoFactorMethod,
+    twoFactorCode,
+    setTwoFactorCode,
+    showRecoveryInput,
+    setShowRecoveryInput,
+    recoveryCode,
+    setRecoveryCode,
+    rememberDevice,
+    setRememberDevice,
 
-  // 2FA
-  const [twoFactorSessionId, setTwoFactorSessionId] = useState('');
-  const [twoFactorMethods, setTwoFactorMethods] = useState<TwoFactorMethodInfo[]>([]);
-  const [selectedTwoFactorMethod, setSelectedTwoFactorMethod] = useState('');
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [showRecoveryInput, setShowRecoveryInput] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState('');
-  const [rememberDevice, setRememberDevice] = useState(false);
+    // Password reset
+    newPassword,
+    setNewPassword,
+    confirmPassword,
+    setConfirmPassword,
+    showNewPassword,
+    setShowNewPassword,
+    showConfirmPassword,
+    setShowConfirmPassword,
 
-  // Password reset (forced)
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    // Forgot password
+    forgotEmail,
+    setForgotEmail,
 
-  // Forgot password
-  const [forgotEmail, setForgotEmail] = useState('');
+    // Pending auth
+    pendingAuth,
 
-  // Pending auth response (stored between views)
-  const [pendingAuth, setPendingAuth] = useState<AuthenticationResponse | null>(null);
+    // Handlers
+    clearMessages,
+    handleLogin,
+    handleTwoFactorSubmit,
+    handleRecoverySubmit,
+    handleResendCode,
+    handlePasswordReset,
+    handleForgotPasswordSubmit,
+    handleAcceptDisclaimers,
+    resolveTitle,
 
-  // Load configuration on mount
-  useEffect(() => {
-    if (!resolvedAppId) return;
-    const load = async () => {
-      try {
-        const [ac, prov] = await Promise.all([
-          client.auth.getAuthenticationConfiguration(resolvedAppId),
-          client.auth.getAvailableProviders(resolvedAppId),
-        ]);
-        if (ac) setAuthConfig(ac);
-        if (prov) setProviders(prov);
-      } catch {
-        // Config loading is best-effort; component works without it
-      }
-    };
-    load();
-  }, [resolvedAppId, client]);
+    // Computed
+    allowPasswordReset,
+    allowRegistration,
 
-  const clearMessages = () => {
-    setError(null);
-    setSuccessMessage(null);
-  };
-
-  const handleError = (err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    const displayMsg = showDetailedErrors ? msg : 'Authentication failed. Please try again.';
-    setError(displayMsg);
-    onAuthenticationError?.(msg);
-  };
-
-  // Complete auth flow (called after all checks pass)
-  const completeAuth = useCallback(async (response: AuthenticationResponse) => {
-    await client.session.login(response);
-    onAuthenticationSuccess?.(response);
-  }, [client, onAuthenticationSuccess]);
-
-  // Process auth response, checking for 2FA/password reset/disclaimers
-  const processAuthResponse = useCallback(async (response: AuthenticationResponse) => {
-    if (response.requiresTwoFactor) {
-      setPendingAuth(response);
-      setTwoFactorSessionId(response.twoFactorSessionId ?? '');
-      setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
-      setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
-      setView('twoFactor');
-      return;
-    }
-
-    if (response.requiresPasswordReset) {
-      setPendingAuth(response);
-      setView('passwordReset');
-      return;
-    }
-
-    if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
-      setPendingAuth(response);
-      setView('disclaimers');
-      return;
-    }
-
-    await completeAuth(response);
-  }, [completeAuth]);
-
-  // ---------------------------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------------------------
-  const handleLogin = useCallback(async () => {
-    clearMessages();
-    if (!username.trim() || !password.trim()) {
-      setError('Please enter your username and password.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const request: LoginRequest = {
-        username,
-        email: username,
-        password,
-        appId: resolvedAppId,
-        rememberMe,
-        platform: Platform.OS,
-        deviceInfo: `${Platform.OS} ${Platform.Version}`,
-      };
-      const response = await client.auth.login(request);
-      await processAuthResponse(response);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [username, password, resolvedAppId, client, processAuthResponse]);
-
-  // ---------------------------------------------------------------------------
-  // Two-Factor
-  // ---------------------------------------------------------------------------
-  const handleTwoFactorSubmit = useCallback(async () => {
-    clearMessages();
-    setLoading(true);
-    try {
-      const result = await client.auth.verifyTwoFactorCode({
-        sessionId: twoFactorSessionId,
-        code: twoFactorCode,
-        providerType: selectedTwoFactorMethod,
-        rememberDevice,
-        deviceFingerprint: `${Platform.OS} ${Platform.Version}`,
-        deviceName: `${Platform.OS} Device`,
-      });
-
-      if (result.success && result.authResponse) {
-        await processAuthResponse(result.authResponse);
-      } else {
-        setError(result.errorMessage ?? 'Verification failed');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [twoFactorSessionId, twoFactorCode, selectedTwoFactorMethod, rememberDevice, client, processAuthResponse]);
-
-  const handleRecoverySubmit = useCallback(async () => {
-    clearMessages();
-    setLoading(true);
-    try {
-      const result = await client.auth.verifyTwoFactorRecoveryCode(
-        twoFactorSessionId,
-        recoveryCode,
-        '',
-      );
-
-      if (result.success && result.authResponse) {
-        await processAuthResponse(result.authResponse);
-      } else {
-        setError(result.errorMessage ?? 'Recovery code verification failed');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [twoFactorSessionId, recoveryCode, client, processAuthResponse]);
-
-  const handleResendCode = useCallback(async () => {
-    clearMessages();
-    setLoading(true);
-    try {
-      const result = await client.auth.sendTwoFactorCode(twoFactorSessionId);
-      if (result.success) {
-        setSuccessMessage(`Code sent to ${result.maskedDestination ?? 'your device'}`);
-      } else {
-        setError(result.errorMessage ?? 'Failed to resend code');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [twoFactorSessionId, client]);
-
-  // ---------------------------------------------------------------------------
-  // Password Reset (forced after login)
-  // ---------------------------------------------------------------------------
-  const handlePasswordReset = useCallback(async () => {
-    clearMessages();
-
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await client.auth.resetPassword(newPassword, confirmPassword, resolvedAppId ?? '');
-      setSuccessMessage('Password updated successfully');
-
-      if (pendingAuth) {
-        const response = await client.auth.login({
-          username: pendingAuth.email,
-          password: newPassword,
-          appId: resolvedAppId,
-          platform: Platform.OS,
-          deviceInfo: `${Platform.OS} ${Platform.Version}`,
-        });
-        await processAuthResponse(response);
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [newPassword, confirmPassword, resolvedAppId, pendingAuth, client, processAuthResponse]);
-
-  // ---------------------------------------------------------------------------
-  // Forgot Password
-  // ---------------------------------------------------------------------------
-  const handleForgotPassword = useCallback(async () => {
-    clearMessages();
-    if (!forgotEmail.trim()) {
-      setError('Please enter your email address.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await client.auth.requestPasswordReset(forgotEmail, resolvedAppId ?? '');
-      setSuccessMessage('If an account exists with that email, a password reset link has been sent.');
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [forgotEmail, resolvedAppId, client]);
-
-  // ---------------------------------------------------------------------------
-  // Disclaimers
-  // ---------------------------------------------------------------------------
-  const handleAcceptDisclaimers = useCallback(async () => {
-    if (!pendingAuth?.pendingDisclaimers) return;
-    clearMessages();
-    setLoading(true);
-    try {
-      await client.disclaimer.acceptAllDisclaimers(
-        pendingAuth.pendingDisclaimers.map((d: PendingDisclaimerModel) => ({
-          disclaimerId: d.disclaimerId,
-          versionId: d.versionId,
-        })),
-      );
-      await completeAuth(pendingAuth);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [pendingAuth, client, completeAuth]);
+    // Client (for password requirements text)
+    client,
+  } = useAuthenticationLogic({
+    appId,
+    title,
+    showPasswordField,
+    showDetailedErrors,
+    platform: Platform.OS,
+    deviceInfo: `${Platform.OS} ${Platform.Version}`,
+    deviceName: `${Platform.OS} Device`,
+    onAuthenticationSuccess,
+    onAuthenticationError,
+  });
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -324,13 +122,13 @@ export function AuthenticationComponent({
   // Map common OAuth provider names to unicode symbols for native rendering
   const getProviderIcon = (providerName: string): string => {
     const name = providerName.toLowerCase();
-    if (name.includes('google')) return '\u{1F310}';    // globe
-    if (name.includes('apple')) return '\uF8FF';         // apple symbol (renders on iOS)
+    if (name.includes('google')) return '\u{1F310}'; // globe
+    if (name.includes('apple')) return '\uF8FF'; // apple symbol (renders on iOS)
     if (name.includes('facebook') || name.includes('meta')) return '\u{1F465}'; // people
     if (name.includes('microsoft') || name.includes('azure')) return '\u{1F5A5}'; // desktop
-    if (name.includes('github')) return '\u{2699}';      // gear
+    if (name.includes('github')) return '\u{2699}'; // gear
     if (name.includes('twitter') || name.includes('x')) return '\u{1F426}'; // bird
-    return '\u{1F511}';                                   // key (generic)
+    return '\u{1F511}'; // key (generic)
   };
 
   // Strip HTML tags for plain text rendering in RN (no dangerouslySetInnerHTML)
@@ -353,22 +151,6 @@ export function AuthenticationComponent({
   };
 
   // ---------------------------------------------------------------------------
-  // Title resolver
-  // ---------------------------------------------------------------------------
-  const resolveTitle = () => {
-    if (title) return title;
-    switch (view) {
-      case 'login': return 'Sign In';
-      case 'register': return 'Create Account';
-      case 'twoFactor': return 'Two-Factor Verification';
-      case 'passwordReset': return 'Reset Password';
-      case 'forgotPassword': return 'Forgot Password';
-      case 'disclaimers': return 'Terms & Conditions';
-      default: return 'Sign In';
-    }
-  };
-
-  // ---------------------------------------------------------------------------
   // Render helpers
   // ---------------------------------------------------------------------------
   const renderAlert = () => (
@@ -387,11 +169,7 @@ export function AuthenticationComponent({
   );
 
   const renderSubmitButton = (label: string, loadingLabel: string, onPress: () => void) => (
-    <Pressable
-      style={[styles.primaryButton, loading && styles.buttonDisabled]}
-      onPress={onPress}
-      disabled={loading}
-    >
+    <Pressable style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={onPress} disabled={loading}>
       {loading ? (
         <ActivityIndicator color="#fff" size="small" />
       ) : (
@@ -461,10 +239,7 @@ export function AuthenticationComponent({
         </>
       )}
 
-      <Pressable
-        style={styles.checkboxRow}
-        onPress={() => setRememberMe(!rememberMe)}
-      >
+      <Pressable style={styles.checkboxRow} onPress={() => setRememberMe(!rememberMe)}>
         <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
           {rememberMe && <Text style={styles.checkmark}>✓</Text>}
         </View>
@@ -500,18 +275,24 @@ export function AuthenticationComponent({
       )}
 
       <View style={styles.footer}>
-        {(authConfig?.allowPasswordReset !== false) && (
+        {allowPasswordReset && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => { clearMessages(); setView('forgotPassword'); }}
+            onPress={() => {
+              clearMessages();
+              setView('forgotPassword');
+            }}
           >
             <Text style={styles.linkText}>Forgot password?</Text>
           </Pressable>
         )}
-        {(authConfig?.allowOpenRegistration || authConfig?.allowTokenRegistration) && (
+        {allowRegistration && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => { clearMessages(); setView('register'); }}
+            onPress={() => {
+              clearMessages();
+              setView('register');
+            }}
           >
             <Text style={styles.linkText}>Don't have an account? Sign up</Text>
           </Pressable>
@@ -526,12 +307,15 @@ export function AuthenticationComponent({
   const renderRegister = () => (
     <View>
       <Text style={styles.subtitle}>
-        Use the TokenRegistrationComponent for invitation-based registration,
-        or contact your administrator for account access.
+        Use the TokenRegistrationComponent for invitation-based registration, or contact your administrator for account
+        access.
       </Text>
       <Pressable
         style={styles.linkButton}
-        onPress={() => { clearMessages(); setView('login'); }}
+        onPress={() => {
+          clearMessages();
+          setView('login');
+        }}
       >
         <Text style={styles.linkText}>Already have an account? Sign in</Text>
       </Pressable>
@@ -553,7 +337,10 @@ export function AuthenticationComponent({
                 styles.twoFaMethodButton,
                 selectedTwoFactorMethod === method.providerType && styles.twoFaMethodActive,
               ]}
-              onPress={() => { setSelectedTwoFactorMethod(method.providerType); setShowRecoveryInput(false); }}
+              onPress={() => {
+                setSelectedTwoFactorMethod(method.providerType);
+                setShowRecoveryInput(false);
+              }}
             >
               <Text
                 style={[
@@ -584,10 +371,7 @@ export function AuthenticationComponent({
             onSubmitEditing={handleTwoFactorSubmit}
           />
 
-          <Pressable
-            style={styles.checkboxRow}
-            onPress={() => setRememberDevice(!rememberDevice)}
-          >
+          <Pressable style={styles.checkboxRow} onPress={() => setRememberDevice(!rememberDevice)}>
             <View style={[styles.checkbox, rememberDevice && styles.checkboxChecked]}>
               {rememberDevice && <Text style={styles.checkmark}>✓</Text>}
             </View>
@@ -597,11 +381,7 @@ export function AuthenticationComponent({
           {renderSubmitButton('Verify', 'Verifying...', handleTwoFactorSubmit)}
 
           {selectedTwoFactorMethod.toLowerCase().includes('email') && (
-            <Pressable
-              style={styles.linkButton}
-              onPress={handleResendCode}
-              disabled={loading}
-            >
+            <Pressable style={styles.linkButton} onPress={handleResendCode} disabled={loading}>
               <Text style={styles.linkText}>Resend code</Text>
             </Pressable>
           )}
@@ -626,17 +406,17 @@ export function AuthenticationComponent({
       )}
 
       <View style={styles.footer}>
-        <Pressable
-          style={styles.linkButton}
-          onPress={() => setShowRecoveryInput(!showRecoveryInput)}
-        >
-          <Text style={styles.linkText}>
-            {showRecoveryInput ? 'Use verification code' : 'Use recovery code'}
-          </Text>
+        <Pressable style={styles.linkButton} onPress={() => setShowRecoveryInput(!showRecoveryInput)}>
+          <Text style={styles.linkText}>{showRecoveryInput ? 'Use verification code' : 'Use recovery code'}</Text>
         </Pressable>
         <Pressable
           style={styles.linkButton}
-          onPress={() => { clearMessages(); setView('login'); setTwoFactorCode(''); setRecoveryCode(''); }}
+          onPress={() => {
+            clearMessages();
+            setView('login');
+            setTwoFactorCode('');
+            setRecoveryCode('');
+          }}
         >
           <Text style={styles.linkText}>Back to sign in</Text>
         </Pressable>
@@ -649,9 +429,7 @@ export function AuthenticationComponent({
   // ---------------------------------------------------------------------------
   const renderPasswordReset = () => (
     <View>
-      <Text style={styles.subtitle}>
-        You must set a new password before continuing.
-      </Text>
+      <Text style={styles.subtitle}>You must set a new password before continuing.</Text>
 
       <Text style={styles.label}>New Password</Text>
       {renderPasswordInput(
@@ -673,9 +451,7 @@ export function AuthenticationComponent({
       )}
 
       {authConfig && (
-        <Text style={styles.passwordRequirements}>
-          {client.auth.getPasswordRequirementsText(authConfig)}
-        </Text>
+        <Text style={styles.passwordRequirements}>{client.auth.getPasswordRequirementsText(authConfig)}</Text>
       )}
 
       {renderSubmitButton('Set New Password', 'Updating...', handlePasswordReset)}
@@ -687,9 +463,7 @@ export function AuthenticationComponent({
   // ---------------------------------------------------------------------------
   const renderForgotPassword = () => (
     <View>
-      <Text style={styles.subtitle}>
-        Enter your email address and we'll send you a link to reset your password.
-      </Text>
+      <Text style={styles.subtitle}>Enter your email address and we'll send you a link to reset your password.</Text>
 
       <Text style={styles.label}>Email Address</Text>
       <TextInput
@@ -704,14 +478,17 @@ export function AuthenticationComponent({
         textContentType="emailAddress"
         editable={!loading}
         returnKeyType="go"
-        onSubmitEditing={handleForgotPassword}
+        onSubmitEditing={handleForgotPasswordSubmit}
       />
 
-      {renderSubmitButton('Send Reset Link', 'Sending...', handleForgotPassword)}
+      {renderSubmitButton('Send Reset Link', 'Sending...', handleForgotPasswordSubmit)}
 
       <Pressable
         style={styles.linkButton}
-        onPress={() => { clearMessages(); setView('login'); }}
+        onPress={() => {
+          clearMessages();
+          setView('login');
+        }}
       >
         <Text style={styles.linkText}>Back to sign in</Text>
       </Pressable>
@@ -726,9 +503,7 @@ export function AuthenticationComponent({
 
     return (
       <View>
-        <Text style={styles.subtitle}>
-          Please review and accept the following before continuing.
-        </Text>
+        <Text style={styles.subtitle}>Please review and accept the following before continuing.</Text>
         {pendingAuth.pendingDisclaimers.map((d: PendingDisclaimerModel) => (
           <View key={d.disclaimerId} style={styles.disclaimerItem}>
             <Text style={styles.disclaimerTitle}>{d.title}</Text>
@@ -736,9 +511,7 @@ export function AuthenticationComponent({
               <Text style={styles.disclaimerChangeNotes}>What changed: {d.changeNotes}</Text>
             )}
             <ScrollView style={styles.disclaimerContent} nestedScrollEnabled>
-              <Text style={styles.disclaimerText}>
-                {d.contentFormat === 'html' ? stripHtml(d.content) : d.content}
-              </Text>
+              <Text style={styles.disclaimerText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
             </ScrollView>
           </View>
         ))}
@@ -752,14 +525,8 @@ export function AuthenticationComponent({
   // Main render
   // ---------------------------------------------------------------------------
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.title}>{resolveTitle()}</Text>
           {renderAlert()}

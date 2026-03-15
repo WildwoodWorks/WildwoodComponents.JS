@@ -1,31 +1,33 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, FlatList, StyleSheet, Alert } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { MessageThread, SecureMessage } from '@wildwood/core';
 import { useMessaging } from '../hooks/useMessaging';
 
 export interface SecureMessagingComponentProps {
   onThreadSelected?: (thread: MessageThread) => void;
+  style?: ViewStyle;
 }
 
 const REACTION_EMOJIS = ['\u{1F44D}', '\u2764\uFE0F', '\u{1F602}'];
 
-export function SecureMessagingComponent({
-  onThreadSelected,
-}: SecureMessagingComponentProps) {
+export function SecureMessagingComponent({ onThreadSelected, style }: SecureMessagingComponentProps) {
   const {
-    threads, loading, error,
-    getThreads, getMessages, sendMessage, createThread,
-    editMessage, deleteMessage, reactToMessage,
-    markThreadAsRead, searchUsers,
+    threads,
+    loading,
+    error,
+    getThreads,
+    getMessages,
+    sendMessage,
+    createThread,
+    editMessage,
+    deleteMessage,
+    reactToMessage,
+    markThreadAsRead,
+    searchUsers,
   } = useMessaging();
+
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [messages, setMessages] = useState<SecureMessage[]>([]);
@@ -50,156 +52,208 @@ export function SecureMessagingComponent({
     }
   }, [messages]);
 
-  const handleSelectThread = useCallback(async (thread: MessageThread) => {
-    setSelectedThread(thread);
-    setShowNewThread(false);
-    const msgs = await getMessages(thread.id);
-    setMessages(msgs);
-    await markThreadAsRead(thread.id);
-    onThreadSelected?.(thread);
-  }, [getMessages, markThreadAsRead, onThreadSelected]);
+  const handleSelectThread = useCallback(
+    async (thread: MessageThread) => {
+      try {
+        setLocalError(null);
+        setSelectedThread(thread);
+        setShowNewThread(false);
+        const msgs = await getMessages(thread.id);
+        setMessages(msgs);
+        await markThreadAsRead(thread.id);
+        onThreadSelected?.(thread);
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to load thread');
+      }
+    },
+    [getMessages, markThreadAsRead, onThreadSelected],
+  );
 
   const handleSendMessage = useCallback(async () => {
     if (!messageInput.trim() || !selectedThread || sending) return;
 
     setSending(true);
     try {
+      setLocalError(null);
       const msg = await sendMessage(selectedThread.id, messageInput.trim());
       setMessages((prev) => [...prev, msg]);
       setMessageInput('');
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to send message');
     } finally {
       setSending(false);
     }
   }, [messageInput, selectedThread, sending, sendMessage]);
 
-  const handleSearchUsers = useCallback(async (query: string) => {
-    setUserSearchQuery(query);
-    if (query.length >= 2) {
-      const results = await searchUsers(query);
-      setSearchResults(results.map((u) => ({ id: u.userId, displayName: u.userName })));
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchUsers]);
+  const handleSearchUsers = useCallback(
+    async (query: string) => {
+      setUserSearchQuery(query);
+      if (query.length >= 2) {
+        try {
+          const results = await searchUsers(query);
+          setSearchResults(results.map((u) => ({ id: u.userId, displayName: u.userName })));
+        } catch (err) {
+          setLocalError(err instanceof Error ? err.message : 'Failed to search users');
+        }
+      } else {
+        setSearchResults([]);
+      }
+    },
+    [searchUsers],
+  );
 
   const handleCreateThread = useCallback(async () => {
     if (selectedParticipants.length === 0) return;
-    const thread = await createThread(
-      selectedParticipants.map((p) => p.id),
-      newThreadSubject || '',
-    );
-    setShowNewThread(false);
-    setNewThreadSubject('');
-    setSelectedParticipants([]);
-    setUserSearchQuery('');
-    await handleSelectThread(thread);
+    try {
+      setLocalError(null);
+      const thread = await createThread(
+        selectedParticipants.map((p) => p.id),
+        newThreadSubject || '',
+      );
+      setShowNewThread(false);
+      setNewThreadSubject('');
+      setSelectedParticipants([]);
+      setUserSearchQuery('');
+      await handleSelectThread(thread);
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to create thread');
+    }
   }, [selectedParticipants, newThreadSubject, createThread, handleSelectThread]);
 
-  const handleEditMessage = useCallback(async (messageId: string) => {
-    if (!editContent.trim()) return;
-    await editMessage(messageId, editContent.trim());
-    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, content: editContent.trim() } : m));
-    setEditingMessageId(null);
-    setEditContent('');
-  }, [editContent, editMessage]);
+  const handleEditMessage = useCallback(
+    async (messageId: string) => {
+      if (!editContent.trim()) return;
+      try {
+        setLocalError(null);
+        await editMessage(messageId, editContent.trim());
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content: editContent.trim() } : m)));
+        setEditingMessageId(null);
+        setEditContent('');
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to edit message');
+      }
+    },
+    [editContent, editMessage],
+  );
 
-  const handleDeleteMessage = useCallback(async (messageId: string) => {
-    await deleteMessage(messageId);
-    setMessages((prev) => prev.filter((m) => m.id !== messageId));
-  }, [deleteMessage]);
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLocalError(null);
+              await deleteMessage(messageId);
+              setMessages((prev) => prev.filter((m) => m.id !== messageId));
+            } catch (err) {
+              setLocalError(err instanceof Error ? err.message : 'Failed to delete message');
+            }
+          },
+        },
+      ]);
+    },
+    [deleteMessage],
+  );
 
-  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
-    await reactToMessage(messageId, emoji);
-  }, [reactToMessage]);
+  const handleReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      try {
+        setLocalError(null);
+        await reactToMessage(messageId, emoji);
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to add reaction');
+      }
+    },
+    [reactToMessage],
+  );
 
-  const renderThreadItem = useCallback(({ item: thread }: { item: MessageThread }) => {
-    const isActive = selectedThread?.id === thread.id;
-    return (
-      <Pressable
-        style={[styles.threadItem, isActive && styles.threadItemActive]}
-        onPress={() => handleSelectThread(thread)}
-      >
-        <View style={styles.threadItemRow}>
-          <Text
-            style={[styles.threadSubject, thread.unreadCount ? styles.threadSubjectUnread : null]}
-            numberOfLines={1}
-          >
-            {thread.subject || 'No Subject'}
-          </Text>
-          {thread.unreadCount ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{thread.unreadCount}</Text>
-            </View>
+  const renderThreadItem = useCallback(
+    ({ item: thread }: { item: MessageThread }) => {
+      const isActive = selectedThread?.id === thread.id;
+      return (
+        <Pressable
+          style={[styles.threadItem, isActive && styles.threadItemActive]}
+          onPress={() => handleSelectThread(thread)}
+        >
+          <View style={styles.threadItemRow}>
+            <Text
+              style={[styles.threadSubject, thread.unreadCount ? styles.threadSubjectUnread : null]}
+              numberOfLines={1}
+            >
+              {thread.subject || 'No Subject'}
+            </Text>
+            {thread.unreadCount ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{thread.unreadCount}</Text>
+              </View>
+            ) : null}
+          </View>
+          {thread.lastMessagePreview ? (
+            <Text style={styles.threadPreview} numberOfLines={1}>
+              {thread.lastMessagePreview.slice(0, 50)}
+            </Text>
           ) : null}
-        </View>
-        {thread.lastMessagePreview ? (
-          <Text style={styles.threadPreview} numberOfLines={1}>
-            {thread.lastMessagePreview.slice(0, 50)}
-          </Text>
-        ) : null}
-      </Pressable>
-    );
-  }, [selectedThread, handleSelectThread]);
+        </Pressable>
+      );
+    },
+    [selectedThread, handleSelectThread],
+  );
 
-  const renderMessageItem = useCallback(({ item: msg }: { item: SecureMessage }) => (
-    <View style={styles.messageItem}>
-      <View style={styles.messageHeader}>
-        <Text style={styles.messageSender}>{msg.senderName ?? 'Unknown'}</Text>
-        <Text style={styles.messageTime}>
-          {new Date(msg.createdAt).toLocaleString()}
-        </Text>
-      </View>
-      {editingMessageId === msg.id ? (
-        <View style={styles.editRow}>
-          <TextInput
-            style={[styles.input, styles.editInput]}
-            value={editContent}
-            onChangeText={setEditContent}
-          />
-          <Pressable style={styles.actionButtonPrimary} onPress={() => handleEditMessage(msg.id)}>
-            <Text style={styles.actionButtonPrimaryText}>Save</Text>
-          </Pressable>
-          <Pressable style={styles.actionButtonOutline} onPress={() => setEditingMessageId(null)}>
-            <Text style={styles.actionButtonOutlineText}>Cancel</Text>
-          </Pressable>
+  const renderMessageItem = useCallback(
+    ({ item: msg }: { item: SecureMessage }) => (
+      <View style={styles.messageItem}>
+        <View style={styles.messageHeader}>
+          <Text style={styles.messageSender}>{msg.senderName ?? 'Unknown'}</Text>
+          <Text style={styles.messageTime}>{new Date(msg.createdAt).toLocaleString()}</Text>
         </View>
-      ) : (
-        <Text style={styles.messageContent}>{msg.content}</Text>
-      )}
-      <View style={styles.messageActions}>
-        {REACTION_EMOJIS.map((emoji) => (
-          <Pressable
-            key={emoji}
-            style={styles.reactionButton}
-            onPress={() => handleReaction(msg.id, emoji)}
-          >
-            <Text style={styles.reactionButtonText}>{emoji}</Text>
-          </Pressable>
-        ))}
-        <Pressable
-          style={styles.actionButtonSmall}
-          onPress={() => { setEditingMessageId(msg.id); setEditContent(msg.content); }}
-        >
-          <Text style={styles.actionButtonSmallText}>Edit</Text>
-        </Pressable>
-        <Pressable
-          style={styles.actionButtonSmall}
-          onPress={() => handleDeleteMessage(msg.id)}
-        >
-          <Text style={styles.actionButtonSmallTextDanger}>Delete</Text>
-        </Pressable>
-      </View>
-      {msg.reactions && msg.reactions.length > 0 && (
-        <View style={styles.reactionsRow}>
-          {msg.reactions.map((r) => (
-            <View key={r.id} style={styles.reactionChip}>
-              <Text style={styles.reactionChipText}>{r.emoji}</Text>
-            </View>
+        {editingMessageId === msg.id ? (
+          <View style={styles.editRow}>
+            <TextInput style={[styles.input, styles.editInput]} value={editContent} onChangeText={setEditContent} />
+            <Pressable style={styles.actionButtonPrimary} onPress={() => handleEditMessage(msg.id)}>
+              <Text style={styles.actionButtonPrimaryText}>Save</Text>
+            </Pressable>
+            <Pressable style={styles.actionButtonOutline} onPress={() => setEditingMessageId(null)}>
+              <Text style={styles.actionButtonOutlineText}>Cancel</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={styles.messageContent}>{msg.content}</Text>
+        )}
+        <View style={styles.messageActions}>
+          {REACTION_EMOJIS.map((emoji) => (
+            <Pressable key={emoji} style={styles.reactionButton} onPress={() => handleReaction(msg.id, emoji)}>
+              <Text style={styles.reactionButtonText}>{emoji}</Text>
+            </Pressable>
           ))}
+          <Pressable
+            style={styles.actionButtonSmall}
+            onPress={() => {
+              setEditingMessageId(msg.id);
+              setEditContent(msg.content);
+            }}
+          >
+            <Text style={styles.actionButtonSmallText}>Edit</Text>
+          </Pressable>
+          <Pressable style={styles.actionButtonSmall} onPress={() => handleDeleteMessage(msg.id)}>
+            <Text style={styles.actionButtonSmallTextDanger}>Delete</Text>
+          </Pressable>
         </View>
-      )}
-    </View>
-  ), [editingMessageId, editContent, handleEditMessage, handleDeleteMessage, handleReaction]);
+        {msg.reactions && msg.reactions.length > 0 && (
+          <View style={styles.reactionsRow}>
+            {msg.reactions.map((r) => (
+              <View key={r.id} style={styles.reactionChip}>
+                <Text style={styles.reactionChipText}>{r.emoji}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    ),
+    [editingMessageId, editContent, handleEditMessage, handleDeleteMessage, handleReaction],
+  );
 
   // New thread form
   const renderNewThreadForm = () => (
@@ -267,10 +321,7 @@ export function SecureMessagingComponent({
         >
           <Text style={styles.primaryButtonText}>Create</Text>
         </Pressable>
-        <Pressable
-          style={styles.outlineButton}
-          onPress={() => setShowNewThread(false)}
-        >
+        <Pressable style={styles.outlineButton} onPress={() => setShowNewThread(false)}>
           <Text style={styles.outlineButtonText}>Cancel</Text>
         </Pressable>
       </View>
@@ -312,11 +363,7 @@ export function SecureMessagingComponent({
           onPress={handleSendMessage}
           disabled={!messageInput.trim() || sending}
         >
-          {sending ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.sendButtonText}>Send</Text>
-          )}
+          {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendButtonText}>Send</Text>}
         </Pressable>
       </View>
     </View>
@@ -330,10 +377,10 @@ export function SecureMessagingComponent({
   );
 
   return (
-    <View style={styles.container}>
-      {error && (
+    <View style={[styles.container, style]}>
+      {(error || localError) && (
         <View style={styles.alertError}>
-          <Text style={styles.alertErrorText}>{error}</Text>
+          <Text style={styles.alertErrorText}>{error || localError}</Text>
         </View>
       )}
 

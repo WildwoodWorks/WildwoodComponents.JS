@@ -40,10 +40,10 @@ export class AppTierService {
   /**
    * Get tiers for an app without requiring authentication.
    * For use on public-facing pages like pricing displays.
+   * @alias getTiers - same endpoint, kept for backward compatibility
    */
   async getPublicTiers(appId: string): Promise<AppTierModel[]> {
-    const { data } = await this.http.get<AppTierModel[]>(`api/app-tiers/${appId}/public`, { skipAuth: true });
-    return data ?? [];
+    return this.getTiers(appId);
   }
 
   /**
@@ -226,14 +226,14 @@ export class AppTierService {
     }
   }
 
-  async checkFeature(featureKey: string, appId?: string): Promise<AppFeatureCheckResultModel> {
+  async checkFeature(featureKey: string, appId: string): Promise<AppFeatureCheckResultModel> {
     const { data } = await this.http.get<AppFeatureCheckResultModel>(
       `api/app-tiers/${appId}/check-feature/${encodeURIComponent(featureKey)}`,
     );
     return data;
   }
 
-  async getLimitStatus(limitKey: string, appId?: string): Promise<AppTierLimitStatusModel> {
+  async getLimitStatus(limitKey: string, appId: string): Promise<AppTierLimitStatusModel> {
     const { data } = await this.http.get<AppTierLimitStatusModel>(
       `api/app-tiers/${appId}/check-limit/${encodeURIComponent(limitKey)}`,
     );

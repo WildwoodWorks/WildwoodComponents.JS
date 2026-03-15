@@ -1,6 +1,7 @@
 // AddOnsPanel - ported from WildwoodComponents.Blazor Subscription/Admin/AddOnsPanel.razor
 
 import { useState } from 'react';
+import { formatPrice } from '@wildwood/core';
 import type { AppTierAddOnModel, UserAddOnSubscriptionModel } from '@wildwood/core';
 
 export interface AddOnsPanelProps {
@@ -12,13 +13,6 @@ export interface AddOnsPanelProps {
   onSubscribe?: (addOnId: string, pricingId?: string) => Promise<void>;
   onCancel?: (subscriptionId: string) => Promise<void>;
   className?: string;
-}
-
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', EUR: '\u20AC', GBP: '\u00A3', JPY: '\u00A5' };
-
-function formatPrice(amount: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
-  return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(2)}`;
 }
 
 export function AddOnsPanel({

@@ -9,7 +9,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ['react', 'react/jsx-runtime', '@wildwood/core'],
+  external: ['react', 'react/jsx-runtime', '@wildwood/core', '@wildwood/react-shared'],
   onSuccess: async () => {
     // Copy CSS files to dist for consumers to import
     mkdirSync(resolve('dist'), { recursive: true });

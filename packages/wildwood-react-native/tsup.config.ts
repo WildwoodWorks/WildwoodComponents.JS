@@ -7,5 +7,12 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: 'es2022',
-  external: ['react', 'react-native', 'react/jsx-runtime', '@wildwood/core', '@react-native-async-storage/async-storage'],
+  external: [
+    'react',
+    'react-native',
+    'react/jsx-runtime',
+    '@wildwood/core',
+    '@wildwood/react-shared',
+    '@react-native-async-storage/async-storage',
+  ],
 });

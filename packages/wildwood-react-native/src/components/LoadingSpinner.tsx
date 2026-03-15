@@ -1,10 +1,11 @@
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 
 export interface LoadingSpinnerProps {
   size?: number | 'small' | 'large';
   color?: string;
   message?: string;
-  style?: object;
+  style?: ViewStyle;
 }
 
 export function LoadingSpinner({ size = 'large', color = '#D4882C', message, style }: LoadingSpinnerProps) {

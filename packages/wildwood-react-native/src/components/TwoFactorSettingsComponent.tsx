@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,150 +9,91 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Share,
 } from 'react-native';
-import type {
-  TwoFactorUserStatus,
-  TwoFactorCredential,
-  TrustedDevice,
-} from '@wildwood/core';
-import { useTwoFactor } from '../hooks/useTwoFactor';
+import type { ViewStyle } from 'react-native';
+import { useTwoFactorLogic } from '@wildwood/react-shared';
 
 export interface TwoFactorSettingsComponentProps {
   onStatusChange?: (enabled: boolean) => void;
+  style?: ViewStyle;
 }
 
-type SettingsView = 'overview' | 'enrollEmail' | 'enrollAuthenticator' | 'recoveryCodes' | 'trustedDevices';
-
-export function TwoFactorSettingsComponent({
-  onStatusChange,
-}: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorSettingsComponentProps) {
   const {
-    status, credentials, trustedDevices, loading, error,
-    getStatus, getCredentials, enrollEmail, verifyEmailEnrollment,
-    beginAuthenticatorEnrollment, completeAuthenticatorEnrollment,
-    removeCredential, getRecoveryCodeInfo, regenerateRecoveryCodes,
-    getTrustedDevices, revokeTrustedDevice, revokeAllTrustedDevices,
-  } = useTwoFactor();
+    // State
+    view,
+    emailCode,
+    authenticatorCode,
+    authenticatorQrUri,
+    authenticatorSecret,
+    recoveryCodes,
+    recoveryCodeCount,
+    successMessage,
 
-  const [view, setView] = useState<SettingsView>('overview');
-  const [emailCredentialId, setEmailCredentialId] = useState('');
-  const [emailCode, setEmailCode] = useState('');
-  const [authenticatorCredentialId, setAuthenticatorCredentialId] = useState('');
-  const [authenticatorCode, setAuthenticatorCode] = useState('');
-  const [authenticatorQrUri, setAuthenticatorQrUri] = useState('');
-  const [authenticatorSecret, setAuthenticatorSecret] = useState('');
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-  const [recoveryCodeCount, setRecoveryCodeCount] = useState(0);
-  const [successMessage, setSuccessMessage] = useState('');
+    // From useTwoFactor
+    status,
+    credentials,
+    trustedDevices,
+    loading,
+    error,
+    revokeTrustedDevice,
+
+    // Handlers
+    handleEnrollEmail,
+    handleVerifyEmail,
+    handleBeginAuthenticator,
+    handleCompleteAuthenticator,
+    handleRemoveCredential,
+    handleViewRecoveryCodes,
+    handleRegenerateCodes,
+    handleViewTrustedDevices,
+    handleRevokeAllDevices,
+    handleSetPrimary,
+    cancelView,
+    setEmailCode,
+    setAuthenticatorCode,
+  } = useTwoFactorLogic({
+    onStatusChange,
+    confirmAction: (title, message) =>
+      new Promise((resolve) =>
+        Alert.alert(title, message, [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'OK', style: 'destructive', onPress: () => resolve(true) },
+        ]),
+      ),
+  });
+
+  const [copiedKey, setCopiedKey] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    getStatus();
-    getCredentials();
-  }, [getStatus, getCredentials]);
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
-  const handleEnrollEmail = useCallback(async () => {
-    setSuccessMessage('');
-    const result = await enrollEmail();
-    setEmailCredentialId(result.credentialId);
-    setView('enrollEmail');
-    setSuccessMessage('Verification code sent to your email');
-  }, [enrollEmail]);
+  const handleShareKey = useCallback(async () => {
+    try {
+      await Share.share({ message: authenticatorSecret });
+      setCopiedKey(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedKey(false), 2000);
+    } catch (err) {
+      console.warn('Failed to share key:', err);
+    }
+  }, [authenticatorSecret]);
 
-  const handleVerifyEmail = useCallback(async () => {
-    await verifyEmailEnrollment(emailCredentialId, emailCode);
-    setEmailCode('');
-    setEmailCredentialId('');
-    setView('overview');
-    setSuccessMessage('Email 2FA enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, onStatusChange]);
-
-  const handleBeginAuthenticator = useCallback(async () => {
-    setSuccessMessage('');
-    const result = await beginAuthenticatorEnrollment();
-    setAuthenticatorCredentialId(result.credentialId);
-    setAuthenticatorQrUri(result.qrCodeDataUrl ?? '');
-    setAuthenticatorSecret(result.manualEntryKey ?? '');
-    setView('enrollAuthenticator');
-  }, [beginAuthenticatorEnrollment]);
-
-  const handleCompleteAuthenticator = useCallback(async () => {
-    await completeAuthenticatorEnrollment(authenticatorCredentialId, authenticatorCode);
-    setAuthenticatorCode('');
-    setAuthenticatorCredentialId('');
-    setView('overview');
-    setSuccessMessage('Authenticator enrolled successfully');
-    await getStatus();
-    onStatusChange?.(true);
-  }, [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange]);
-
-  const handleRemoveCredential = useCallback(async (credentialId: string) => {
-    Alert.alert(
-      'Remove Credential',
-      'Are you sure you want to remove this two-factor method?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await removeCredential(credentialId);
-            await getStatus();
-            if (credentials.length <= 1) {
-              onStatusChange?.(false);
-            }
-          },
-        },
-      ],
-    );
-  }, [removeCredential, getStatus, credentials.length, onStatusChange]);
-
-  const handleViewRecoveryCodes = useCallback(async () => {
-    const info = await getRecoveryCodeInfo();
-    setRecoveryCodeCount(info.remaining ?? 0);
-    setView('recoveryCodes');
-  }, [getRecoveryCodeInfo]);
-
-  const handleRegenerateCodes = useCallback(async () => {
-    Alert.alert(
-      'Regenerate Codes',
-      'This will invalidate all existing recovery codes. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Regenerate',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await regenerateRecoveryCodes();
-            setRecoveryCodes(result.codes ?? []);
-          },
-        },
-      ],
-    );
-  }, [regenerateRecoveryCodes]);
-
-  const handleViewTrustedDevices = useCallback(async () => {
-    await getTrustedDevices();
-    setView('trustedDevices');
-  }, [getTrustedDevices]);
-
-  const handleRevokeAllDevices = useCallback(() => {
-    Alert.alert(
-      'Revoke All Devices',
-      'Are you sure you want to revoke all trusted devices?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Revoke All',
-          style: 'destructive',
-          onPress: async () => {
-            await revokeAllTrustedDevices();
-          },
-        },
-      ],
-    );
-  }, [revokeAllTrustedDevices]);
+  const handleShareRecoveryCodes = useCallback(async () => {
+    try {
+      const codesText = recoveryCodes.join('\n');
+      await Share.share({
+        message: `Recovery Codes:\n\n${codesText}\n\nSave these codes in a safe place. Each code can only be used once.`,
+      });
+    } catch (err) {
+      console.warn('Failed to share recovery codes:', err);
+    }
+  }, [recoveryCodes]);
 
   // ---- Render helpers ----
 
@@ -177,18 +118,34 @@ export function TwoFactorSettingsComponent({
           {credentials.map((cred) => (
             <View key={cred.id} style={styles.listItem}>
               <View style={styles.listItemInfo}>
-                <Text style={styles.listItemTitle}>{cred.providerType}</Text>
-                {cred.displayName ? (
-                  <Text style={styles.mutedText}>{cred.displayName}</Text>
-                ) : null}
+                <View style={styles.credentialTitleRow}>
+                  <Text style={styles.listItemTitle}>{cred.providerType}</Text>
+                  {cred.isPrimary && (
+                    <View style={[styles.badge, styles.badgeSuccess, styles.badgeSmall]}>
+                      <Text style={[styles.badgeText, styles.badgeSuccessText, styles.badgeSmallText]}>Primary</Text>
+                    </View>
+                  )}
+                </View>
+                {cred.displayName ? <Text style={styles.mutedText}>{cred.displayName}</Text> : null}
               </View>
-              <Pressable
-                style={[styles.buttonDanger, styles.buttonSmall, loading && styles.buttonDisabled]}
-                onPress={() => handleRemoveCredential(cred.id)}
-                disabled={loading}
-              >
-                <Text style={styles.buttonDangerText}>Remove</Text>
-              </Pressable>
+              <View style={styles.credentialActions}>
+                {!cred.isPrimary && credentials.length > 1 && (
+                  <Pressable
+                    style={[styles.buttonOutline, styles.buttonSmall, loading && styles.buttonDisabled]}
+                    onPress={() => handleSetPrimary(cred.id)}
+                    disabled={loading}
+                  >
+                    <Text style={styles.buttonOutlineText}>Set Primary</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  style={[styles.buttonDanger, styles.buttonSmall, loading && styles.buttonDisabled]}
+                  onPress={() => handleRemoveCredential(cred.id)}
+                  disabled={loading}
+                >
+                  <Text style={styles.buttonDangerText}>Remove</Text>
+                </Pressable>
+              </View>
             </View>
           ))}
         </View>
@@ -243,7 +200,7 @@ export function TwoFactorSettingsComponent({
       <TextInput
         style={styles.codeInput}
         value={emailCode}
-        onChangeText={(text) => setEmailCode(text.replace(/\D/g, '').slice(0, 6))}
+        onChangeText={setEmailCode}
         maxLength={6}
         keyboardType="number-pad"
         placeholder="000000"
@@ -262,10 +219,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonPrimaryText}>Verify</Text>
           )}
         </Pressable>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={cancelView}>
           <Text style={styles.buttonOutlineText}>Cancel</Text>
         </Pressable>
       </View>
@@ -275,24 +229,25 @@ export function TwoFactorSettingsComponent({
   const renderEnrollAuthenticator = () => (
     <View style={styles.card}>
       <Text style={styles.heading}>Setup Authenticator</Text>
-      <Text style={styles.mutedText}>
-        Scan the QR code with your authenticator app, or enter the key manually.
-      </Text>
+      <Text style={styles.mutedText}>Scan the QR code with your authenticator app, or enter the key manually.</Text>
 
       {authenticatorQrUri ? (
         <View style={styles.qrContainer}>
-          <Image
-            source={{ uri: authenticatorQrUri }}
-            style={styles.qrImage}
-            resizeMode="contain"
-          />
+          <Image source={{ uri: authenticatorQrUri }} style={styles.qrImage} resizeMode="contain" />
         </View>
       ) : null}
 
       {authenticatorSecret ? (
         <View style={styles.manualKeyContainer}>
           <Text style={styles.manualKeyLabel}>Manual Key:</Text>
-          <Text style={styles.manualKeyValue} selectable>{authenticatorSecret}</Text>
+          <View style={styles.manualKeyRow}>
+            <Text style={[styles.manualKeyValue, styles.manualKeyFlex]} selectable>
+              {authenticatorSecret}
+            </Text>
+            <Pressable style={[styles.buttonOutline, styles.buttonSmall, styles.copyButton]} onPress={handleShareKey}>
+              <Text style={styles.buttonOutlineText}>{copiedKey ? 'Shared!' : 'Share'}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -300,7 +255,7 @@ export function TwoFactorSettingsComponent({
       <TextInput
         style={styles.codeInput}
         value={authenticatorCode}
-        onChangeText={(text) => setAuthenticatorCode(text.replace(/\D/g, '').slice(0, 6))}
+        onChangeText={setAuthenticatorCode}
         maxLength={6}
         keyboardType="number-pad"
         placeholder="000000"
@@ -319,10 +274,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonPrimaryText}>Verify & Enable</Text>
           )}
         </Pressable>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={cancelView}>
           <Text style={styles.buttonOutlineText}>Cancel</Text>
         </Pressable>
       </View>
@@ -334,21 +286,32 @@ export function TwoFactorSettingsComponent({
       <Text style={styles.heading}>Recovery Codes</Text>
       {recoveryCodes.length > 0 ? (
         <>
-          <Text style={styles.mutedText}>
-            Save these codes in a safe place. Each code can only be used once.
-          </Text>
+          <Text style={styles.mutedText}>Save these codes in a safe place. Each code can only be used once.</Text>
           <View style={styles.codeGrid}>
             {recoveryCodes.map((code, i) => (
               <View key={i} style={styles.recoveryCodeItem}>
-                <Text style={styles.recoveryCodeText} selectable>{code}</Text>
+                <Text style={styles.recoveryCodeText} selectable>
+                  {code}
+                </Text>
               </View>
             ))}
           </View>
         </>
       ) : (
-        <Text style={styles.mutedText}>
-          You have {recoveryCodeCount} recovery code{recoveryCodeCount !== 1 ? 's' : ''} remaining.
-        </Text>
+        <>
+          <Text style={styles.mutedText}>
+            You have {recoveryCodeCount} recovery code{recoveryCodeCount !== 1 ? 's' : ''} remaining.
+          </Text>
+          {recoveryCodeCount <= 2 && (
+            <View style={styles.alertWarning}>
+              <Text style={styles.alertWarningText}>
+                {recoveryCodeCount === 0
+                  ? 'You have no recovery codes remaining. Regenerate new codes now to avoid being locked out.'
+                  : 'You are running low on recovery codes. Consider regenerating new codes.'}
+              </Text>
+            </View>
+          )}
+        </>
       )}
       <View style={styles.actionsRow}>
         <Pressable
@@ -362,10 +325,16 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonWarningText}>Regenerate Codes</Text>
           )}
         </Pressable>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => { setRecoveryCodes([]); setView('overview'); }}
-        >
+        {recoveryCodes.length > 0 && (
+          <Pressable
+            style={[styles.buttonOutline, loading && styles.buttonDisabled]}
+            onPress={handleShareRecoveryCodes}
+            disabled={loading}
+          >
+            <Text style={styles.buttonOutlineText}>Share Codes</Text>
+          </Pressable>
+        )}
+        <Pressable style={styles.buttonOutline} onPress={cancelView}>
           <Text style={styles.buttonOutlineText}>Back</Text>
         </Pressable>
       </View>
@@ -384,14 +353,14 @@ export function TwoFactorSettingsComponent({
               <View style={styles.listItemInfo}>
                 <Text style={styles.listItemTitle}>{device.deviceName ?? 'Unknown Device'}</Text>
                 {device.lastUsedAt ? (
-                  <Text style={styles.mutedText}>
-                    Last used: {new Date(device.lastUsedAt).toLocaleDateString()}
-                  </Text>
+                  <Text style={styles.mutedText}>Last used: {new Date(device.lastUsedAt).toLocaleDateString()}</Text>
                 ) : null}
               </View>
               <Pressable
                 style={[styles.buttonDanger, styles.buttonSmall, loading && styles.buttonDisabled]}
-                onPress={() => revokeTrustedDevice(device.id)}
+                onPress={async () => {
+                  await revokeTrustedDevice(device.id);
+                }}
                 disabled={loading}
               >
                 <Text style={styles.buttonDangerText}>Revoke</Text>
@@ -410,10 +379,7 @@ export function TwoFactorSettingsComponent({
             <Text style={styles.buttonDangerText}>Revoke All</Text>
           </Pressable>
         )}
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={() => setView('overview')}
-        >
+        <Pressable style={styles.buttonOutline} onPress={cancelView}>
           <Text style={styles.buttonOutlineText}>Back</Text>
         </Pressable>
       </View>
@@ -421,7 +387,7 @@ export function TwoFactorSettingsComponent({
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
       {/* Loading overlay */}
       {loading && view === 'overview' && credentials.length === 0 && (
         <View style={styles.loadingContainer}>
@@ -486,6 +452,18 @@ const styles = StyleSheet.create({
     color: '#166534',
     fontSize: 14,
   },
+  alertWarning: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  alertWarningText: {
+    color: '#92400E',
+    fontSize: 14,
+  },
 
   // Loading
   loadingContainer: {
@@ -533,6 +511,14 @@ const styles = StyleSheet.create({
   },
   badgeWarningText: {
     color: '#92400E',
+  },
+  badgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  badgeSmallText: {
+    fontSize: 11,
   },
 
   // Headings & text
@@ -593,6 +579,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a1a',
   },
+  credentialTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  credentialActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
 
   // Actions row
   actionsRow: {
@@ -645,6 +640,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a1a',
     fontFamily: 'monospace',
+  },
+  manualKeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  manualKeyFlex: {
+    flex: 1,
+  },
+  copyButton: {
+    borderColor: '#007AFF',
   },
 
   // Recovery code grid

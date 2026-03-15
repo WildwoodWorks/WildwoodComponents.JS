@@ -2139,6 +2139,7 @@
 .ww-tier-limits {
     border-top: 1px solid var(--ww-border-color, #dee2e6);
     padding-top: 0.75rem;
+    margin-top: auto;
     margin-bottom: 1rem;
     display: flex;
     flex-direction: column;
@@ -2184,9 +2185,14 @@
 }
 
 .ww-tier-footer {
-    margin-top: auto;
+    margin-top: auto; /* fallback when no limits section is present */
     text-align: center;
     padding-top: 1rem;
+}
+
+/* When limits are present, they push to the bottom; footer follows naturally */
+.ww-tier-limits + .ww-tier-footer {
+    margin-top: 0;
 }
 
 /* Confirm Step */
@@ -3971,14 +3977,95 @@ img.ww-avatar {
     font-size: 0.9rem;
 }
 
-/* Add-on card hover lift */
+/* ── Add-on Section ── */
+
+.ww-addon-section {
+    margin-top: 2.5rem;
+}
+
+.ww-addon-title {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.ww-addon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
 .ww-addon-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ww-border-color, #dee2e6);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    background: var(--ww-bg-card, #fff);
     transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s ease;
 }
 
 .ww-addon-card:hover {
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     transform: translateY(-2px);
+}
+
+.ww-addon-card.ww-addon-active {
+    border-color: var(--ww-success, #198754);
+}
+
+.ww-addon-body {
+    padding: 1.25rem;
+    flex: 1;
+}
+
+.ww-addon-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.ww-addon-icon {
+    font-size: 1.125rem;
+}
+
+.ww-addon-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.ww-addon-description {
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+    margin: 0.5rem 0;
+}
+
+.ww-addon-price {
+    margin-bottom: 0.75rem;
+}
+
+.ww-addon-price-interval {
+    color: var(--ww-text-muted, #6c757d);
+    font-size: 0.875rem;
+}
+
+.ww-addon-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.ww-addon-feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.25rem;
+}
+
+.ww-addon-footer {
+    padding: 0 1.25rem 1.25rem;
 }
 
 /* ── Features Panel (card layout) ── */

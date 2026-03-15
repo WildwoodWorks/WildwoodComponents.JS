@@ -82,7 +82,11 @@ export function createExternalApiClient(session: SessionManager, options: Extern
 
     // Combine existing signal with timeout
     if (existingSignal) {
-      existingSignal.addEventListener('abort', () => controller.abort());
+      if (existingSignal.aborted) {
+        controller.abort();
+      } else {
+        existingSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
     }
 
     try {

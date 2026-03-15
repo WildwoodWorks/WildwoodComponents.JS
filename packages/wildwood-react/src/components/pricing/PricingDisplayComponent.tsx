@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AppTierModel, AppTierPricingModel } from '@wildwood/core';
 import { useWildwood } from '../../hooks/useWildwood.js';
+import { TierCard } from '../tier/TierCard.js';
+import { getSelectedPricing, computeAnnualDiscount, hasAnnualPricing } from '../tier/tierUtils.js';
 
 export interface PricingDisplayComponentProps {
   appId?: string;
@@ -16,19 +18,6 @@ export interface PricingDisplayComponentProps {
   onSelectTier?: (tier: AppTierModel, pricing: AppTierPricingModel | null) => void;
   preloadedTiers?: AppTierModel[];
   className?: string;
-}
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '\u20AC',
-  GBP: '\u00A3',
-  JPY: '\u00A5',
-  INR: '\u20B9',
-};
-
-function formatPrice(amount: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
-  return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(2)}`;
 }
 
 export function PricingDisplayComponent({
@@ -81,46 +70,13 @@ export function PricingDisplayComponent({
       });
   }, [resolvedAppId, preloadedTiers, client.appTier]);
 
-  const getPricing = useCallback(
-    (tier: AppTierModel): AppTierPricingModel | undefined => {
-      if (!tier.pricingOptions || tier.pricingOptions.length === 0) return undefined;
-      if (billingAnnual) {
-        const annual = tier.pricingOptions.find(
-          (p) => p.billingFrequency?.toLowerCase() === 'yearly' || p.billingFrequency?.toLowerCase() === 'annual',
-        );
-        if (annual) return annual;
-      }
-      return tier.pricingOptions.find((p) => p.isDefault) ?? tier.pricingOptions[0];
-    },
-    [billingAnnual],
-  );
-
-  const getAnnualDiscount = useCallback((tier: AppTierModel): number | null => {
-    if (!tier.pricingOptions || tier.pricingOptions.length < 2) return null;
-    const monthly = tier.pricingOptions.find((p) => p.billingFrequency?.toLowerCase() === 'monthly');
-    const annual = tier.pricingOptions.find(
-      (p) => p.billingFrequency?.toLowerCase() === 'yearly' || p.billingFrequency?.toLowerCase() === 'annual',
-    );
-    if (!monthly || !annual) return null;
-    const monthlyTotal = monthly.price * 12;
-    if (annual.price < monthlyTotal) {
-      return Math.round(((monthlyTotal - annual.price) / monthlyTotal) * 100);
-    }
-    return null;
-  }, []);
-
   const handleSelect = useCallback(
     (tier: AppTierModel) => {
-      const pricing = getPricing(tier) ?? null;
+      const pricing = getSelectedPricing(tier, billingAnnual) ?? null;
       onSelectTier?.(tier, pricing);
     },
-    [getPricing, onSelectTier],
+    [billingAnnual, onSelectTier],
   );
-
-  // Determine if a tier looks like an enterprise tier (no pricing, not free)
-  const isEnterpriseTier = (tier: AppTierModel): boolean => {
-    return !tier.isFreeTier && (!tier.pricingOptions || tier.pricingOptions.length === 0);
-  };
 
   return (
     <div className={`ww-apptier-component ww-pricing-display ${className ?? ''}`}>
@@ -135,36 +91,31 @@ export function PricingDisplayComponent({
       {error && <div className="ww-alert ww-alert-danger">{error}</div>}
 
       {/* Billing Toggle */}
-      {showBillingToggle &&
-        tiers.some((t) =>
-          t.pricingOptions?.some(
-            (p) => p.billingFrequency?.toLowerCase() === 'yearly' || p.billingFrequency?.toLowerCase() === 'annual',
-          ),
-        ) && (
-          <div className="ww-apptier-billing-toggle">
-            <span className={!billingAnnual ? 'ww-billing-active' : ''}>Monthly</span>
-            <button
-              type="button"
-              className={`ww-toggle ${billingAnnual ? 'ww-toggle-on' : ''}`}
-              onClick={() => setBillingAnnual(!billingAnnual)}
-              aria-label="Toggle annual billing"
-            >
-              <span className="ww-toggle-slider" />
-            </button>
-            <span className={billingAnnual ? 'ww-billing-active' : ''}>
-              Annual
-              {(() => {
-                const maxDiscount = tiers.reduce((max, t) => {
-                  const d = getAnnualDiscount(t);
-                  return d && d > max ? d : max;
-                }, 0);
-                return maxDiscount > 0 ? (
-                  <span className="ww-badge ww-badge-success ww-badge-sm">Save up to {maxDiscount}%</span>
-                ) : null;
-              })()}
-            </span>
-          </div>
-        )}
+      {showBillingToggle && hasAnnualPricing(tiers) && (
+        <div className="ww-apptier-billing-toggle">
+          <span className={!billingAnnual ? 'ww-billing-active' : ''}>Monthly</span>
+          <button
+            type="button"
+            className={`ww-toggle ${billingAnnual ? 'ww-toggle-on' : ''}`}
+            onClick={() => setBillingAnnual(!billingAnnual)}
+            aria-label="Toggle annual billing"
+          >
+            <span className="ww-toggle-slider" />
+          </button>
+          <span className={billingAnnual ? 'ww-billing-active' : ''}>
+            Annual
+            {(() => {
+              const maxDiscount = tiers.reduce((max, t) => {
+                const d = computeAnnualDiscount(t);
+                return d && d > max ? d : max;
+              }, 0);
+              return maxDiscount > 0 ? (
+                <span className="ww-badge ww-badge-success ww-badge-sm">Save up to {maxDiscount}%</span>
+              ) : null;
+            })()}
+          </span>
+        </div>
+      )}
 
       {/* Tiers Grid */}
       {loading ? (
@@ -175,143 +126,23 @@ export function PricingDisplayComponent({
       ) : (
         <div className="ww-tier-grid">
           {tiers.map((tier) => {
-            const pricing = getPricing(tier);
-            const discount = billingAnnual ? getAnnualDiscount(tier) : null;
-            const enterprise = isEnterpriseTier(tier);
+            const pricing = getSelectedPricing(tier, billingAnnual);
+            const discount = billingAnnual ? computeAnnualDiscount(tier) : null;
             const isPreSelected = preSelectedTierId === tier.id;
 
             return (
-              <div
+              <TierCard
                 key={tier.id}
-                className={`ww-tier-card ${isPreSelected ? 'ww-tier-preselected' : ''} ${tier.isDefault && !isPreSelected ? 'ww-tier-default' : ''}`}
-              >
-                {tier.customBadgeText ? (
-                  <div className="ww-tier-default-badge">{tier.customBadgeText}</div>
-                ) : isPreSelected ? (
-                  <div className="ww-tier-preselected-badge">Your Selection</div>
-                ) : null}
-                <div className="ww-tier-header">
-                  {tier.iconClass && <span className={`ww-tier-icon ${tier.iconClass}`} />}
-                  <h3>{tier.name}</h3>
-                  {tier.badgeColor && <span className={`ww-badge ww-badge-${tier.badgeColor}`}>{tier.status}</span>}
-                  {tier.showPrice !== false && (
-                    <div className="ww-tier-price">
-                      {enterprise ? (
-                        <span className="ww-tier-price-amount">Custom</span>
-                      ) : tier.isFreeTier && !pricing ? (
-                        <span className="ww-tier-price-amount">Free</span>
-                      ) : pricing ? (
-                        <>
-                          <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
-                          <span className="ww-tier-price-interval">
-                            /{pricing.billingFrequency?.toLowerCase() ?? 'month'}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-                  )}
-                  {discount && <div className="ww-tier-discount">Save {discount}%</div>}
-                </div>
-
-                {tier.description && <p className="ww-tier-description">{tier.description}</p>}
-
-                {/* Features */}
-                {showFeatureComparison && tier.features && tier.features.length > 0 && (
-                  <ul className="ww-tier-features">
-                    {tier.features.map((f) => (
-                      <li
-                        key={f.id}
-                        className={`ww-tier-feature-item ${f.isEnabled ? '' : 'ww-tier-feature-disabled'}`}
-                      >
-                        {f.isEnabled ? (
-                          <svg
-                            className="ww-tier-feature-check"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="ww-tier-feature-x"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        )}
-                        <span>{f.displayName}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* Limits */}
-                {showLimits && tier.limits && tier.limits.length > 0 && (
-                  <div className="ww-tier-limits">
-                    {tier.limits.map((l) => (
-                      <div key={l.id} className="ww-tier-limit-item">
-                        <span className="ww-tier-limit-value">
-                          {l.maxValue === -1 ? 'Unlimited' : l.maxValue.toLocaleString()}
-                        </span>
-                        <span className="ww-tier-limit-name">
-                          {l.displayName}
-                          {l.unit ? ` (${l.unit})` : ''}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="ww-tier-footer">
-                  {tier.showContactButton && tier.contactButtonUrl ? (
-                    <a
-                      href={tier.contactButtonUrl}
-                      className="ww-btn ww-btn-outline ww-btn-block"
-                      {...(tier.contactButtonUrl.startsWith('http')
-                        ? { target: '_blank', rel: 'noopener noreferrer' }
-                        : {})}
-                    >
-                      Contact Us
-                    </a>
-                  ) : enterprise && enterpriseContactUrl ? (
-                    <a
-                      href={enterpriseContactUrl}
-                      className="ww-btn ww-btn-outline ww-btn-block"
-                      {...(enterpriseContactUrl.startsWith('http')
-                        ? { target: '_blank', rel: 'noopener noreferrer' }
-                        : {})}
-                    >
-                      Contact Sales
-                    </a>
-                  ) : enterprise ? (
-                    <button
-                      type="button"
-                      className="ww-btn ww-btn-outline ww-btn-block"
-                      onClick={() => handleSelect(tier)}
-                    >
-                      Contact Sales
-                    </button>
-                  ) : tier.showSubscribeButton !== false ? (
-                    <button
-                      type="button"
-                      className={`ww-btn ${isPreSelected || tier.isDefault ? 'ww-btn-primary' : 'ww-btn-outline'} ww-btn-block`}
-                      onClick={() => handleSelect(tier)}
-                    >
-                      {isPreSelected ? 'Continue with This Plan' : tier.isFreeTier ? 'Get Started' : 'Subscribe'}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+                tier={tier}
+                pricing={pricing}
+                currency={currency}
+                discount={discount}
+                isPreSelected={isPreSelected}
+                showFeatures={showFeatureComparison}
+                showLimits={showLimits}
+                enterpriseContactUrl={enterpriseContactUrl}
+                onSelect={handleSelect}
+              />
             );
           })}
         </div>

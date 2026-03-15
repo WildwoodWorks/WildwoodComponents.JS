@@ -26,7 +26,10 @@ export interface AIChatComponentProps {
   className?: string;
 }
 
+let _msgIdCounter = 0;
+
 interface ChatMessage {
+  id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
@@ -112,7 +115,11 @@ export function AIChatComponent({
   // Load sessions and configurations
   useEffect(() => {
     if (settings.enableSessions) {
-      getSessions().catch(() => {});
+      getSessions().catch((err) => {
+        if (err?.message?.includes('401') || err?.message?.includes('Unauthorized')) {
+          onAuthenticationFailed?.();
+        }
+      });
     }
     getConfigurations()
       .then((configs) => {
@@ -142,7 +149,11 @@ export function AIChatComponent({
             setSelectedVoice(defaultVoice?.id ?? voices[0].id);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          if (err?.message?.includes('401') || err?.message?.includes('Unauthorized')) {
+            onAuthenticationFailed?.();
+          }
+        });
     }
   }, [settings.enableTextToSpeech]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,7 +180,10 @@ export function AIChatComponent({
       const userMessage = input.trim();
       setInput('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      setMessages((prev) => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: `msg-${++_msgIdCounter}`, role: 'user', content: userMessage, timestamp: new Date() },
+      ]);
       setSending(true);
       setIsTyping(true);
       setErrorMessage('');
@@ -190,6 +204,7 @@ export function AIChatComponent({
         setMessages((prev) => [
           ...prev,
           {
+            id: `msg-${++_msgIdCounter}`,
             role: 'assistant',
             content: assistantContent,
             timestamp: new Date(),
@@ -210,6 +225,7 @@ export function AIChatComponent({
         setMessages((prev) => [
           ...prev,
           {
+            id: `msg-${++_msgIdCounter}`,
             role: 'assistant',
             content: msg,
             timestamp: new Date(),
@@ -485,8 +501,8 @@ export function AIChatComponent({
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <div key={i} className={`ww-aichat-message ww-aichat-message-${msg.role}`}>
+          {messages.map((msg) => (
+            <div key={msg.id} className={`ww-aichat-message ww-aichat-message-${msg.role}`}>
               <div className={`ww-aichat-bubble ${msg.isError ? 'ww-aichat-error-msg' : ''}`}>
                 {msg.isError ? (
                   <div className="ww-aichat-error-content">{msg.content}</div>

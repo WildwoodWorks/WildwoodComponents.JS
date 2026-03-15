@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
+import { getCurrencySymbol } from '@wildwood/core';
 import type { InitiatePaymentResponse } from '@wildwood/core';
 import { usePayment } from '../../hooks/usePayment.js';
 
@@ -37,50 +38,67 @@ export function PaymentFormComponent({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setSuccess(false);
 
-    try {
-      const result = await initiatePayment({
-        providerId,
-        appId,
-        amount,
-        currency,
-        description,
-        customerId,
-        ...(cardholderName || email ? {
-          metadata: {
-            ...(cardholderName ? { cardholderName } : {}),
-            ...(email ? { email } : {}),
-          },
-        } : {}),
-      });
+      try {
+        const result = await initiatePayment({
+          providerId,
+          appId,
+          amount,
+          currency,
+          description,
+          customerId,
+          ...(cardholderName || email
+            ? {
+                metadata: {
+                  ...(cardholderName ? { cardholderName } : {}),
+                  ...(email ? { email } : {}),
+                },
+              }
+            : {}),
+        });
 
-      if (result.success) {
-        if (result.redirectUrl) {
-          const url = new URL(result.redirectUrl, window.location.origin);
-          if (url.protocol === 'https:' || url.protocol === 'http:') {
-            window.location.href = url.href;
+        if (result.success) {
+          if (result.redirectUrl) {
+            const url = new URL(result.redirectUrl, window.location.origin);
+            if (url.protocol === 'https:' || url.protocol === 'http:') {
+              window.location.href = url.href;
+            } else {
+              setError('Invalid redirect URL');
+              return;
+            }
           } else {
-            setError('Invalid redirect URL');
-            return;
+            setSuccess(true);
+            onPaymentSuccess?.(result);
           }
         } else {
-          setSuccess(true);
-          onPaymentSuccess?.(result);
+          setError(result.errorMessage ?? 'Payment failed');
+          onPaymentError?.(result.errorMessage ?? 'Payment failed');
         }
-      } else {
-        setError(result.errorMessage ?? 'Payment failed');
-        onPaymentError?.(result.errorMessage ?? 'Payment failed');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Payment failed';
+        setError(msg);
+        onPaymentError?.(msg);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Payment failed';
-      setError(msg);
-      onPaymentError?.(msg);
-    }
-  }, [providerId, appId, amount, currency, description, customerId, cardholderName, email, initiatePayment, onPaymentSuccess, onPaymentError]);
+    },
+    [
+      providerId,
+      appId,
+      amount,
+      currency,
+      description,
+      customerId,
+      cardholderName,
+      email,
+      initiatePayment,
+      onPaymentSuccess,
+      onPaymentError,
+    ],
+  );
 
   if (success) {
     return (
@@ -99,7 +117,10 @@ export function PaymentFormComponent({
           <h4>Payment Summary</h4>
           <div className="ww-payment-amount">
             <span className="ww-payment-currency">{currency}</span>
-            <span className="ww-payment-value">${amount.toFixed(2)}</span>
+            <span className="ww-payment-value">
+              {getCurrencySymbol(currency)}
+              {amount.toFixed(2)}
+            </span>
           </div>
           {description && <p className="ww-text-muted">{description}</p>}
         </div>
@@ -131,7 +152,7 @@ export function PaymentFormComponent({
         </div>
 
         <button type="submit" className="ww-btn ww-btn-primary ww-btn-block" disabled={loading}>
-          {loading ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
+          {loading ? 'Processing...' : `Pay ${getCurrencySymbol(currency)}${amount.toFixed(2)}`}
         </button>
       </form>
     </div>

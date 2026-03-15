@@ -19,7 +19,7 @@ export function AppTierTest() {
       description="Browse tiers, view current subscription, compare features, and change plans."
       settings={{
         autoLoad: { type: 'boolean', value: autoLoad },
-        preSelectedTierId: { type: 'string', value: preSelectedTierId },
+        preSelectedTierId: { type: 'text', value: preSelectedTierId },
       }}
       onSettingChange={(key, value) => {
         if (key === 'autoLoad') setAutoLoad(value as boolean);

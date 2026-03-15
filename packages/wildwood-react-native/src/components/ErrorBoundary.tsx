@@ -1,12 +1,13 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: (error: Error, reset: () => void) => ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
-  style?: object;
+  style?: ViewStyle;
 }
 
 interface ErrorBoundaryState {

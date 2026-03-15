@@ -16,7 +16,7 @@ export function WildwoodProvider({ config, children }: WildwoodProviderProps) {
       storage: config.storage ?? 'memory',
     };
     return createWildwoodClient(effectiveConfig);
-  }, [config.baseUrl, config.appId]);
+  }, [config.baseUrl, config.appId, config.storage]);
 
   useEffect(() => {
     client.session.initialize();
@@ -26,9 +26,5 @@ export function WildwoodProvider({ config, children }: WildwoodProviderProps) {
     };
   }, [client]);
 
-  return (
-    <WildwoodContext.Provider value={client}>
-      {children}
-    </WildwoodContext.Provider>
-  );
+  return <WildwoodContext.Provider value={client}>{children}</WildwoodContext.Provider>;
 }

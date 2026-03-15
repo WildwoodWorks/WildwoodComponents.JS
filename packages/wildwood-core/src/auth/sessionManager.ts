@@ -310,11 +310,15 @@ export class SessionManager {
 
     // Extend session with sliding expiration
     if (this.config.slidingExpiration !== false) {
-      this.extendSession(); // fire-and-forget
+      this.extendSession().catch(() => {
+        /* non-fatal */
+      });
     }
 
     // Persist updated auth data
-    this.storage.setItem(SESSION_KEYS.authData, JSON.stringify(authResponse)); // fire-and-forget
+    this.storage.setItem(SESSION_KEYS.authData, JSON.stringify(authResponse)).catch(() => {
+      /* non-fatal */
+    });
 
     // Reschedule proactive refresh
     if (this.config.enableAutoTokenRefresh) {

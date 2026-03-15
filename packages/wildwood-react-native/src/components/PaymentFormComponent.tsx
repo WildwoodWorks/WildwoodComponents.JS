@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Linking,
 } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { InitiatePaymentResponse } from '@wildwood/core';
 import { usePayment } from '../hooks/usePayment';
 
@@ -23,6 +24,7 @@ export interface PaymentFormComponentProps {
   customerId?: string;
   onPaymentSuccess?: (response: InitiatePaymentResponse) => void;
   onPaymentError?: (error: string) => void;
+  style?: ViewStyle;
 }
 
 /**
@@ -38,6 +40,7 @@ export function PaymentFormComponent({
   customerId,
   onPaymentSuccess,
   onPaymentError,
+  style,
 }: PaymentFormComponentProps) {
   const { initiatePayment, loading } = usePayment();
 
@@ -58,19 +61,19 @@ export function PaymentFormComponent({
         currency,
         description,
         customerId,
-        ...(cardholderName || email ? {
-          metadata: {
-            ...(cardholderName ? { cardholderName } : {}),
-            ...(email ? { email } : {}),
-          },
-        } : {}),
+        ...(cardholderName || email
+          ? {
+              metadata: {
+                ...(cardholderName ? { cardholderName } : {}),
+                ...(email ? { email } : {}),
+              },
+            }
+          : {}),
       });
 
       if (result.success) {
         if (result.redirectUrl) {
-          const url = result.redirectUrl.startsWith('http')
-            ? result.redirectUrl
-            : `https://${result.redirectUrl}`;
+          const url = result.redirectUrl.startsWith('http') ? result.redirectUrl : `https://${result.redirectUrl}`;
           await Linking.openURL(url);
         } else {
           setSuccess(true);
@@ -85,7 +88,19 @@ export function PaymentFormComponent({
       setError(msg);
       onPaymentError?.(msg);
     }
-  }, [providerId, appId, amount, currency, description, customerId, cardholderName, email, initiatePayment, onPaymentSuccess, onPaymentError]);
+  }, [
+    providerId,
+    appId,
+    amount,
+    currency,
+    description,
+    customerId,
+    cardholderName,
+    email,
+    initiatePayment,
+    onPaymentSuccess,
+    onPaymentError,
+  ]);
 
   if (success) {
     return (
@@ -98,10 +113,7 @@ export function PaymentFormComponent({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={[styles.flex, style]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -121,9 +133,7 @@ export function PaymentFormComponent({
             <Text style={styles.currencyLabel}>{currency}</Text>
             <Text style={styles.amountValue}>${amount.toFixed(2)}</Text>
           </View>
-          {description ? (
-            <Text style={styles.descriptionText}>{description}</Text>
-          ) : null}
+          {description ? <Text style={styles.descriptionText}>{description}</Text> : null}
         </View>
 
         {/* Form Fields */}

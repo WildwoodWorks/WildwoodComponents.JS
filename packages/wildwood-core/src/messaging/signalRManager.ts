@@ -48,22 +48,32 @@ export function createSignalRManager(config: SignalRManagerConfig): SignalRManag
   }
 
   return {
-    get state() { return state; },
+    get state() {
+      return state;
+    },
 
     async connect() {
       if (state === 'connected' || state === 'connecting') return;
 
-      const signalR = await getSignalR();
-      if (!signalR) return;
-
+      // Set state immediately to prevent concurrent connect() calls
+      // (getSignalR() is async, creating a gap without this)
       setState('connecting');
+
+      const signalR = await getSignalR();
+      if (!signalR) {
+        setState('disconnected');
+        return;
+      }
+      const connectTimeout = setTimeout(() => {
+        if (state === 'connecting') {
+          setState('disconnected');
+          console.error('[Wildwood] SignalR connection timed out after 30s');
+        }
+      }, 30_000);
       try {
-        let builder = new signalR.HubConnectionBuilder()
-          .withUrl(config.hubUrl, {
-            accessTokenFactory: config.getAccessToken
-              ? () => config.getAccessToken!().then((t) => t ?? '')
-              : undefined,
-          });
+        let builder = new signalR.HubConnectionBuilder().withUrl(config.hubUrl, {
+          accessTokenFactory: config.getAccessToken ? () => config.getAccessToken!().then((t) => t ?? '') : undefined,
+        });
 
         if (config.autoReconnect !== false) {
           builder = builder.withAutomaticReconnect(config.reconnectDelays ?? [0, 2000, 5000, 10000, 30000]);
@@ -75,7 +85,17 @@ export function createSignalRManager(config: SignalRManagerConfig): SignalRManag
         connection.onreconnected(() => setState('connected'));
         connection.onclose(() => setState('disconnected'));
 
-        // Re-register all event handlers on the connection
+        // Clean up handlers on old connection before switching
+        if (hubConnection) {
+          const oldConn = hubConnection as { off(e: string, h: (...args: unknown[]) => void): void };
+          eventHandlers.forEach((handlers, eventName) => {
+            handlers.forEach((handler) => {
+              oldConn.off(eventName, handler);
+            });
+          });
+        }
+
+        // Register all event handlers on the new connection
         eventHandlers.forEach((handlers, eventName) => {
           handlers.forEach((handler) => {
             connection.on(eventName, handler);
@@ -84,8 +104,10 @@ export function createSignalRManager(config: SignalRManagerConfig): SignalRManag
 
         await connection.start();
         hubConnection = connection;
+        clearTimeout(connectTimeout);
         setState('connected');
       } catch (err) {
+        clearTimeout(connectTimeout);
         setState('disconnected');
         console.error('[Wildwood] SignalR connection failed:', err);
       }

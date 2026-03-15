@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { ToastNotification, NotificationType } from '@wildwood/core';
 import { useNotifications } from '../hooks/useNotifications';
 
 export interface NotificationToastComponentProps {
   position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center' | 'bottom-center';
   maxToasts?: number;
+  style?: ViewStyle;
 }
 
 const TYPE_COLORS: Record<NotificationType, string> = {
@@ -37,9 +39,7 @@ function getTypeIcon(type: NotificationType): string {
   }
 }
 
-function getPositionStyle(
-  position: NonNullable<NotificationToastComponentProps['position']>,
-) {
+function getPositionStyle(position: NonNullable<NotificationToastComponentProps['position']>) {
   const base: Record<string, number | string> = { position: 'absolute' as const };
 
   if (position.startsWith('top')) {
@@ -67,21 +67,45 @@ function getPositionStyle(
 export function NotificationToastComponent({
   position = 'top-right',
   maxToasts = 5,
+  style,
 }: NotificationToastComponentProps) {
   const { toasts, dismiss } = useNotifications();
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const visibleToasts = toasts.slice(0, maxToasts);
 
   useEffect(() => {
+    // Set up auto-dismiss timers for toasts with a duration
+    for (const toast of visibleToasts) {
+      if (toast.duration && toast.duration > 0 && !timersRef.current.has(toast.id)) {
+        const timer = setTimeout(() => {
+          dismiss(toast.id);
+          timersRef.current.delete(toast.id);
+        }, toast.duration);
+        timersRef.current.set(toast.id, timer);
+      }
+    }
+
+    // Clean up timers for toasts that no longer exist
+    const currentIds = new Set(visibleToasts.map((t) => t.id));
+    timersRef.current.forEach((timer, id) => {
+      if (!currentIds.has(id)) {
+        clearTimeout(timer);
+        timersRef.current.delete(id);
+      }
+    });
+  }, [visibleToasts, dismiss]);
+
+  useEffect(() => {
     return () => {
       timersRef.current.forEach((timer) => clearTimeout(timer));
+      timersRef.current.clear();
     };
   }, []);
 
   const positionStyle = getPositionStyle(position);
 
   return (
-    <View style={[styles.container, positionStyle]} pointerEvents="box-none">
+    <View style={[styles.container, positionStyle, style]} pointerEvents="box-none">
       {visibleToasts.map((toast: ToastNotification) => {
         const typeColor = TYPE_COLORS[toast.type] ?? TYPE_COLORS.Info;
         const typeBg = TYPE_BG_COLORS[toast.type] ?? TYPE_BG_COLORS.Info;
@@ -89,19 +113,14 @@ export function NotificationToastComponent({
         return (
           <View
             key={toast.id}
-            style={[
-              styles.toast,
-              { borderLeftColor: typeColor, backgroundColor: typeBg },
-            ]}
+            style={[styles.toast, { borderLeftColor: typeColor, backgroundColor: typeBg }]}
             accessibilityRole="alert"
           >
             <View style={[styles.iconContainer, { backgroundColor: typeColor }]}>
               <Text style={styles.iconText}>{getTypeIcon(toast.type)}</Text>
             </View>
             <View style={styles.content}>
-              {toast.title ? (
-                <Text style={styles.title}>{toast.title}</Text>
-              ) : null}
+              {toast.title ? <Text style={styles.title}>{toast.title}</Text> : null}
               <Text style={styles.message}>{toast.message}</Text>
             </View>
             {toast.isDismissible && (

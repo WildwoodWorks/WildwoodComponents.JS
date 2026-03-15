@@ -1,29 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { SubscriptionStatus } from '@wildwood/core';
 import { useSubscription } from '../hooks/useSubscription';
 
 export interface SubscriptionComponentProps {
   autoLoad?: boolean;
   onSubscriptionChange?: () => void;
+  style?: ViewStyle;
 }
 
-export function SubscriptionComponent({
-  autoLoad = true,
-  onSubscriptionChange,
-}: SubscriptionComponentProps) {
-  const { plans, subscriptions, loading, error, getPlans, getUserSubscriptions, subscribe, cancelSubscription, changePlan } = useSubscription();
+export function SubscriptionComponent({ autoLoad = true, onSubscriptionChange, style }: SubscriptionComponentProps) {
+  const {
+    plans,
+    subscriptions,
+    loading,
+    error,
+    getPlans,
+    getUserSubscriptions,
+    subscribe,
+    cancelSubscription,
+    changePlan,
+  } = useSubscription();
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const activeSubscription = subscriptions.find((s) => s.status === SubscriptionStatus.Active) ?? subscriptions[0] ?? null;
+  const activeSubscription =
+    subscriptions.find((s) => s.status === SubscriptionStatus.Active) ?? subscriptions[0] ?? null;
 
   useEffect(() => {
     if (autoLoad) {
@@ -32,21 +35,24 @@ export function SubscriptionComponent({
     }
   }, [autoLoad, getPlans, getUserSubscriptions]);
 
-  const handleSubscribe = useCallback(async (planId: string) => {
-    setActionError(null);
-    setSuccessMessage('');
-    try {
-      const result = await subscribe(planId);
-      if (result.isSuccess) {
-        setSuccessMessage('Subscribed successfully!');
-        onSubscriptionChange?.();
-      } else {
-        setActionError(result.errorMessage ?? 'Subscription failed');
+  const handleSubscribe = useCallback(
+    async (planId: string) => {
+      setActionError(null);
+      setSuccessMessage('');
+      try {
+        const result = await subscribe(planId);
+        if (result.isSuccess) {
+          setSuccessMessage('Subscribed successfully!');
+          onSubscriptionChange?.();
+        } else {
+          setActionError(result.errorMessage ?? 'Subscription failed');
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Subscription failed');
       }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Subscription failed');
-    }
-  }, [subscribe, onSubscriptionChange]);
+    },
+    [subscribe, onSubscriptionChange],
+  );
 
   const handleCancel = useCallback(async () => {
     if (!activeSubscription) return;
@@ -65,25 +71,28 @@ export function SubscriptionComponent({
     }
   }, [activeSubscription, cancelSubscription, onSubscriptionChange]);
 
-  const handleChangePlan = useCallback(async (newPlanId: string) => {
-    if (!activeSubscription) return;
-    setActionError(null);
-    setSuccessMessage('');
-    try {
-      const result = await changePlan(activeSubscription.id, newPlanId);
-      if (result.isSuccess) {
-        setSuccessMessage('Plan changed successfully!');
-        onSubscriptionChange?.();
-      } else {
-        setActionError(result.errorMessage ?? 'Plan change failed');
+  const handleChangePlan = useCallback(
+    async (newPlanId: string) => {
+      if (!activeSubscription) return;
+      setActionError(null);
+      setSuccessMessage('');
+      try {
+        const result = await changePlan(activeSubscription.id, newPlanId);
+        if (result.isSuccess) {
+          setSuccessMessage('Plan changed successfully!');
+          onSubscriptionChange?.();
+        } else {
+          setActionError(result.errorMessage ?? 'Plan change failed');
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Plan change failed');
       }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Plan change failed');
-    }
-  }, [activeSubscription, changePlan, onSubscriptionChange]);
+    },
+    [activeSubscription, changePlan, onSubscriptionChange],
+  );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
       {/* Alerts */}
       {(error || actionError) && (
         <View style={styles.alertError}>
@@ -103,14 +112,20 @@ export function SubscriptionComponent({
           <View style={[styles.card, styles.activeCard]}>
             <View style={styles.subscriptionInfo}>
               <Text style={styles.planNameText}>{activeSubscription.planName}</Text>
-              <View style={[
-                styles.badge,
-                activeSubscription.status === SubscriptionStatus.Active ? styles.badgeSuccess : styles.badgeWarning,
-              ]}>
-                <Text style={[
-                  styles.badgeText,
-                  activeSubscription.status === SubscriptionStatus.Active ? styles.badgeSuccessText : styles.badgeWarningText,
-                ]}>
+              <View
+                style={[
+                  styles.badge,
+                  activeSubscription.status === SubscriptionStatus.Active ? styles.badgeSuccess : styles.badgeWarning,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeText,
+                    activeSubscription.status === SubscriptionStatus.Active
+                      ? styles.badgeSuccessText
+                      : styles.badgeWarningText,
+                  ]}
+                >
                   {activeSubscription.status}
                 </Text>
               </View>
@@ -146,10 +161,7 @@ export function SubscriptionComponent({
           {plans.map((plan) => {
             const isCurrentPlan = activeSubscription?.planId === plan.id;
             return (
-              <View
-                key={plan.id}
-                style={[styles.card, isCurrentPlan && styles.cardCurrent]}
-              >
+              <View key={plan.id} style={[styles.card, isCurrentPlan && styles.cardCurrent]}>
                 {/* Plan Header */}
                 <View style={styles.planHeader}>
                   <Text style={styles.planName}>{plan.name}</Text>
@@ -160,9 +172,7 @@ export function SubscriptionComponent({
                 </View>
 
                 {/* Description */}
-                {plan.description ? (
-                  <Text style={styles.planDescription}>{plan.description}</Text>
-                ) : null}
+                {plan.description ? <Text style={styles.planDescription}>{plan.description}</Text> : null}
 
                 {/* Features */}
                 {plan.features && plan.features.length > 0 && (

@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Modal,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Modal } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { Subscription } from '@wildwood/core';
 import { SubscriptionStatus } from '@wildwood/core';
 import { useSubscription } from '../hooks/useSubscription';
@@ -15,7 +8,9 @@ import { useSubscription } from '../hooks/useSubscription';
 export interface SubscriptionManagerComponentProps {
   autoLoad?: boolean;
   showPlanSelector?: boolean;
+  allowPause?: boolean;
   onSubscriptionChange?: (subscription: Subscription) => void;
+  style?: ViewStyle;
 }
 
 /**
@@ -25,12 +20,23 @@ export interface SubscriptionManagerComponentProps {
 export function SubscriptionManagerComponent({
   autoLoad = true,
   showPlanSelector = true,
+  allowPause = false,
   onSubscriptionChange,
+  style,
 }: SubscriptionManagerComponentProps) {
   const {
-    plans, subscriptions, loading, error,
-    getPlans, getUserSubscriptions, getSubscription,
-    subscribe, cancelSubscription, changePlan,
+    plans,
+    subscriptions,
+    loading,
+    error,
+    getPlans,
+    getUserSubscriptions,
+    getSubscription,
+    subscribe,
+    cancelSubscription,
+    changePlan,
+    pauseSubscription,
+    resumeSubscription,
   } = useSubscription();
 
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
@@ -44,76 +50,144 @@ export function SubscriptionManagerComponent({
     }
   }, [autoLoad, getPlans, getUserSubscriptions]);
 
-  const handleViewDetails = useCallback(async (subscriptionId: string) => {
-    const sub = await getSubscription(subscriptionId);
-    setSelectedSubscription(sub);
-  }, [getSubscription]);
+  const handleViewDetails = useCallback(
+    async (subscriptionId: string) => {
+      const sub = await getSubscription(subscriptionId);
+      setSelectedSubscription(sub);
+    },
+    [getSubscription],
+  );
 
-  const handleSubscribe = useCallback(async (planId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await subscribe(planId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Subscribed successfully!' });
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to subscribe' });
+  const handleSubscribe = useCallback(
+    async (planId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await subscribe(planId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscribed successfully!' });
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to subscribe' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to subscribe' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to subscribe' });
-    }
-    setConfirmAction(null);
-  }, [subscribe]);
+      setConfirmAction(null);
+    },
+    [subscribe],
+  );
 
-  const handleCancel = useCallback(async (subscriptionId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await cancelSubscription(subscriptionId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Subscription cancelled' });
-        onSubscriptionChange?.(subscriptions.find((s) => s.id === subscriptionId)!);
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to cancel' });
+  const handleCancel = useCallback(
+    async (subscriptionId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await cancelSubscription(subscriptionId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscription cancelled' });
+          await getUserSubscriptions();
+          const updated = await getSubscription(subscriptionId);
+          if (updated) onSubscriptionChange?.(updated);
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to cancel' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to cancel' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to cancel' });
-    }
-    setConfirmAction(null);
-  }, [cancelSubscription, subscriptions, onSubscriptionChange]);
+      setConfirmAction(null);
+    },
+    [cancelSubscription, getUserSubscriptions, getSubscription, onSubscriptionChange],
+  );
 
-  const handleChangePlan = useCallback(async (subscriptionId: string, newPlanId: string) => {
-    setActionMessage(null);
-    try {
-      const result = await changePlan(subscriptionId, newPlanId);
-      if (result.isSuccess) {
-        setActionMessage({ type: 'success', text: 'Plan changed successfully!' });
-      } else {
-        setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to change plan' });
+  const handleChangePlan = useCallback(
+    async (subscriptionId: string, newPlanId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await changePlan(subscriptionId, newPlanId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Plan changed successfully!' });
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to change plan' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to change plan' });
       }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to change plan' });
-    }
-  }, [changePlan]);
+    },
+    [changePlan],
+  );
+
+  const handlePause = useCallback(
+    async (subscriptionId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await pauseSubscription(subscriptionId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscription paused' });
+          await getUserSubscriptions();
+          const updated = await getSubscription(subscriptionId);
+          if (updated) onSubscriptionChange?.(updated);
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to pause' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to pause' });
+      }
+      setConfirmAction(null);
+    },
+    [pauseSubscription, getUserSubscriptions, getSubscription, onSubscriptionChange],
+  );
+
+  const handleResume = useCallback(
+    async (subscriptionId: string) => {
+      setActionMessage(null);
+      try {
+        const result = await resumeSubscription(subscriptionId);
+        if (result.isSuccess) {
+          setActionMessage({ type: 'success', text: 'Subscription resumed' });
+          await getUserSubscriptions();
+          const updated = await getSubscription(subscriptionId);
+          if (updated) onSubscriptionChange?.(updated);
+        } else {
+          setActionMessage({ type: 'error', text: result.errorMessage ?? 'Failed to resume' });
+        }
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to resume' });
+      }
+      setConfirmAction(null);
+    },
+    [resumeSubscription, getUserSubscriptions, getSubscription, onSubscriptionChange],
+  );
 
   const getStatusBadgeStyle = (status: SubscriptionStatus) => {
     switch (status) {
-      case SubscriptionStatus.Active: return styles.badgeSuccess;
-      case SubscriptionStatus.Cancelled: return styles.badgeDanger;
-      case SubscriptionStatus.PendingPayment: return styles.badgeWarning;
-      default: return styles.badgeSecondary;
+      case SubscriptionStatus.Active:
+        return styles.badgeSuccess;
+      case SubscriptionStatus.Paused:
+        return styles.badgeWarning;
+      case SubscriptionStatus.Cancelled:
+        return styles.badgeDanger;
+      case SubscriptionStatus.PendingPayment:
+        return styles.badgeWarning;
+      default:
+        return styles.badgeSecondary;
     }
   };
 
   const getStatusBadgeTextStyle = (status: SubscriptionStatus) => {
     switch (status) {
-      case SubscriptionStatus.Active: return styles.badgeSuccessText;
-      case SubscriptionStatus.Cancelled: return styles.badgeDangerText;
-      case SubscriptionStatus.PendingPayment: return styles.badgeWarningText;
-      default: return styles.badgeSecondaryText;
+      case SubscriptionStatus.Active:
+        return styles.badgeSuccessText;
+      case SubscriptionStatus.Paused:
+        return styles.badgeWarningText;
+      case SubscriptionStatus.Cancelled:
+        return styles.badgeDangerText;
+      case SubscriptionStatus.PendingPayment:
+        return styles.badgeWarningText;
+      default:
+        return styles.badgeSecondaryText;
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
       {/* Error alert */}
       {(error || actionMessage?.type === 'error') && (
         <View style={styles.alertError}>
@@ -129,27 +203,19 @@ export function SubscriptionManagerComponent({
       {/* Subscription List */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Your Subscriptions</Text>
-        {loading && subscriptions.length === 0 && (
-          <Text style={styles.mutedText}>Loading...</Text>
-        )}
-        {!loading && subscriptions.length === 0 && (
-          <Text style={styles.mutedText}>No subscriptions found.</Text>
-        )}
+        {loading && subscriptions.length === 0 && <Text style={styles.mutedText}>Loading...</Text>}
+        {!loading && subscriptions.length === 0 && <Text style={styles.mutedText}>No subscriptions found.</Text>}
         {subscriptions.map((sub) => (
           <View key={sub.id} style={styles.card}>
             <View style={styles.subscriptionInfo}>
               <View style={styles.subscriptionHeader}>
                 <Text style={styles.planNameText}>{sub.planName}</Text>
                 <View style={[styles.badge, getStatusBadgeStyle(sub.status)]}>
-                  <Text style={[styles.badgeText, getStatusBadgeTextStyle(sub.status)]}>
-                    {sub.status}
-                  </Text>
+                  <Text style={[styles.badgeText, getStatusBadgeTextStyle(sub.status)]}>{sub.status}</Text>
                 </View>
               </View>
               {sub.startDate && (
-                <Text style={styles.smallMutedText}>
-                  Since {new Date(sub.startDate).toLocaleDateString()}
-                </Text>
+                <Text style={styles.smallMutedText}>Since {new Date(sub.startDate).toLocaleDateString()}</Text>
               )}
               {sub.nextBillingDate && (
                 <Text style={styles.smallMutedText}>
@@ -158,12 +224,25 @@ export function SubscriptionManagerComponent({
               )}
             </View>
             <View style={styles.subscriptionActions}>
-              <Pressable
-                style={styles.outlineButton}
-                onPress={() => handleViewDetails(sub.id)}
-              >
+              <Pressable style={styles.outlineButton} onPress={() => handleViewDetails(sub.id)}>
                 <Text style={styles.outlineButtonText}>Details</Text>
               </Pressable>
+              {sub.status === SubscriptionStatus.Active && allowPause && (
+                <Pressable
+                  style={styles.warningButtonSmall}
+                  onPress={() => setConfirmAction({ action: 'pause', id: sub.id })}
+                >
+                  <Text style={styles.warningButtonSmallText}>Pause</Text>
+                </Pressable>
+              )}
+              {sub.status === SubscriptionStatus.Paused && (
+                <Pressable
+                  style={styles.successButtonSmall}
+                  onPress={() => setConfirmAction({ action: 'resume', id: sub.id })}
+                >
+                  <Text style={styles.successButtonSmallText}>Resume</Text>
+                </Pressable>
+              )}
               {sub.status === SubscriptionStatus.Active && (
                 <Pressable
                   style={styles.dangerButtonSmall}
@@ -187,29 +266,50 @@ export function SubscriptionManagerComponent({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              Confirm {confirmAction?.action === 'cancel' ? 'Cancellation' : 'Action'}
+              Confirm{' '}
+              {confirmAction?.action === 'cancel'
+                ? 'Cancellation'
+                : confirmAction?.action === 'pause'
+                  ? 'Pause'
+                  : confirmAction?.action === 'resume'
+                    ? 'Resume'
+                    : 'Action'}
             </Text>
-            <Text style={styles.modalMessage}>
-              Are you sure you want to {confirmAction?.action} this subscription?
-            </Text>
+            <Text style={styles.modalMessage}>Are you sure you want to {confirmAction?.action} this subscription?</Text>
             <View style={styles.modalActions}>
               <Pressable
-                style={[styles.dangerButton, loading && styles.buttonDisabled]}
+                style={[
+                  confirmAction?.action === 'resume'
+                    ? styles.successButton
+                    : confirmAction?.action === 'pause'
+                      ? styles.warningButton
+                      : styles.dangerButton,
+                  loading && styles.buttonDisabled,
+                ]}
                 onPress={() => {
                   if (confirmAction?.action === 'cancel') handleCancel(confirmAction.id);
+                  else if (confirmAction?.action === 'pause') handlePause(confirmAction.id);
+                  else if (confirmAction?.action === 'resume') handleResume(confirmAction.id);
                 }}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.dangerButtonText}>Confirm</Text>
+                  <Text
+                    style={
+                      confirmAction?.action === 'resume'
+                        ? styles.successButtonText
+                        : confirmAction?.action === 'pause'
+                          ? styles.warningButtonText
+                          : styles.dangerButtonText
+                    }
+                  >
+                    Confirm
+                  </Text>
                 )}
               </Pressable>
-              <Pressable
-                style={styles.outlineButton}
-                onPress={() => setConfirmAction(null)}
-              >
+              <Pressable style={styles.outlineButton} onPress={() => setConfirmAction(null)}>
                 <Text style={styles.outlineButtonText}>Cancel</Text>
               </Pressable>
             </View>
@@ -237,17 +337,13 @@ export function SubscriptionManagerComponent({
             {selectedSubscription.startDate && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Period Start</Text>
-                <Text style={styles.detailValue}>
-                  {new Date(selectedSubscription.startDate).toLocaleDateString()}
-                </Text>
+                <Text style={styles.detailValue}>{new Date(selectedSubscription.startDate).toLocaleDateString()}</Text>
               </View>
             )}
             {selectedSubscription.endDate && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Period End</Text>
-                <Text style={styles.detailValue}>
-                  {new Date(selectedSubscription.endDate).toLocaleDateString()}
-                </Text>
+                <Text style={styles.detailValue}>{new Date(selectedSubscription.endDate).toLocaleDateString()}</Text>
               </View>
             )}
             {selectedSubscription.nextBillingDate && (
@@ -286,10 +382,7 @@ export function SubscriptionManagerComponent({
               </View>
             )}
 
-            <Pressable
-              style={[styles.outlineButton, { marginTop: 16 }]}
-              onPress={() => setSelectedSubscription(null)}
-            >
+            <Pressable style={[styles.outlineButton, { marginTop: 16 }]} onPress={() => setSelectedSubscription(null)}>
               <Text style={styles.outlineButtonText}>Close</Text>
             </Pressable>
           </View>
@@ -311,9 +404,7 @@ export function SubscriptionManagerComponent({
                     <Text style={styles.planInterval}>/{plan.billingInterval ?? 'month'}</Text>
                   </Text>
                 </View>
-                {plan.description ? (
-                  <Text style={styles.planDescription}>{plan.description}</Text>
-                ) : null}
+                {plan.description ? <Text style={styles.planDescription}>{plan.description}</Text> : null}
                 {plan.features && plan.features.length > 0 && (
                   <View style={styles.featuresList}>
                     {plan.features.map((f, i) => (
@@ -671,6 +762,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dangerButtonSmallText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  warningButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  warningButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  warningButtonSmall: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningButtonSmallText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  successButton: {
+    backgroundColor: '#22C55E',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  successButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  successButtonSmall: {
+    backgroundColor: '#22C55E',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successButtonSmallText: {
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',

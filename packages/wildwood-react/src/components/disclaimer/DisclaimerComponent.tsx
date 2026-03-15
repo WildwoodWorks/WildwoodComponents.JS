@@ -30,11 +30,7 @@ export interface DisclaimerComponentProps {
   className?: string;
 }
 
-export function DisclaimerComponent({
-  autoLoad = true,
-  onAllAccepted,
-  className,
-}: DisclaimerComponentProps) {
+export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className }: DisclaimerComponentProps) {
   const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
   const [error, setError] = useState<string | null>(null);
 
@@ -48,24 +44,28 @@ export function DisclaimerComponent({
     }
   }, [autoLoad, getPendingDisclaimers]);
 
-  const handleAccept = useCallback(async (disclaimerId: string, versionId: string) => {
-    setError(null);
-    try {
-      await acceptDisclaimer(disclaimerId, versionId);
-      if (pendingList.length <= 1) {
-        onAllAccepted?.();
+  const handleAccept = useCallback(
+    async (disclaimerId: string, versionId: string) => {
+      setError(null);
+      try {
+        // Check count before accepting — after accept completes, the hook's
+        // disclaimers state will update asynchronously so we can't rely on it.
+        const wasLastPending = pendingList.length <= 1;
+        await acceptDisclaimer(disclaimerId, versionId);
+        if (wasLastPending) {
+          onAllAccepted?.();
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to accept disclaimer');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to accept disclaimer');
-    }
-  }, [acceptDisclaimer, pendingList.length, onAllAccepted]);
+    },
+    [acceptDisclaimer, pendingList, onAllAccepted],
+  );
 
   const handleAcceptAll = useCallback(async () => {
     setError(null);
     try {
-      await acceptAllDisclaimers(
-        pendingList.map((d) => ({ disclaimerId: d.disclaimerId, versionId: d.versionId })),
-      );
+      await acceptAllDisclaimers(pendingList.map((d) => ({ disclaimerId: d.disclaimerId, versionId: d.versionId })));
       onAllAccepted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to accept disclaimers');

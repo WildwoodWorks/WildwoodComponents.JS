@@ -152,6 +152,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.0.18
         version: 4.0.18(vitest@3.2.4(@types/node@25.3.5)(jsdom@28.1.0)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(yaml@2.8.2))
+      '@wildwood/react-shared':
+        specifier: workspace:*
+        version: link:../wildwood-react-shared
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0
@@ -186,6 +189,9 @@ importers:
       '@wildwood/core':
         specifier: workspace:*
         version: link:../wildwood-core
+      '@wildwood/react-shared':
+        specifier: workspace:*
+        version: link:../wildwood-react-shared
       react:
         specifier: ^19.1.0
         version: 19.2.4
@@ -198,6 +204,24 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@25.3.5)(@vitest/browser@3.2.4)(jsdom@28.1.0)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(yaml@2.8.2)
+
+  packages/wildwood-react-shared:
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@wildwood/core':
+        specifier: workspace:*
+        version: link:../wildwood-core
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
 
 packages:
 

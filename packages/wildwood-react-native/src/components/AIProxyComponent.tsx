@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import type { AIChatResponse } from '@wildwood/core';
 import { useAI } from '../hooks/useAI';
 
@@ -8,7 +9,7 @@ export interface AIProxyComponentProps {
   placeholder?: string;
   onResponse?: (response: AIChatResponse) => void;
   onError?: (error: string) => void;
-  style?: object;
+  style?: ViewStyle;
 }
 
 /**

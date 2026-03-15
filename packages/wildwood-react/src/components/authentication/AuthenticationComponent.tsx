@@ -1,19 +1,10 @@
 // AuthenticationComponent - ported from WildwoodComponents.Blazor AuthenticationComponent
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
 
-import { useState, useCallback, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import type {
-  AuthenticationResponse,
-  LoginRequest,
-  RegistrationRequest,
-  AuthProvider,
-  AuthenticationConfiguration,
-  CaptchaConfiguration,
-  TwoFactorMethodInfo,
-} from '@wildwood/core';
+import type { AuthenticationResponse } from '@wildwood/core';
 import { openOAuthPopup, isPopupSupported } from '@wildwood/core';
-import { useWildwood } from '../../hooks/useWildwood.js';
+import { useAuthenticationLogic } from '@wildwood/react-shared';
 
 // Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
 function sanitizeHtml(html: string): string {
@@ -48,8 +39,6 @@ export interface AuthenticationComponentProps {
   className?: string;
 }
 
-type AuthView = 'login' | 'register' | 'twoFactor' | 'passwordReset' | 'forgotPassword' | 'disclaimers';
-
 export function AuthenticationComponent({
   appId,
   title,
@@ -59,333 +48,109 @@ export function AuthenticationComponent({
   onAuthenticationError,
   className,
 }: AuthenticationComponentProps) {
-  const client = useWildwood();
+  const {
+    // State
+    view,
+    setView,
+    isLoading,
+    setIsLoading,
+    errorMessage,
+    setErrorMessage,
+    successMessage,
 
-  // View state
-  const [view, setView] = useState<AuthView>('login');
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+    // Config
+    authConfig,
+    providers,
 
-  // Config
-  const [authConfig, setAuthConfig] = useState<AuthenticationConfiguration | null>(null);
-  const [captchaConfig, setCaptchaConfig] = useState<CaptchaConfiguration | null>(null);
-  const [providers, setProviders] = useState<AuthProvider[]>([]);
+    // Login form
+    username,
+    setUsername,
+    password,
+    setPassword,
+    showPassword,
+    setShowPassword,
+    rememberMe,
+    setRememberMe,
 
-  // Login form
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+    // Registration form
+    regFirstName,
+    setRegFirstName,
+    regLastName,
+    setRegLastName,
+    regUsername,
+    setRegUsername,
+    regEmail,
+    setRegEmail,
+    regPassword,
+    setRegPassword,
+    regConfirmPassword,
+    setRegConfirmPassword,
+    showRegPassword,
+    setShowRegPassword,
 
-  // Registration form
-  const [regFirstName, setRegFirstName] = useState('');
-  const [regLastName, setRegLastName] = useState('');
-  const [regUsername, setRegUsername] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [showRegPassword, setShowRegPassword] = useState(false);
+    // 2FA
+    twoFactorMethods,
+    selectedTwoFactorMethod,
+    setSelectedTwoFactorMethod,
+    twoFactorCode,
+    setTwoFactorCode,
+    showRecoveryInput,
+    setShowRecoveryInput,
+    recoveryCode,
+    setRecoveryCode,
+    rememberDevice,
+    setRememberDevice,
 
-  // 2FA
-  const [twoFactorSessionId, setTwoFactorSessionId] = useState('');
-  const [twoFactorMethods, setTwoFactorMethods] = useState<TwoFactorMethodInfo[]>([]);
-  const [selectedTwoFactorMethod, setSelectedTwoFactorMethod] = useState('');
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [showRecoveryInput, setShowRecoveryInput] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState('');
-  const [rememberDevice, setRememberDevice] = useState(false);
+    // Password reset
+    newPassword,
+    setNewPassword,
+    confirmPassword,
+    setConfirmPassword,
+    showNewPassword,
+    setShowNewPassword,
+    showConfirmPassword,
+    setShowConfirmPassword,
 
-  // Password reset
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    // Forgot password
+    forgotEmail,
+    setForgotEmail,
 
-  // Forgot password
-  const [forgotEmail, setForgotEmail] = useState('');
+    // Pending auth
+    pendingAuth,
 
-  // Pending auth response (stored between views)
-  const [pendingAuth, setPendingAuth] = useState<AuthenticationResponse | null>(null);
+    // Handlers
+    clearMessages,
+    handleError,
+    completeAuth,
+    processAuthResponse,
+    handleLogin,
+    handleRegister,
+    handleTwoFactorSubmit,
+    handleRecoverySubmit,
+    handleResendCode,
+    handlePasswordReset,
+    handleForgotPasswordSubmit,
+    handleAcceptDisclaimers,
+    toggleMode,
+    resolveTitle,
 
-  // Load configuration on mount
-  useEffect(() => {
-    if (!appId) return;
-    const load = async () => {
-      const [ac, cc, prov] = await Promise.all([
-        client.auth.getAuthenticationConfiguration(appId).catch(() => null),
-        client.auth.getCaptchaConfiguration(appId).catch(() => null),
-        client.auth.getAvailableProviders(appId).catch(() => []),
-      ]);
-      setAuthConfig(ac);
-      setCaptchaConfig(cc);
-      setProviders(prov);
-    };
-    load();
-  }, [appId, client]);
+    // Computed
+    allowRegistration,
+    allowPasswordReset,
 
-  const clearMessages = () => {
-    setErrorMessage('');
-    setSuccessMessage('');
-  };
-
-  const handleError = (err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    const displayMsg = showDetailedErrors ? msg : 'Authentication failed. Please try again.';
-    setErrorMessage(displayMsg);
-    onAuthenticationError?.(msg);
-  };
-
-  // Complete auth flow (called after all checks pass)
-  const completeAuth = useCallback(
-    async (response: AuthenticationResponse) => {
-      await client.session.login(response);
-      onAuthenticationSuccess?.(response);
-    },
-    [client, onAuthenticationSuccess],
-  );
-
-  // Process auth response, checking for 2FA/password reset/disclaimers
-  const processAuthResponse = useCallback(
-    async (response: AuthenticationResponse) => {
-      if (response.requiresTwoFactor) {
-        setPendingAuth(response);
-        setTwoFactorSessionId(response.twoFactorSessionId ?? '');
-        setTwoFactorMethods(response.availableTwoFactorMethods ?? []);
-        setSelectedTwoFactorMethod(response.defaultTwoFactorMethod ?? '');
-        setView('twoFactor');
-        return;
-      }
-
-      if (response.requiresPasswordReset) {
-        setPendingAuth(response);
-        setView('passwordReset');
-        return;
-      }
-
-      if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
-        setPendingAuth(response);
-        setView('disclaimers');
-        return;
-      }
-
-      await completeAuth(response);
-    },
-    [completeAuth],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------------------------
-  const handleLogin = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-    setIsLoading(true);
-
-    try {
-      const request: LoginRequest = {
-        username,
-        password,
-        appId,
-        rememberMe,
-        platform: 'web',
-        deviceInfo: navigator.userAgent,
-      };
-
-      const response = await client.auth.login(request);
-      await processAuthResponse(response);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // Registration
-  // ---------------------------------------------------------------------------
-  const handleRegister = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-
-    if (regPassword !== regConfirmPassword) {
-      setErrorMessage('Passwords do not match');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const request: RegistrationRequest = {
-        firstName: regFirstName,
-        lastName: regLastName,
-        email: regEmail,
-        username: regUsername || regEmail,
-        password: regPassword,
-        appId: appId ?? '',
-        platform: 'web',
-        deviceInfo: navigator.userAgent,
-      };
-
-      const response = await client.auth.register(request);
-      await processAuthResponse(response);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // Two-Factor
-  // ---------------------------------------------------------------------------
-  const handleTwoFactorSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-    setIsLoading(true);
-
-    try {
-      const result = await client.auth.verifyTwoFactorCode({
-        sessionId: twoFactorSessionId,
-        code: twoFactorCode,
-        providerType: selectedTwoFactorMethod,
-        rememberDevice,
-        deviceFingerprint: navigator.userAgent,
-        deviceName: 'Web Browser',
-      });
-
-      if (result.success && result.authResponse) {
-        await processAuthResponse(result.authResponse);
-      } else {
-        setErrorMessage(result.errorMessage ?? 'Verification failed');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRecoverySubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-    setIsLoading(true);
-
-    try {
-      const result = await client.auth.verifyTwoFactorRecoveryCode(twoFactorSessionId, recoveryCode, '');
-
-      if (result.success && result.authResponse) {
-        await processAuthResponse(result.authResponse);
-      } else {
-        setErrorMessage(result.errorMessage ?? 'Recovery code verification failed');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    clearMessages();
-    setIsLoading(true);
-    try {
-      const result = await client.auth.sendTwoFactorCode(twoFactorSessionId);
-      if (result.success) {
-        setSuccessMessage(`Code sent to ${result.maskedDestination ?? 'your device'}`);
-      } else {
-        setErrorMessage(result.errorMessage ?? 'Failed to resend code');
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // Password Reset (forced after login)
-  // ---------------------------------------------------------------------------
-  const handlePasswordReset = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-
-    if (newPassword !== confirmPassword) {
-      setErrorMessage('Passwords do not match');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await client.auth.resetPassword(newPassword, confirmPassword, appId ?? '');
-      setSuccessMessage('Password updated successfully');
-
-      if (pendingAuth) {
-        const response = await client.auth.login({
-          username: pendingAuth.email,
-          password: newPassword,
-          appId,
-          platform: 'web',
-          deviceInfo: navigator.userAgent,
-        });
-        await processAuthResponse(response);
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // Forgot Password
-  // ---------------------------------------------------------------------------
-  const handleForgotPasswordSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-    setIsLoading(true);
-
-    try {
-      await client.auth.requestPasswordReset(forgotEmail, appId ?? '');
-      setSuccessMessage('If an account exists with that email, a temporary password has been sent.');
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // View helpers
-  // ---------------------------------------------------------------------------
-  const toggleMode = () => {
-    clearMessages();
-    setView(view === 'login' ? 'register' : 'login');
-  };
-
-  const resolveTitle = () => {
-    if (title) return title;
-    switch (view) {
-      case 'login':
-        return 'Sign In';
-      case 'register':
-        return 'Create Account';
-      case 'twoFactor':
-        return 'Two-Factor Authentication';
-      case 'passwordReset':
-        return 'Reset Password';
-      case 'forgotPassword':
-        return 'Forgot Password';
-      case 'disclaimers':
-        return 'Accept Disclaimers';
-      default:
-        return 'Sign In';
-    }
-  };
-
-  // Check if registration is allowed (config-driven or fallback to always allowed when no config)
-  const allowRegistration = authConfig ? authConfig.allowOpenRegistration || authConfig.allowTokenRegistration : true;
-
-  const allowPasswordReset = authConfig?.allowPasswordReset ?? true;
+    // Client
+    client,
+  } = useAuthenticationLogic({
+    appId,
+    title,
+    showPasswordField,
+    showDetailedErrors,
+    platform: 'web',
+    deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : 'Web Browser',
+    deviceName: 'Web Browser',
+    onAuthenticationSuccess,
+    onAuthenticationError,
+  });
 
   // ---------------------------------------------------------------------------
   // Render
@@ -413,7 +178,12 @@ export function AuthenticationComponent({
           {/* LOGIN VIEW                                                    */}
           {/* ============================================================ */}
           {view === 'login' && (
-            <form onSubmit={handleLogin}>
+            <form
+              onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                handleLogin();
+              }}
+            >
               <div className="ww-form-group">
                 <label htmlFor="ww-username">Username</label>
                 <input
@@ -549,7 +319,13 @@ export function AuthenticationComponent({
           {/* REGISTRATION VIEW                                             */}
           {/* ============================================================ */}
           {view === 'register' && (
-            <form onSubmit={handleRegister} className="ww-register-section">
+            <form
+              onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                handleRegister();
+              }}
+              className="ww-register-section"
+            >
               <div className="ww-form-row">
                 <div className="ww-form-group">
                   <label htmlFor="ww-reg-first">First Name</label>
@@ -693,7 +469,12 @@ export function AuthenticationComponent({
               )}
 
               {!showRecoveryInput ? (
-                <form onSubmit={handleTwoFactorSubmit}>
+                <form
+                  onSubmit={(e: FormEvent) => {
+                    e.preventDefault();
+                    handleTwoFactorSubmit();
+                  }}
+                >
                   <div className="ww-form-group">
                     <label htmlFor="ww-2fa-code">Verification Code</label>
                     <input
@@ -739,7 +520,12 @@ export function AuthenticationComponent({
                   )}
                 </form>
               ) : (
-                <form onSubmit={handleRecoverySubmit}>
+                <form
+                  onSubmit={(e: FormEvent) => {
+                    e.preventDefault();
+                    handleRecoverySubmit();
+                  }}
+                >
                   <div className="ww-form-group">
                     <label htmlFor="ww-recovery-code">Recovery Code</label>
                     <input
@@ -787,7 +573,13 @@ export function AuthenticationComponent({
           {/* PASSWORD RESET VIEW (forced)                                  */}
           {/* ============================================================ */}
           {view === 'passwordReset' && (
-            <form onSubmit={handlePasswordReset} className="ww-password-reset-section">
+            <form
+              onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                handlePasswordReset();
+              }}
+              className="ww-password-reset-section"
+            >
               <div className="ww-section-header">
                 <div className="ww-section-icon ww-icon-key" />
                 <h3>Password Reset Required</h3>
@@ -862,7 +654,13 @@ export function AuthenticationComponent({
           {/* FORGOT PASSWORD VIEW                                          */}
           {/* ============================================================ */}
           {view === 'forgotPassword' && (
-            <form onSubmit={handleForgotPasswordSubmit} className="ww-forgot-password-section">
+            <form
+              onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                handleForgotPasswordSubmit();
+              }}
+              className="ww-forgot-password-section"
+            >
               <div className="ww-section-header">
                 <div className="ww-section-icon ww-icon-envelope" />
                 <h3>Reset Your Password</h3>
@@ -928,22 +726,7 @@ export function AuthenticationComponent({
                   type="button"
                   className="ww-btn ww-btn-primary ww-btn-block"
                   disabled={isLoading}
-                  onClick={async () => {
-                    setIsLoading(true);
-                    try {
-                      await client.disclaimer.acceptAllDisclaimers(
-                        pendingAuth.pendingDisclaimers!.map((d) => ({
-                          disclaimerId: d.disclaimerId,
-                          versionId: d.versionId,
-                        })),
-                      );
-                      if (pendingAuth) await completeAuth(pendingAuth);
-                    } catch (err) {
-                      handleError(err);
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }}
+                  onClick={handleAcceptDisclaimers}
                 >
                   {isLoading ? 'Accepting...' : 'Accept & Continue'}
                 </button>

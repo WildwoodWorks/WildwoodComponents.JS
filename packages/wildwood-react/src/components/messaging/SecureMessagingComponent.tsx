@@ -116,9 +116,20 @@ export function SecureMessagingComponent({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchCounterRef = useRef(0);
+
+  // Clean up typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     getThreads();
@@ -204,6 +215,8 @@ export function SecureMessagingComponent({
         setMessageInput('');
         setReplyToMessage(null);
         if (stopTyping) stopTyping(selectedThread.id);
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to send message');
       } finally {
         setSending(false);
         setUploading(false);
@@ -241,9 +254,14 @@ export function SecureMessagingComponent({
     async (query: string) => {
       setUserSearchQuery(query);
       if (query.length >= 2) {
+        const thisSearch = ++searchCounterRef.current;
         const results = await searchUsers(query);
-        setSearchResults(results.map((u: CompanyAppUser) => ({ id: u.userId, displayName: u.userName })));
+        // Only update if this is still the latest search
+        if (thisSearch === searchCounterRef.current) {
+          setSearchResults(results.map((u: CompanyAppUser) => ({ id: u.userId, displayName: u.userName })));
+        }
       } else {
+        searchCounterRef.current++;
         setSearchResults([]);
       }
     },
@@ -254,15 +272,19 @@ export function SecureMessagingComponent({
     async (e: FormEvent) => {
       e.preventDefault();
       if (selectedParticipants.length === 0) return;
-      const thread = await createThread(
-        selectedParticipants.map((p) => p.id),
-        newThreadSubject || '',
-      );
-      setShowNewThread(false);
-      setNewThreadSubject('');
-      setSelectedParticipants([]);
-      setUserSearchQuery('');
-      await handleSelectThread(thread);
+      try {
+        const thread = await createThread(
+          selectedParticipants.map((p) => p.id),
+          newThreadSubject || '',
+        );
+        setShowNewThread(false);
+        setNewThreadSubject('');
+        setSelectedParticipants([]);
+        setUserSearchQuery('');
+        await handleSelectThread(thread);
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to create conversation');
+      }
     },
     [selectedParticipants, newThreadSubject, createThread, handleSelectThread],
   );
@@ -270,30 +292,42 @@ export function SecureMessagingComponent({
   const handleEditMessage = useCallback(
     async (messageId: string) => {
       if (!editContent.trim()) return;
-      await editMessage(messageId, editContent.trim());
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, content: editContent.trim(), isEdited: true } : m)),
-      );
-      setEditingMessageId(null);
-      setEditContent('');
+      try {
+        await editMessage(messageId, editContent.trim());
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, content: editContent.trim(), isEdited: true } : m)),
+        );
+        setEditingMessageId(null);
+        setEditContent('');
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to edit message');
+      }
     },
     [editContent, editMessage],
   );
 
   const handleDeleteMessage = useCallback(
     async (messageId: string) => {
-      await deleteMessage(messageId);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, isDeleted: true, content: 'This message was deleted' } : m)),
-      );
+      try {
+        await deleteMessage(messageId);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, isDeleted: true, content: 'This message was deleted' } : m)),
+        );
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to delete message');
+      }
     },
     [deleteMessage],
   );
 
   const handleReaction = useCallback(
     async (messageId: string, emoji: string) => {
-      await reactToMessage(messageId, emoji);
-      setShowEmojiPicker(null);
+      try {
+        await reactToMessage(messageId, emoji);
+        setShowEmojiPicker(null);
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to add reaction');
+      }
     },
     [reactToMessage],
   );
@@ -376,10 +410,10 @@ export function SecureMessagingComponent({
 
   return (
     <div className={`ww-messaging-component ${className ?? ''}`}>
-      {error && (
+      {(error || localError) && (
         <div className="ww-alert ww-alert-danger ww-messaging-error">
-          {error}
-          <button type="button" className="ww-alert-dismiss" onClick={() => {}}>
+          {error || localError}
+          <button type="button" className="ww-alert-dismiss" onClick={() => setLocalError(null)}>
             &times;
           </button>
         </div>

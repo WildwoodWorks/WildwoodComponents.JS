@@ -118,15 +118,18 @@ export class HttpClient {
     const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     try {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
       let init: RequestInit = {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          // Don't set Content-Type for FormData — browser sets it with boundary
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
           ...(this.config.apiKey ? { 'X-API-Key': this.config.apiKey } : {}),
           ...options?.headers,
         },
         signal,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: body !== undefined ? (isFormData ? body : JSON.stringify(body)) : undefined,
       };
 
       // Inject auth token
@@ -169,6 +172,14 @@ export class HttpClient {
         data = (await response.json()) as T;
       } else if (response.status === 204) {
         data = undefined as T;
+      } else if (
+        contentType?.includes('application/octet-stream') ||
+        contentType?.includes('image/') ||
+        contentType?.includes('audio/') ||
+        contentType?.includes('video/') ||
+        options?.responseType === 'arraybuffer'
+      ) {
+        data = (await response.arrayBuffer()) as T;
       } else {
         data = (await response.text()) as T;
       }
@@ -187,8 +198,8 @@ export class HttpClient {
   private combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
     const controller = new AbortController();
     const onAbort = () => controller.abort();
-    a.addEventListener('abort', onAbort);
-    b.addEventListener('abort', onAbort);
+    a.addEventListener('abort', onAbort, { once: true });
+    b.addEventListener('abort', onAbort, { once: true });
     if (a.aborted || b.aborted) controller.abort();
     return controller.signal;
   }

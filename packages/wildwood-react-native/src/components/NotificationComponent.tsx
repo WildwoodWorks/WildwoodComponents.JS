@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { useNotifications } from '../hooks/useNotifications';
 
 export interface NotificationComponentProps {
   /** Optional style override for the outer container */
-  style?: object;
+  style?: ViewStyle;
 }
 
 type NotificationType = 'info' | 'success' | 'warning' | 'error';
@@ -28,9 +29,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
  * Notification manager component - provides UI to trigger and manage notifications.
  * Complements NotificationToastComponent which renders the actual toasts.
  */
-export function NotificationComponent({
-  style,
-}: NotificationComponentProps) {
+export function NotificationComponent({ style }: NotificationComponentProps) {
   const { toasts, success, error, warning, info, dismiss, clear } = useNotifications();
 
   const [message, setMessage] = useState('');
@@ -41,10 +40,18 @@ export function NotificationComponent({
     if (!message.trim()) return;
     const titleVal = title.trim() || undefined;
     switch (type) {
-      case 'success': success(message, titleVal); break;
-      case 'error': error(message, titleVal); break;
-      case 'warning': warning(message, titleVal); break;
-      default: info(message, titleVal); break;
+      case 'success':
+        success(message, titleVal);
+        break;
+      case 'error':
+        error(message, titleVal);
+        break;
+      case 'warning':
+        warning(message, titleVal);
+        break;
+      default:
+        info(message, titleVal);
+        break;
     }
     setMessage('');
     setTitle('');
@@ -75,12 +82,7 @@ export function NotificationComponent({
                 ]}
                 onPress={() => setType(opt.value)}
               >
-                <Text
-                  style={[
-                    styles.typeOptionText,
-                    type === opt.value && styles.typeOptionTextSelected,
-                  ]}
-                >
+                <Text style={[styles.typeOptionText, type === opt.value && styles.typeOptionTextSelected]}>
                   {opt.label}
                 </Text>
               </Pressable>
@@ -125,9 +127,7 @@ export function NotificationComponent({
       {toasts.length > 0 && (
         <View style={styles.card}>
           <View style={styles.listHeader}>
-            <Text style={[styles.cardTitle, styles.listHeaderTitle]}>
-              Active Notifications ({toasts.length})
-            </Text>
+            <Text style={[styles.cardTitle, styles.listHeaderTitle]}>Active Notifications ({toasts.length})</Text>
             <Pressable style={styles.clearButton} onPress={clear}>
               <Text style={styles.clearButtonText}>Clear All</Text>
             </Pressable>
@@ -137,12 +137,11 @@ export function NotificationComponent({
             return (
               <View key={toast.id} style={styles.notificationItem}>
                 <View style={[styles.badge, { backgroundColor: badgeColor.bg }]}>
-                  <Text style={[styles.badgeText, { color: badgeColor.text }]}>
-                    {toast.type}
-                  </Text>
+                  <Text style={[styles.badgeText, { color: badgeColor.text }]}>{toast.type}</Text>
                 </View>
                 <Text style={styles.notificationMessage} numberOfLines={2}>
-                  {toast.title ? `${toast.title}: ` : ''}{toast.message}
+                  {toast.title ? `${toast.title}: ` : ''}
+                  {toast.message}
                 </Text>
                 <Pressable
                   style={styles.dismissButton}

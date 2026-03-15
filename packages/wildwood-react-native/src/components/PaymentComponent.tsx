@@ -1,31 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Linking,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Linking } from 'react-native';
+import type { ViewStyle } from 'react-native';
+import { getCurrencySymbol } from '@wildwood/core';
 import type { AppPaymentConfigurationDto, SavedPaymentMethodDto } from '@wildwood/core';
 import { usePayment } from '../hooks/usePayment';
 
 export interface PaymentComponentProps {
   customerId?: string;
   onPaymentComplete?: (paymentIntentId: string) => void;
+  style?: ViewStyle;
 }
 
-export function PaymentComponent({
-  customerId,
-  onPaymentComplete,
-}: PaymentComponentProps) {
+export function PaymentComponent({ customerId, onPaymentComplete, style }: PaymentComponentProps) {
   const {
-    loading, error, savedMethods,
+    loading,
+    error,
+    savedMethods,
     getAppPaymentConfiguration,
-    initiatePayment, getSavedPaymentMethods,
-    deleteSavedPaymentMethod, setDefaultPaymentMethod,
+    initiatePayment,
+    getSavedPaymentMethods,
+    deleteSavedPaymentMethod,
+    setDefaultPaymentMethod,
   } = usePayment();
 
   const [config, setConfig] = useState<AppPaymentConfigurationDto | null>(null);
@@ -37,10 +32,14 @@ export function PaymentComponent({
 
   useEffect(() => {
     const load = async () => {
-      const appConfig = await getAppPaymentConfiguration();
-      if (appConfig) setConfig(appConfig);
-      if (customerId) {
-        await getSavedPaymentMethods(customerId);
+      try {
+        const appConfig = await getAppPaymentConfiguration();
+        if (appConfig) setConfig(appConfig);
+        if (customerId) {
+          await getSavedPaymentMethods(customerId);
+        }
+      } catch (err) {
+        console.warn('Failed to load payment configuration:', err);
       }
     };
     load();
@@ -72,9 +71,7 @@ export function PaymentComponent({
 
       if (result.success) {
         if (result.redirectUrl) {
-          const url = result.redirectUrl.startsWith('http')
-            ? result.redirectUrl
-            : `https://${result.redirectUrl}`;
+          const url = result.redirectUrl.startsWith('http') ? result.redirectUrl : `https://${result.redirectUrl}`;
           await Linking.openURL(url);
         } else {
           setSuccessMessage('Payment initiated successfully!');
@@ -90,19 +87,33 @@ export function PaymentComponent({
     }
   }, [amount, config, description, customerId, initiatePayment, onPaymentComplete]);
 
-  const handleDeleteMethod = useCallback(async (methodId: string) => {
-    await deleteSavedPaymentMethod(methodId);
-    if (selectedMethod === methodId) setSelectedMethod(null);
-    if (customerId) await getSavedPaymentMethods(customerId);
-  }, [deleteSavedPaymentMethod, selectedMethod, getSavedPaymentMethods, customerId]);
+  const handleDeleteMethod = useCallback(
+    async (methodId: string) => {
+      try {
+        await deleteSavedPaymentMethod(methodId);
+        if (selectedMethod === methodId) setSelectedMethod(null);
+        if (customerId) await getSavedPaymentMethods(customerId);
+      } catch (err) {
+        console.warn('Failed to delete payment method:', err);
+      }
+    },
+    [deleteSavedPaymentMethod, selectedMethod, getSavedPaymentMethods, customerId],
+  );
 
-  const handleSetDefault = useCallback(async (methodId: string) => {
-    await setDefaultPaymentMethod(methodId);
-    if (customerId) await getSavedPaymentMethods(customerId);
-  }, [setDefaultPaymentMethod, getSavedPaymentMethods, customerId]);
+  const handleSetDefault = useCallback(
+    async (methodId: string) => {
+      try {
+        await setDefaultPaymentMethod(methodId);
+        if (customerId) await getSavedPaymentMethods(customerId);
+      } catch (err) {
+        console.warn('Failed to set default payment method:', err);
+      }
+    },
+    [setDefaultPaymentMethod, getSavedPaymentMethods, customerId],
+  );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
       {/* Alerts */}
       {(error || paymentError) && (
         <View style={styles.alertError}>
@@ -122,17 +133,12 @@ export function PaymentComponent({
           {savedMethods.map((method: SavedPaymentMethodDto) => (
             <Pressable
               key={method.id}
-              style={[
-                styles.methodCard,
-                selectedMethod === method.id && styles.methodCardSelected,
-              ]}
+              style={[styles.methodCard, selectedMethod === method.id && styles.methodCardSelected]}
               onPress={() => setSelectedMethod(method.id)}
             >
               <View style={styles.methodInfo}>
                 <Text style={styles.methodBrand}>{method.brand ?? method.type}</Text>
-                {method.last4 && (
-                  <Text style={styles.methodLast4}> ending in {method.last4}</Text>
-                )}
+                {method.last4 && <Text style={styles.methodLast4}> ending in {method.last4}</Text>}
                 {method.isDefault && (
                   <View style={styles.badgePrimary}>
                     <Text style={styles.badgePrimaryText}>Default</Text>
@@ -141,17 +147,11 @@ export function PaymentComponent({
               </View>
               <View style={styles.methodActions}>
                 {!method.isDefault && (
-                  <Pressable
-                    style={styles.outlineButtonSmall}
-                    onPress={() => handleSetDefault(method.id)}
-                  >
+                  <Pressable style={styles.outlineButtonSmall} onPress={() => handleSetDefault(method.id)}>
                     <Text style={styles.outlineButtonSmallText}>Set Default</Text>
                   </Pressable>
                 )}
-                <Pressable
-                  style={styles.dangerButtonSmall}
-                  onPress={() => handleDeleteMethod(method.id)}
-                >
+                <Pressable style={styles.dangerButtonSmall} onPress={() => handleDeleteMethod(method.id)}>
                   <Text style={styles.dangerButtonSmallText}>Remove</Text>
                 </Pressable>
               </View>
@@ -196,7 +196,8 @@ export function PaymentComponent({
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <Text style={styles.primaryButtonText}>
-              Pay {amount ? `$${parseFloat(amount).toFixed(2)}` : ''}
+              Pay{' '}
+              {amount ? `${getCurrencySymbol(config?.defaultCurrency ?? 'USD')}${parseFloat(amount).toFixed(2)}` : ''}
             </Text>
           )}
         </Pressable>

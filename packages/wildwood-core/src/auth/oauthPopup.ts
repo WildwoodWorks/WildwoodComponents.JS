@@ -8,19 +8,6 @@ export interface OAuthPopupResult {
   error?: string;
 }
 
-let _popup: Window | null = null;
-let _pollTimer: ReturnType<typeof setInterval> | null = null;
-
-function cleanup(onMessage: (e: MessageEvent) => void): void {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('message', onMessage);
-  }
-  if (_pollTimer) {
-    clearInterval(_pollTimer);
-    _pollTimer = null;
-  }
-}
-
 /**
  * Opens an OAuth popup window and returns a promise that resolves with the auth result.
  * The popup's callback page must post a message with `{ type: 'wildwood-oauth-callback', success, response?, error? }`.
@@ -31,11 +18,6 @@ export function openOAuthPopup(authorizationUrl: string): Promise<OAuthPopupResu
   }
 
   return new Promise<OAuthPopupResult>((resolve, reject) => {
-    // Close any existing popup
-    if (_popup && !_popup.closed) {
-      _popup.close();
-    }
-
     // Calculate centered popup position
     const width = 500;
     const height = 650;
@@ -53,13 +35,21 @@ export function openOAuthPopup(authorizationUrl: string): Promise<OAuthPopupResu
       return;
     }
 
-    _popup = popup;
     let resolved = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const cleanup = () => {
+      window.removeEventListener('message', onMessage);
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
 
     const onMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'wildwood-oauth-callback') {
         resolved = true;
-        cleanup(onMessage);
+        cleanup();
         resolve(event.data as OAuthPopupResult);
       }
     };
@@ -67,10 +57,10 @@ export function openOAuthPopup(authorizationUrl: string): Promise<OAuthPopupResu
     window.addEventListener('message', onMessage);
 
     // Poll to detect if the popup was closed without completing
-    _pollTimer = setInterval(() => {
+    pollTimer = setInterval(() => {
       if (popup.closed && !resolved) {
         resolved = true;
-        cleanup(onMessage);
+        cleanup();
         resolve({ success: false, error: 'Login popup was closed' });
       }
     }, 500);

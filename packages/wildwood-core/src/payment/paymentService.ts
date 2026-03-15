@@ -161,4 +161,14 @@ export class SubscriptionService {
     });
     return data;
   }
+
+  async pauseSubscription(subscriptionId: string): Promise<SubscriptionResult> {
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/pause`);
+    return data;
+  }
+
+  async resumeSubscription(subscriptionId: string): Promise<SubscriptionResult> {
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/resume`);
+    return data;
+  }
 }

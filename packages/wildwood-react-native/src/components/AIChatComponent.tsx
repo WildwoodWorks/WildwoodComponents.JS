@@ -11,48 +11,138 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
-import type { AIChatResponse, AISessionSummary } from '@wildwood/core';
+import type { ViewStyle } from 'react-native';
+import type { AIChatResponse, AISessionSummary, AIConfiguration } from '@wildwood/core';
 import { useAI } from '../hooks/useAI';
+
+export interface AIChatSettings {
+  enableSessions?: boolean;
+  enableSpeechToText?: boolean;
+  enableTextToSpeech?: boolean;
+  enableFileUpload?: boolean;
+  useServerTTS?: boolean;
+  showDebugInfo?: boolean;
+  showConfigurationSelector?: boolean;
+  welcomeMessage?: string;
+  placeholderText?: string;
+  maxMessageLength?: number;
+}
 
 export interface AIChatComponentProps {
   configurationName?: string;
   sessionId?: string;
+  /** @deprecated Use settings.placeholderText instead */
   placeholder?: string;
+  /** @deprecated Use settings.enableSessions instead */
   showSessionList?: boolean;
+  settings?: AIChatSettings;
   onMessageReceived?: (response: AIChatResponse) => void;
-  style?: object;
+  onSessionCreated?: (sessionId: string) => void;
+  onAuthenticationFailed?: () => void;
+  style?: ViewStyle;
 }
 
 interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  isError?: boolean;
 }
+
+const defaultSettings: Required<AIChatSettings> = {
+  enableSessions: true,
+  enableSpeechToText: false,
+  enableTextToSpeech: false,
+  enableFileUpload: false,
+  useServerTTS: false,
+  showDebugInfo: false,
+  showConfigurationSelector: true,
+  welcomeMessage: "What's on the agenda today?",
+  placeholderText: 'Ask anything',
+  maxMessageLength: 4000,
+};
 
 export function AIChatComponent({
   configurationName,
   sessionId: initialSessionId,
-  placeholder = 'Type your message...',
-  showSessionList = true,
+  placeholder,
+  showSessionList,
+  settings: userSettings,
   onMessageReceived,
+  onSessionCreated,
+  onAuthenticationFailed,
   style,
 }: AIChatComponentProps) {
-  const { sessions, loading, error, sendMessage, getSessions, createSession, deleteSession } = useAI();
+  // Merge settings with backward-compat for legacy props
+  const settings: Required<AIChatSettings> = {
+    ...defaultSettings,
+    ...userSettings,
+    // Legacy prop overrides if settings prop not provided
+    ...(showSessionList !== undefined && userSettings?.enableSessions === undefined
+      ? { enableSessions: showSessionList }
+      : {}),
+    ...(placeholder !== undefined && userSettings?.placeholderText === undefined
+      ? { placeholderText: placeholder }
+      : {}),
+  };
 
+  const {
+    sessions,
+    loading,
+    error,
+    sendMessage,
+    getSessions,
+    createSession,
+    deleteSession,
+    renameSession,
+    getConfigurations,
+  } = useAI();
+
+  // Core state
   const [currentSessionId, setCurrentSessionId] = useState(initialSessionId ?? '');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Sidebar state
   const [showSidebar, setShowSidebar] = useState(false);
+
+  // Configuration state
+  const [configurations, setConfigurations] = useState<AIConfiguration[]>([]);
+  const [currentConfigId, setCurrentConfigId] = useState('');
+  const [showConfigModal, setShowConfigModal] = useState(false);
+
+  // Rename state
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
+
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
+  // Load sessions and configurations on mount
   useEffect(() => {
-    if (showSessionList) {
-      getSessions();
+    if (settings.enableSessions) {
+      getSessions().catch((err) => {
+        if (isAuthError(err)) onAuthenticationFailed?.();
+      });
     }
-  }, [showSessionList, getSessions]);
+    getConfigurations()
+      .then((configs) => {
+        setConfigurations(configs);
+        if (configurationName) {
+          const match = configs.find((c) => c.name === configurationName || c.id === configurationName);
+          if (match) setCurrentConfigId(match.id);
+        } else if (configs.length > 0) {
+          setCurrentConfigId(configs[0].id);
+        }
+      })
+      .catch((err) => {
+        if (isAuthError(err)) onAuthenticationFailed?.();
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-scroll on new messages
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -63,6 +153,11 @@ export function AIChatComponent({
     if (!input.trim() || sending) return;
 
     const userMessage = input.trim();
+    if (settings.maxMessageLength && userMessage.length > settings.maxMessageLength) {
+      Alert.alert('Message too long', `Maximum length is ${settings.maxMessageLength} characters.`);
+      return;
+    }
+
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }]);
     setSending(true);
@@ -71,40 +166,65 @@ export function AIChatComponent({
       const response = await sendMessage({
         message: userMessage,
         sessionId: currentSessionId || undefined,
-        configurationId: configurationName ?? '',
+        configurationId: currentConfigId || configurationName || '',
       });
 
       if (response.sessionId && !currentSessionId) {
         setCurrentSessionId(response.sessionId);
+        onSessionCreated?.(response.sessionId);
       }
 
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: response.response ?? '',
-        timestamp: new Date(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: response.response ?? '',
+          timestamp: new Date(),
+        },
+      ]);
 
       onMessageReceived?.(response);
-    } catch {
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: 'Sorry, an error occurred. Please try again.',
-        timestamp: new Date(),
-      }]);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      if (isAuthError(err)) {
+        onAuthenticationFailed?.();
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Sorry, an error occurred: ${errorMsg}`,
+          timestamp: new Date(),
+          isError: true,
+        },
+      ]);
     } finally {
       setSending(false);
     }
-  }, [input, sending, currentSessionId, configurationName, sendMessage, onMessageReceived]);
+  }, [
+    input,
+    sending,
+    currentSessionId,
+    currentConfigId,
+    configurationName,
+    sendMessage,
+    onMessageReceived,
+    onSessionCreated,
+    onAuthenticationFailed,
+    settings.maxMessageLength,
+  ]);
 
   const handleNewSession = useCallback(async () => {
-    if (!configurationName) return;
-    const session = await createSession(configurationName);
+    const configId = currentConfigId || configurationName;
+    if (!configId) return;
+    const session = await createSession(configId);
     if (session) {
       setCurrentSessionId(session.id);
+      onSessionCreated?.(session.id);
     }
     setMessages([]);
     setShowSidebar(false);
-  }, [configurationName, createSession]);
+  }, [currentConfigId, configurationName, createSession, onSessionCreated]);
 
   const handleSelectSession = useCallback((session: AISessionSummary) => {
     setCurrentSessionId(session.id);
@@ -112,32 +232,82 @@ export function AIChatComponent({
     setShowSidebar(false);
   }, []);
 
-  const handleDeleteSession = useCallback(async (id: string) => {
-    Alert.alert('Delete Session', 'Are you sure you want to delete this session?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteSession(id);
-          if (currentSessionId === id) {
-            setCurrentSessionId('');
-            setMessages([]);
-          }
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      Alert.alert('Delete Session', 'Are you sure you want to delete this session?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteSession(id);
+            if (currentSessionId === id) {
+              setCurrentSessionId('');
+              setMessages([]);
+            }
+          },
         },
-      },
-    ]);
-  }, [deleteSession, currentSessionId]);
+      ]);
+    },
+    [deleteSession, currentSessionId],
+  );
 
-  const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
-    <View style={[styles.messageBubbleRow, item.role === 'user' ? styles.userRow : styles.assistantRow]}>
-      <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
-        <Text style={[styles.bubbleText, item.role === 'user' ? styles.userText : styles.assistantText]}>
-          {item.content}
-        </Text>
+  // Rename session: start inline editing
+  const handleStartRename = useCallback((session: AISessionSummary) => {
+    setRenamingSessionId(session.id);
+    setRenameText(session.sessionName || '');
+  }, []);
+
+  const handleSubmitRename = useCallback(async () => {
+    if (!renamingSessionId || !renameText.trim()) {
+      setRenamingSessionId(null);
+      return;
+    }
+    await renameSession(renamingSessionId, renameText.trim());
+    setRenamingSessionId(null);
+    setRenameText('');
+  }, [renamingSessionId, renameText, renameSession]);
+
+  const handleCancelRename = useCallback(() => {
+    setRenamingSessionId(null);
+    setRenameText('');
+  }, []);
+
+  // Configuration change
+  const handleConfigChange = useCallback((configId: string) => {
+    setCurrentConfigId(configId);
+    setMessages([]);
+    setCurrentSessionId('');
+    setShowConfigModal(false);
+  }, []);
+
+  // Get current config name for display
+  const currentConfigName = configurations.find((c) => c.id === currentConfigId)?.name || '';
+
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessage }) => (
+      <View style={[styles.messageBubbleRow, item.role === 'user' ? styles.userRow : styles.assistantRow]}>
+        <View
+          style={[
+            styles.bubble,
+            item.role === 'user' ? styles.userBubble : styles.assistantBubble,
+            item.isError ? styles.errorBubble : undefined,
+          ]}
+        >
+          <Text
+            style={[
+              styles.bubbleText,
+              item.role === 'user' ? styles.userText : styles.assistantText,
+              item.isError ? styles.errorBubbleText : undefined,
+            ]}
+          >
+            {item.content}
+          </Text>
+        </View>
       </View>
-    </View>
-  ), []);
+    ),
+    [],
+  );
 
   return (
     <KeyboardAvoidingView
@@ -151,21 +321,40 @@ export function AIChatComponent({
         </View>
       )}
 
-      {/* Header with session toggle */}
-      {showSessionList && (
+      {/* Debug info */}
+      {settings.showDebugInfo && (
+        <View style={styles.debugBanner}>
+          <Text style={styles.debugText}>
+            DEBUG: Messages = {messages.length} | Session = {currentSessionId || 'none'} | Config ={' '}
+            {currentConfigId || 'none'}
+          </Text>
+        </View>
+      )}
+
+      {/* Header with session toggle and config selector */}
+      {settings.enableSessions && (
         <View style={styles.header}>
           <Pressable style={styles.sessionsButton} onPress={() => setShowSidebar(!showSidebar)}>
-            <Text style={styles.sessionsButtonText}>
-              {showSidebar ? 'Hide Sessions' : 'Sessions'}
-            </Text>
+            <Text style={styles.sessionsButtonText}>{showSidebar ? 'Hide Sessions' : 'Sessions'}</Text>
           </Pressable>
-          <Pressable
-            style={[styles.newButton, (!configurationName || loading) && styles.disabledButton]}
-            onPress={handleNewSession}
-            disabled={loading || !configurationName}
-          >
-            <Text style={styles.newButtonText}>New Chat</Text>
-          </Pressable>
+          <View style={styles.headerRight}>
+            {/* Configuration selector button */}
+            {settings.showConfigurationSelector && configurations.length > 1 && (
+              <Pressable style={styles.configButton} onPress={() => setShowConfigModal(true)}>
+                <Text style={styles.configButtonText} numberOfLines={1}>
+                  {currentConfigName || 'Select Config'}
+                </Text>
+                <Text style={styles.configChevron}>{'\u25BC'}</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.newButton, ((!currentConfigId && !configurationName) || loading) && styles.disabledButton]}
+              onPress={handleNewSession}
+              disabled={loading || (!currentConfigId && !configurationName)}
+            >
+              <Text style={styles.newButtonText}>New Chat</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -174,33 +363,49 @@ export function AIChatComponent({
         <View style={styles.sidebar}>
           <ScrollView style={styles.sessionList}>
             {sessions.map((s) => (
-              <View
-                key={s.id}
-                style={[styles.sessionItem, currentSessionId === s.id && styles.sessionItemActive]}
-              >
-                <Pressable style={styles.sessionItemContent} onPress={() => handleSelectSession(s)}>
-                  <Text
-                    style={[styles.sessionTitle, currentSessionId === s.id && styles.sessionTitleActive]}
-                    numberOfLines={1}
-                  >
-                    {s.sessionName || 'Untitled'}
-                  </Text>
-                  <Text style={styles.sessionPreview} numberOfLines={1}>
-                    {s.lastMessagePreview || `${s.messageCount} messages`}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.deleteButton}
-                  onPress={() => handleDeleteSession(s.id)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.deleteText}>{'\u00D7'}</Text>
-                </Pressable>
+              <View key={s.id} style={[styles.sessionItem, currentSessionId === s.id && styles.sessionItemActive]}>
+                {renamingSessionId === s.id ? (
+                  // Inline rename
+                  <View style={styles.renameRow}>
+                    <TextInput
+                      style={styles.renameInput}
+                      value={renameText}
+                      onChangeText={setRenameText}
+                      autoFocus
+                      onSubmitEditing={handleSubmitRename}
+                      onBlur={handleCancelRename}
+                      returnKeyType="done"
+                      selectTextOnFocus
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <Pressable style={styles.sessionItemContent} onPress={() => handleSelectSession(s)}>
+                      <Text
+                        style={[styles.sessionTitle, currentSessionId === s.id && styles.sessionTitleActive]}
+                        numberOfLines={1}
+                      >
+                        {s.sessionName || 'Untitled'}
+                      </Text>
+                      <Text style={styles.sessionPreview} numberOfLines={1}>
+                        {s.lastMessagePreview || `${s.messageCount} messages`}
+                      </Text>
+                    </Pressable>
+                    <View style={styles.sessionActions}>
+                      {/* Rename button */}
+                      <Pressable style={styles.sessionActionButton} onPress={() => handleStartRename(s)} hitSlop={6}>
+                        <Text style={styles.sessionActionIcon}>{'\u270E'}</Text>
+                      </Pressable>
+                      {/* Delete button */}
+                      <Pressable style={styles.deleteButton} onPress={() => handleDeleteSession(s.id)} hitSlop={8}>
+                        <Text style={styles.deleteText}>{'\u00D7'}</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                )}
               </View>
             ))}
-            {sessions.length === 0 && (
-              <Text style={styles.emptyText}>No sessions yet</Text>
-            )}
+            {sessions.length === 0 && <Text style={styles.emptyText}>No sessions yet</Text>}
           </ScrollView>
         </View>
       )}
@@ -214,7 +419,7 @@ export function AIChatComponent({
         keyExtractor={(_, i) => String(i)}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Start a conversation...</Text>
+            <Text style={styles.emptyStateText}>{settings.welcomeMessage || 'Start a conversation...'}</Text>
           </View>
         }
         ListFooterComponent={
@@ -235,12 +440,13 @@ export function AIChatComponent({
           style={styles.textInput}
           value={input}
           onChangeText={setInput}
-          placeholder={placeholder}
+          placeholder={settings.placeholderText}
           editable={!sending}
           returnKeyType="send"
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
           multiline
+          maxLength={settings.maxMessageLength}
         />
         <Pressable
           style={[styles.sendButton, (!input.trim() || sending) && styles.disabledButton]}
@@ -250,8 +456,51 @@ export function AIChatComponent({
           <Text style={styles.sendButtonText}>{sending ? '...' : 'Send'}</Text>
         </Pressable>
       </View>
+
+      {/* Configuration Selector Modal */}
+      <Modal
+        visible={showConfigModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfigModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowConfigModal(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Configuration</Text>
+            <ScrollView style={styles.modalList}>
+              {configurations.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={[styles.modalItem, currentConfigId === c.id && styles.modalItemActive]}
+                  onPress={() => handleConfigChange(c.id)}
+                >
+                  <Text style={[styles.modalItemText, currentConfigId === c.id && styles.modalItemTextActive]}>
+                    {c.name}
+                  </Text>
+                  {c.description ? (
+                    <Text style={styles.modalItemDescription} numberOfLines={2}>
+                      {c.description}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable style={styles.modalCloseButton} onPress={() => setShowConfigModal(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
+}
+
+/** Check if an error is a 401/authentication error */
+function isAuthError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.message.includes('401') || err.message.includes('Unauthorized');
+  }
+  return false;
 }
 
 const styles = StyleSheet.create({
@@ -269,6 +518,17 @@ const styles = StyleSheet.create({
     color: '#991B1B',
     fontSize: 14,
   },
+  debugBanner: {
+    backgroundColor: '#FEF3C7',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
+  },
+  debugText: {
+    color: '#92400E',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -278,6 +538,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#F9FAFB',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sessionsButton: {
     paddingVertical: 6,
@@ -289,6 +554,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
+  },
+  configButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#E5E7EB',
+    maxWidth: 140,
+  },
+  configButtonText: {
+    fontSize: 13,
+    color: '#374151',
+    marginRight: 4,
+    flexShrink: 1,
+  },
+  configChevron: {
+    fontSize: 8,
+    color: '#6B7280',
   },
   newButton: {
     paddingVertical: 6,
@@ -339,6 +623,34 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  sessionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sessionActionButton: {
+    padding: 4,
+  },
+  sessionActionIcon: {
+    fontSize: 16,
+    color: '#9CA3AF',
+  },
+  renameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  renameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    color: '#1F2937',
+  },
   deleteButton: {
     padding: 4,
   },
@@ -383,6 +695,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderBottomLeftRadius: 4,
   },
+  errorBubble: {
+    backgroundColor: '#FEE2E2',
+  },
   bubbleText: {
     fontSize: 15,
     lineHeight: 20,
@@ -393,6 +708,9 @@ const styles = StyleSheet.create({
   assistantText: {
     color: '#1F2937',
   },
+  errorBubbleText: {
+    color: '#991B1B',
+  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -402,6 +720,8 @@ const styles = StyleSheet.create({
   emptyStateText: {
     color: '#9CA3AF',
     fontSize: 16,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   inputRow: {
     flexDirection: 'row',
@@ -437,5 +757,64 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  // Configuration Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '100%',
+    maxHeight: '60%',
+    overflow: 'hidden',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalList: {
+    maxHeight: 300,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalItemActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  modalItemText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  modalItemTextActive: {
+    color: '#1D4ED8',
+  },
+  modalItemDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    padding: 14,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  modalCloseText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#007AFF',
   },
 });
