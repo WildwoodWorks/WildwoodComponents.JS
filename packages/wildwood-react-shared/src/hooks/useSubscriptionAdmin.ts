@@ -320,7 +320,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
 
   const changeTier = useCallback(
     async (appId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
-      return wrap(() => clientRef.current.appTier.changeTierAdvanced(appId, tierId, pricingId, immediate));
+      return wrap(() => clientRef.current.appTier.changeTier(appId, tierId, pricingId, immediate));
     },
     [wrap],
   );

@@ -116,25 +116,38 @@ export class AppTierService {
     return data;
   }
 
-  async changeTier(tierId: string, pricingModelId?: string): Promise<AppTierChangeResultModel> {
-    const { data } = await this.http.post<AppTierChangeResultModel>('api/app-tiers/change-tier', {
-      tierId,
-      pricingModelId,
+  /**
+   * Self-service tier change for the authenticated user.
+   * Uses POST /{appId}/my-subscription/change (SelfChangeTierDto).
+   */
+  async changeTier(
+    appId: string,
+    newTierId: string,
+    newPricingId?: string,
+    immediate = true,
+  ): Promise<AppTierChangeResultModel> {
+    const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/${appId}/my-subscription/change`, {
+      NewAppTierId: newTierId,
+      NewAppTierPricingId: newPricingId,
+      Immediate: immediate,
     });
     return data;
   }
 
   /**
-   * Change tier with full control (admin endpoint).
+   * Admin tier change (requires Admin/CompanyAdmin role).
+   * Uses POST /change-tier (ChangeAppTierDto).
    */
   async changeTierAdvanced(
     appId: string,
+    userId: string,
     newTierId: string,
     newPricingId?: string,
     immediate = false,
   ): Promise<AppTierChangeResultModel> {
-    const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/${appId}/change-tier`, {
+    const { data } = await this.http.post<AppTierChangeResultModel>('api/app-tiers/change-tier', {
       AppId: appId,
+      UserId: userId,
       NewAppTierId: newTierId,
       NewAppTierPricingId: newPricingId,
       Immediate: immediate,
@@ -144,7 +157,7 @@ export class AppTierService {
 
   async cancelSubscription(appId: string): Promise<boolean> {
     try {
-      await this.http.post(`api/app-tiers/${appId}/cancel-subscription`);
+      await this.http.post(`api/app-tiers/${appId}/my-subscription/cancel`);
       return true;
     } catch {
       return false;

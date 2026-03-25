@@ -606,6 +606,7 @@ export function AuthenticationComponent({
                     className="ww-password-toggle"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     tabIndex={-1}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                   >
                     {showNewPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                   </button>
@@ -630,6 +631,7 @@ export function AuthenticationComponent({
                     className="ww-password-toggle"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     tabIndex={-1}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
                     {showConfirmPassword ? '\u{1F441}\u{FE0F}' : '\u{1F441}'}
                   </button>

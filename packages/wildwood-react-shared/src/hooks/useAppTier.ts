@@ -85,11 +85,11 @@ export function useAppTier(): UseAppTierReturn {
   );
 
   const changeTier = useCallback(
-    async (tierId: string, pricingModelId?: string) => {
+    async (newTierId: string, newPricingId?: string, immediate?: boolean) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await client.appTier.changeTier(tierId, pricingModelId);
+        const result = await client.appTier.changeTier(appId, newTierId, newPricingId, immediate);
         await getUserSubscription();
         return result;
       } catch (err) {
@@ -99,7 +99,7 @@ export function useAppTier(): UseAppTierReturn {
         setLoading(false);
       }
     },
-    [client, getUserSubscription],
+    [client, appId, getUserSubscription],
   );
 
   const selfSubscribe = useCallback(
