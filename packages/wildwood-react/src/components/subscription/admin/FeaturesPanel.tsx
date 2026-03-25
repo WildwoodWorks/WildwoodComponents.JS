@@ -10,7 +10,6 @@ export interface FeaturesPanelProps {
   loading?: boolean;
   className?: string;
   onToggleFeature?: (featureCode: string, isEnabled: boolean, reason?: string, expiresAt?: string) => Promise<void>;
-  onOverrideRemoved?: () => void;
 }
 
 function parseExpiration(value: string): string | undefined {

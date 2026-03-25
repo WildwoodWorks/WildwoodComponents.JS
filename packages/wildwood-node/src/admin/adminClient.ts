@@ -386,10 +386,11 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
     if (!tierId) throw new Error('tierId is required');
-    return this.request<Record<string, unknown>>('POST', `/api/app-tiers/${encodeURIComponent(appId)}/subscribe/user`, {
-      userId,
-      tierId,
-      pricingId,
+    return this.request<Record<string, unknown>>('POST', '/api/app-tiers/subscribe', {
+      AppId: appId,
+      UserId: userId,
+      AppTierId: tierId,
+      AppTierPricingId: pricingId,
     });
   }
 
@@ -397,11 +398,13 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
     if (!newTierId) throw new Error('newTierId is required');
-    return this.request<Record<string, unknown>>(
-      'POST',
-      `/api/app-tiers/${encodeURIComponent(appId)}/change-tier/user`,
-      { userId, newTierId, pricingId, immediate },
-    );
+    return this.request<Record<string, unknown>>('POST', '/api/app-tiers/change-tier', {
+      AppId: appId,
+      UserId: userId,
+      NewAppTierId: newTierId,
+      NewAppTierPricingId: pricingId,
+      Immediate: immediate,
+    });
   }
 
   async cancelUserSubscription(appId: string, userId: string) {
@@ -409,7 +412,7 @@ export class AdminClient {
     if (!userId) throw new Error('userId is required');
     return this.request<void>(
       'POST',
-      `/api/app-tiers/${encodeURIComponent(appId)}/cancel/user/${encodeURIComponent(userId)}`,
+      `/api/app-tiers/${encodeURIComponent(appId)}/cancel/${encodeURIComponent(userId)}`,
     );
   }
 
@@ -420,7 +423,7 @@ export class AdminClient {
     return this.request<Record<string, unknown>>(
       'POST',
       `/api/app-tiers/${encodeURIComponent(appId)}/subscribe/company`,
-      { companyId, tierId, pricingId },
+      { CompanyId: companyId, AppTierId: tierId, AppTierPricingId: pricingId },
     );
   }
 
@@ -430,6 +433,46 @@ export class AdminClient {
     return this.request<void>(
       'POST',
       `/api/app-tiers/${encodeURIComponent(appId)}/cancel/company/${encodeURIComponent(companyId)}`,
+    );
+  }
+
+  // ── Add-On Management ──
+
+  async subscribeUserToAddOn(appId: string, userId: string, addOnId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!addOnId) throw new Error('addOnId is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tier-addons/${encodeURIComponent(appId)}/admin/subscribe-user/${encodeURIComponent(userId)}`,
+      { AppTierAddOnId: addOnId },
+    );
+  }
+
+  async cancelUserAddOn(appId: string, subscriptionId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!subscriptionId) throw new Error('subscriptionId is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tier-addons/${encodeURIComponent(appId)}/admin/cancel-user-addon/${encodeURIComponent(subscriptionId)}`,
+    );
+  }
+
+  async subscribeCompanyToAddOn(appId: string, companyId: string, addOnId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!companyId) throw new Error('companyId is required');
+    if (!addOnId) throw new Error('addOnId is required');
+    return this.request<void>('POST', `/api/app-tier-addons/${encodeURIComponent(appId)}/subscribe/company`, {
+      CompanyId: companyId,
+      AppTierAddOnId: addOnId,
+    });
+  }
+
+  async cancelCompanyAddOn(subscriptionId: string, immediate = false) {
+    if (!subscriptionId) throw new Error('subscriptionId is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tier-addons/subscriptions/${encodeURIComponent(subscriptionId)}/cancel/company${this.buildQuery({ immediate })}`,
     );
   }
 
@@ -455,11 +498,11 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!featureCode) throw new Error('featureCode is required');
     return this.request<void>('POST', `/api/app-tiers/${encodeURIComponent(appId)}/admin/feature-overrides`, {
-      userId,
-      featureCode,
-      isEnabled,
-      reason,
-      expiresAt,
+      UserId: userId,
+      FeatureCode: featureCode,
+      IsEnabled: isEnabled,
+      Reason: reason,
+      ExpiresAt: expiresAt,
     });
   }
 
@@ -481,7 +524,7 @@ export class AdminClient {
     return this.request<void>(
       'PUT',
       `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/${encodeURIComponent(limitCode)}`,
-      { maxValue: newMaxValue },
+      { NewMaxValue: newMaxValue },
     );
   }
 
@@ -501,7 +544,7 @@ export class AdminClient {
     return this.request<void>(
       'PUT',
       `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/user/${encodeURIComponent(userId)}/${encodeURIComponent(limitCode)}`,
-      { maxValue: newMaxValue },
+      { NewMaxValue: newMaxValue },
     );
   }
 
@@ -522,7 +565,7 @@ export class AdminClient {
     return this.request<void>(
       'PUT',
       `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/company/${encodeURIComponent(companyId)}/${encodeURIComponent(limitCode)}`,
-      { maxValue: newMaxValue },
+      { NewMaxValue: newMaxValue },
     );
   }
 

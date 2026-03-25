@@ -39,6 +39,7 @@ export function FeaturesPanel({
   const [confirmExpirationIdx, setConfirmExpirationIdx] = useState(0);
   const [confirmReason, setConfirmReason] = useState('');
   const [processingFeature, setProcessingFeature] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   const hasOverride = useCallback(
     (featureCode: string) => featureOverrides.some((o) => o.featureCode === featureCode),
@@ -49,20 +50,29 @@ export function FeaturesPanel({
     setConfirmingFeature(featureCode);
     setConfirmExpirationIdx(0);
     setConfirmReason('');
+    setInlineError(null);
   }, []);
 
   const handleCancelToggle = useCallback(() => {
     setConfirmingFeature(null);
+    setConfirmExpirationIdx(0);
+    setConfirmReason('');
+    setInlineError(null);
   }, []);
 
   const handleConfirmToggle = useCallback(
     async (feature: AppFeatureDefinitionModel) => {
       if (!onToggleFeature || processingFeature) return;
       setProcessingFeature(feature.featureCode);
+      setInlineError(null);
       try {
         const expiresAt = parseExpiration(EXPIRATION_OPTIONS[confirmExpirationIdx].value);
         await onToggleFeature(feature.featureCode, !feature.isEnabled, confirmReason || undefined, expiresAt);
         setConfirmingFeature(null);
+        setConfirmExpirationIdx(0);
+        setConfirmReason('');
+      } catch (err) {
+        setInlineError(err instanceof Error ? err.message : 'Failed to toggle feature');
       } finally {
         setProcessingFeature(null);
       }
@@ -176,6 +186,14 @@ export function FeaturesPanel({
                         value={confirmReason}
                         onChangeText={setConfirmReason}
                       />
+                      {inlineError ? (
+                        <View style={styles.inlineError}>
+                          <Text style={styles.inlineErrorText}>{inlineError}</Text>
+                          <Pressable onPress={() => setInlineError(null)}>
+                            <Text style={styles.inlineErrorDismiss}>{'\u2715'}</Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
                       <View style={styles.confirmActions}>
                         <Pressable style={styles.confirmYes} onPress={() => handleConfirmToggle(f)}>
                           <Text style={styles.confirmYesText}>Confirm</Text>
@@ -276,4 +294,14 @@ const styles = StyleSheet.create({
   confirmYesText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   confirmNo: { backgroundColor: '#F3F4F6', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 6 },
   confirmNoText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  inlineError: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    padding: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inlineErrorText: { color: '#991B1B', fontSize: 12, flex: 1 },
+  inlineErrorDismiss: { color: '#991B1B', fontSize: 14, paddingLeft: 8 },
 });

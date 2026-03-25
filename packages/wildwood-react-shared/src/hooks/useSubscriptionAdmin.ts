@@ -505,6 +505,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
             getFeatureDefinitions(appId),
             getUserFeatures(appId),
             getAvailableAddOns(appId),
+            getFeatureOverrides(appId),
           );
         }
 
