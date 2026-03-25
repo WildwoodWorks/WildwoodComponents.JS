@@ -126,10 +126,274 @@ export interface Role {
   [key: string]: unknown;
 }
 
-// Encryption status
-export interface EncryptionStatus {
+// User admin types
+export interface AdminUser {
+  id: string;
+  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isLocked: boolean;
+  appId: string;
+  appVersion: string;
+  deviceInfo: string;
+  platform: string;
+  roles: string[];
+  createdAt: string;
+  lastLogin?: string;
+}
+
+// App admin types
+export interface AdminApp {
+  id: string;
+  name: string;
+  description: string;
+  ownerUserId?: string;
+  apiKey: string;
+  isActive: boolean;
+  companyId?: string;
+  companyName?: string;
+  appUrl?: string;
+  loginUrl?: string;
+  registrationUrl?: string;
+  passwordResetUrl?: string;
+  emailVerificationUrl?: string;
+  logoUrl?: string;
+  supportEmail?: string;
+  privacyPolicyUrl?: string;
+  termsOfServiceUrl?: string;
+  publicUrl?: string;
+  appleAppStoreUrl?: string;
+  googlePlayStoreUrl?: string;
+}
+
+// SMS result types
+export interface SmsSendResult {
+  success: boolean;
+  messageId?: string;
+  status: string;
+  errorMessage?: string;
+  errorCode?: string;
+  segmentCount: number;
+  cost?: number;
+  costCurrency?: string;
+}
+
+export interface SmsStats {
+  totalMessages: number;
+  pendingCount: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  rejectedCount: number;
+  unknownCount: number;
+  inboundCount: number;
+  outboundCount: number;
+  totalCost: number;
+  totalSegments: number;
+  byProvider: SmsProviderStats[];
+  byMessageType: SmsMessageTypeStats[];
+}
+
+export interface SmsProviderStats {
+  providerType: string;
+  providerName: string;
+  totalMessages: number;
+  deliveredCount: number;
+  failedCount: number;
+}
+
+export interface SmsMessageTypeStats {
+  messageType: string;
+  messageTypeName: string;
+  totalMessages: number;
+  deliveredCount: number;
+  failedCount: number;
+}
+
+export interface SmsCostAnalytics {
+  fromDate: string;
+  toDate: string;
+  totalCost: number;
+  totalMessages: number;
+  totalSegments: number;
+  averageCostPerMessage: number;
+  averageCostPerSegment: number;
+  currency: string;
+  deliverySuccessRate: number;
+  deliveryFailureRate: number;
+  byProvider: SmsCostByProvider[];
+  byMessageType: SmsCostByMessageType[];
+  trend: SmsCostTrend[];
+}
+
+export interface SmsCostByProvider {
+  providerType: string;
+  providerName: string;
+  totalCost: number;
+  messageCount: number;
+  segmentCount: number;
+}
+
+export interface SmsCostByMessageType {
+  messageType: string;
+  messageTypeName: string;
+  totalCost: number;
+  messageCount: number;
+  segmentCount: number;
+}
+
+export interface SmsCostTrend {
+  period: string;
+  totalCost: number;
+  messageCount: number;
+  segmentCount: number;
+}
+
+// Audit summary types
+export interface AuditSummary {
+  totalLogins: number;
+  totalRegistrations: number;
+  totalPaymentsSucceeded: number;
+  totalPaymentsFailed: number;
+  totalPaymentAmount: number;
+  totalSubscriptionsCreated: number;
+  actionCounts: Record<string, number>;
+  dailyLogins: Record<string, number>;
+  dailyRegistrations: Record<string, number>;
+}
+
+// Two-factor admin types
+export interface TwoFactorUserSummary {
+  userId: string;
+  userName?: string;
+  email?: string;
+  companyId?: string;
+  companyName?: string;
+  twoFactorEnabled: boolean;
+  methodCount: number;
+  methods: string[];
+  trustedDevicesCount: number;
+  recoveryCodesRemaining: number;
+  isLockedOut: boolean;
+  lockedUntil?: string;
+  lastTwoFactorUseAt?: string;
+  status: string;
+}
+
+export interface TwoFactorUserDetails {
+  userId: string;
+  userName?: string;
+  email?: string;
+  companyId?: string;
+  companyName?: string;
+  twoFactorEnabled: boolean;
+  isLockedOut: boolean;
+  lockedUntil?: string;
+  credentials: TwoFactorCredential[];
+  trustedDevices: TwoFactorTrustedDevice[];
+  recoveryCodeInfo?: TwoFactorRecoveryCodeInfo;
+  recentAttempts: TwoFactorVerificationAttempt[];
+}
+
+export interface TwoFactorCredential {
+  id: string;
+  method: string;
+  isActive: boolean;
+  createdAt: string;
+  lastUsedAt?: string;
   [key: string]: unknown;
 }
+
+export interface TwoFactorTrustedDevice {
+  id: string;
+  deviceName: string;
+  trustedAt: string;
+  expiresAt: string;
+  [key: string]: unknown;
+}
+
+export interface TwoFactorRecoveryCodeInfo {
+  totalCodes: number;
+  usedCodes: number;
+  remainingCodes: number;
+  generatedAt?: string;
+}
+
+export interface TwoFactorVerificationAttempt {
+  method: string;
+  success: boolean;
+  timestamp: string;
+  ipAddress?: string;
+  [key: string]: unknown;
+}
+
+// Tracking mode
+export interface TrackingModeResult {
+  mode: string;
+}
+
+// Encryption types
+export interface EncryptionFieldStatus {
+  fieldName: string;
+  total: number;
+  encrypted: number;
+  unencrypted: number;
+}
+
+export interface EncryptionStatus {
+  totpSecrets: EncryptionFieldStatus;
+  aiProviderApiKeys: EncryptionFieldStatus;
+  authProviderClientSecrets: EncryptionFieldStatus;
+  paymentProviderSecretKeys: EncryptionFieldStatus;
+  captchaSecretKeys: EncryptionFieldStatus;
+  emailSmtpPasswords: EncryptionFieldStatus;
+  emailOAuthServiceAccountKeys: EncryptionFieldStatus;
+  paymentProviderAdditionalSecrets: EncryptionFieldStatus;
+  smsProviderSecrets: EncryptionFieldStatus;
+  mcpServerSecrets: EncryptionFieldStatus;
+  apiProviderApiKeys: EncryptionFieldStatus;
+  apiProviderClientSecrets: EncryptionFieldStatus;
+  apiProviderAdditionalCredentials: EncryptionFieldStatus;
+  systemFeedbackSecrets: EncryptionFieldStatus;
+  hostingEnvironmentVariables: EncryptionFieldStatus;
+  configSnapshotJson: EncryptionFieldStatus;
+  dbHostingSecrets: EncryptionFieldStatus;
+  migrationRequired: boolean;
+}
+
+export interface FieldMigrationResult {
+  fieldName: string;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  errors: string[];
+}
+
+export interface EncryptionMigrationResult {
+  success: boolean;
+  message: string;
+  totpSecrets: FieldMigrationResult;
+  aiProviderApiKeys: FieldMigrationResult;
+  authProviderClientSecrets: FieldMigrationResult;
+  paymentProviderSecretKeys: FieldMigrationResult;
+  captchaSecretKeys: FieldMigrationResult;
+  emailSmtpPasswords: FieldMigrationResult;
+  emailOAuthServiceAccountKeys: FieldMigrationResult;
+  paymentProviderAdditionalSecrets: FieldMigrationResult;
+  smsProviderSecrets: FieldMigrationResult;
+  mcpServerSecrets: FieldMigrationResult;
+  apiProviderApiKeys: FieldMigrationResult;
+  apiProviderClientSecrets: FieldMigrationResult;
+  apiProviderAdditionalCredentials: FieldMigrationResult;
+  systemFeedbackSecrets: FieldMigrationResult;
+  configSnapshotJson: FieldMigrationResult;
+  dbHostingSecrets: FieldMigrationResult;
+}
+
+// Re-export core types used by AdminClient
+import type { AppTierChangeResultModel, AppFeatureOverrideModel, UserTierSubscriptionModel } from '@wildwood/core';
 
 export class AdminClient {
   private baseUrl: string;
@@ -189,15 +453,12 @@ export class AdminClient {
 
   async getUser(userId: string) {
     if (!userId) throw new Error('userId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/users/${encodeURIComponent(userId)}`);
+    return this.request<AdminUser>('GET', `/api/admin/users/${encodeURIComponent(userId)}`);
   }
 
   async getUsers(appId: string, page = 1, pageSize = 20) {
     if (!appId) throw new Error('appId is required');
-    return this.request<Record<string, unknown>>(
-      'GET',
-      `/api/admin/users${this.buildQuery({ appId, page, pageSize })}`,
-    );
+    return this.request<AdminUser[]>('GET', `/api/admin/users${this.buildQuery({ appId, page, pageSize })}`);
   }
 
   async disableUser(userId: string) {
@@ -214,11 +475,11 @@ export class AdminClient {
 
   async getApp(appId: string) {
     if (!appId) throw new Error('appId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/apps/${encodeURIComponent(appId)}`);
+    return this.request<AdminApp>('GET', `/api/admin/apps/${encodeURIComponent(appId)}`);
   }
 
   async getApps() {
-    return this.request<Record<string, unknown>[]>('GET', '/api/admin/apps');
+    return this.request<AdminApp[]>('GET', '/api/admin/apps');
   }
 
   // ── Roles ──
@@ -265,7 +526,7 @@ export class AdminClient {
   }
 
   async getAuditSummary(startDate: string, endDate: string, companyId?: string) {
-    return this.request<Record<string, unknown>>(
+    return this.request<AuditSummary>(
       'GET',
       `/api/auditlogs/summary${this.buildQuery({ startDate, endDate, companyId })}`,
     );
@@ -296,21 +557,21 @@ export class AdminClient {
   // ── SMS ──
 
   async sendSmsToUser(request: SendSmsToUserRequest) {
-    return this.request<Record<string, unknown>>('POST', '/api/admin/sms/send-to-user', request);
+    return this.request<SmsSendResult>('POST', '/api/admin/sms/send-to-user', request);
   }
 
   async sendSmsToPhone(request: SendSmsToPhoneRequest) {
-    return this.request<Record<string, unknown>>('POST', '/api/admin/sms/send-to-phone', request);
+    return this.request<SmsSendResult>('POST', '/api/admin/sms/send-to-phone', request);
   }
 
   async resendSms(smsLogId: string) {
     if (!smsLogId) throw new Error('smsLogId is required');
-    return this.request<Record<string, unknown>>('POST', `/api/admin/sms/resend/${encodeURIComponent(smsLogId)}`);
+    return this.request<SmsSendResult>('POST', `/api/admin/sms/resend/${encodeURIComponent(smsLogId)}`);
   }
 
   async replySms(smsLogId: string, message: string) {
     if (!smsLogId) throw new Error('smsLogId is required');
-    return this.request<Record<string, unknown>>('POST', `/api/admin/sms/reply/${encodeURIComponent(smsLogId)}`, {
+    return this.request<SmsSendResult>('POST', `/api/admin/sms/reply/${encodeURIComponent(smsLogId)}`, {
       message,
     });
   }
@@ -340,7 +601,7 @@ export class AdminClient {
 
   async getSmsStats(companyId: string, fromDate?: string, toDate?: string) {
     if (!companyId) throw new Error('companyId is required');
-    return this.request<Record<string, unknown>>(
+    return this.request<SmsStats>(
       'GET',
       `/api/admin/sms-logs/stats${this.buildQuery({ companyId, fromDate, toDate })}`,
     );
@@ -351,7 +612,7 @@ export class AdminClient {
     options?: { fromDate?: string; toDate?: string; groupBy?: 'day' | 'week' | 'month' | 'provider' | 'messageType' },
   ) {
     if (!companyId) throw new Error('companyId is required');
-    return this.request<Record<string, unknown>>(
+    return this.request<SmsCostAnalytics>(
       'GET',
       `/api/admin/sms-logs/cost-analytics${this.buildQuery({ companyId, ...options })}`,
     );
@@ -360,7 +621,7 @@ export class AdminClient {
   // ── Two-Factor Admin ──
 
   async getTwoFactorUsers(query?: { pageNumber?: number; pageSize?: number }) {
-    return this.request<PagedResult<Record<string, unknown>>>(
+    return this.request<PagedResult<TwoFactorUserSummary>>(
       'GET',
       `/api/admin/twofactor/users${this.buildQuery(query ?? {})}`,
     );
@@ -368,7 +629,7 @@ export class AdminClient {
 
   async getTwoFactorUserDetails(userId: string) {
     if (!userId) throw new Error('userId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/twofactor/users/${encodeURIComponent(userId)}`);
+    return this.request<TwoFactorUserDetails>('GET', `/api/admin/twofactor/users/${encodeURIComponent(userId)}`);
   }
 
   // ── App Tier Admin ──
@@ -376,7 +637,7 @@ export class AdminClient {
   async getSubscription(appId: string, userId: string) {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
-    return this.request<Record<string, unknown>>(
+    return this.request<UserTierSubscriptionModel>(
       'GET',
       `/api/app-tiers/${encodeURIComponent(appId)}/subscriptions/${encodeURIComponent(userId)}`,
     );
@@ -386,7 +647,7 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
     if (!tierId) throw new Error('tierId is required');
-    return this.request<Record<string, unknown>>('POST', '/api/app-tiers/subscribe', {
+    return this.request<AppTierChangeResultModel>('POST', '/api/app-tiers/subscribe', {
       AppId: appId,
       UserId: userId,
       AppTierId: tierId,
@@ -398,7 +659,7 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
     if (!newTierId) throw new Error('newTierId is required');
-    return this.request<Record<string, unknown>>('POST', '/api/app-tiers/change-tier', {
+    return this.request<AppTierChangeResultModel>('POST', '/api/app-tiers/change-tier', {
       AppId: appId,
       UserId: userId,
       NewAppTierId: newTierId,
@@ -420,7 +681,7 @@ export class AdminClient {
     if (!appId) throw new Error('appId is required');
     if (!companyId) throw new Error('companyId is required');
     if (!tierId) throw new Error('tierId is required');
-    return this.request<Record<string, unknown>>(
+    return this.request<AppTierChangeResultModel>(
       'POST',
       `/api/app-tiers/${encodeURIComponent(appId)}/subscribe/company`,
       { CompanyId: companyId, AppTierId: tierId, AppTierPricingId: pricingId },
@@ -481,7 +742,7 @@ export class AdminClient {
   async getFeatureOverrides(appId: string, userId?: string) {
     if (!appId) throw new Error('appId is required');
     const query = userId ? this.buildQuery({ userId }) : '';
-    return this.request<Record<string, unknown>[]>(
+    return this.request<AppFeatureOverrideModel[]>(
       'GET',
       `/api/app-tiers/${encodeURIComponent(appId)}/admin/feature-overrides${query}`,
     );
@@ -583,7 +844,7 @@ export class AdminClient {
 
   async getTrackingMode(appId: string) {
     if (!appId) throw new Error('appId is required');
-    return this.request<Record<string, unknown>>(
+    return this.request<TrackingModeResult>(
       'GET',
       `/api/app-tiers/${encodeURIComponent(appId)}/settings/tracking-mode`,
     );
@@ -596,28 +857,28 @@ export class AdminClient {
   }
 
   async migrateAllEncryption(dryRun = true) {
-    return this.request<Record<string, unknown>>(
+    return this.request<EncryptionMigrationResult>(
       'POST',
       `/api/admin/dataencryption/migrate-all${this.buildQuery({ dryRun })}`,
     );
   }
 
   async migrateTotpSecrets(dryRun = true) {
-    return this.request<Record<string, unknown>>(
+    return this.request<EncryptionMigrationResult>(
       'POST',
       `/api/admin/dataencryption/migrate-totp-secrets${this.buildQuery({ dryRun })}`,
     );
   }
 
   async migrateAiProviderKeys(dryRun = true) {
-    return this.request<Record<string, unknown>>(
+    return this.request<EncryptionMigrationResult>(
       'POST',
       `/api/admin/dataencryption/migrate-ai-provider-keys${this.buildQuery({ dryRun })}`,
     );
   }
 
   async migratePaymentProviderSecrets(dryRun = true) {
-    return this.request<Record<string, unknown>>(
+    return this.request<EncryptionMigrationResult>(
       'POST',
       `/api/admin/dataencryption/migrate-payment-provider-secrets${this.buildQuery({ dryRun })}`,
     );
