@@ -38,9 +38,12 @@ export class AIService {
   async sendMessageWithFile(request: AIChatRequest, file: File | Blob, fileName?: string): Promise<AIChatResponse> {
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
+    // Use chunked encoding to avoid call stack limits with large files
+    const CHUNK_SIZE = 8192;
     let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+      const chunk = bytes.subarray(offset, offset + CHUNK_SIZE);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
     const fileBase64 = btoa(binary);
 
@@ -65,7 +68,7 @@ export class AIService {
       response: '',
       tokensUsed: 0,
       model: '',
-      providerType: '',
+      providerTypeCode: '',
       createdAt: new Date().toISOString(),
       isError: true,
     };
@@ -281,10 +284,15 @@ function getMediaTypeFromFileName(fileName: string): string {
     jpeg: 'image/jpeg',
     gif: 'image/gif',
     webp: 'image/webp',
+    bmp: 'image/bmp',
     svg: 'image/svg+xml',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
     pdf: 'application/pdf',
     txt: 'text/plain',
     csv: 'text/csv',
+    html: 'text/html',
+    htm: 'text/html',
     json: 'application/json',
     xml: 'application/xml',
     doc: 'application/msword',

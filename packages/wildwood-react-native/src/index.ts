@@ -58,7 +58,7 @@ export type { DisclaimerComponentProps } from './components/DisclaimerComponent'
 export { AppTierComponent } from './components/AppTierComponent';
 export type { AppTierComponentProps } from './components/AppTierComponent';
 export { AIChatComponent } from './components/AIChatComponent';
-export type { AIChatComponentProps, AIChatSettings } from './components/AIChatComponent';
+export type { AIChatComponentProps, AIChatSettings, FilePickerResult } from './components/AIChatComponent';
 export { SecureMessagingComponent } from './components/SecureMessagingComponent';
 export type { SecureMessagingComponentProps } from './components/SecureMessagingComponent';
 export { PaymentComponent } from './components/PaymentComponent';

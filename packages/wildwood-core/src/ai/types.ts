@@ -44,7 +44,7 @@ export interface AIConfiguration {
   name: string;
   description: string;
   model: string;
-  providerType: string;
+  providerTypeCode: string;
   isActive: boolean;
   persistentSessionEnabled: boolean;
   configurationType: string;
@@ -76,7 +76,7 @@ export interface AIChatResponse {
   response: string;
   tokensUsed: number;
   model: string;
-  providerType: string;
+  providerTypeCode: string;
   createdAt: string;
   isError: boolean;
   errorMessage?: string;

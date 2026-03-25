@@ -1175,6 +1175,10 @@
     gap: 0.25rem;
 }
 
+.ww-aichat-file-input {
+    display: none;
+}
+
 .ww-aichat-action-btn {
     background: none;
     border: none;

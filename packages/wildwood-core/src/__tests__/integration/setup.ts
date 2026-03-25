@@ -41,11 +41,11 @@ function makeAuthResponse(email: string, firstName = 'Test', lastName = 'User') 
 export const handlers = [
   // Auth - login (note: AuthService sends PascalCase DTO)
   http.post('https://test-api.example.com/api/auth/login', async ({ request }) => {
-    const body = await request.json() as Record<string, string>;
+    const body = (await request.json()) as Record<string, string>;
     if (body.Email === 'bad@example.com') {
       return HttpResponse.json(
         { error: 'InvalidCredentials', message: 'Invalid username or password.' },
-        { status: 401 }
+        { status: 401 },
       );
     }
     return HttpResponse.json(makeAuthResponse(body.Email || 'test@example.com'));
@@ -53,7 +53,7 @@ export const handlers = [
 
   // Auth - register
   http.post('https://test-api.example.com/api/auth/register', async ({ request }) => {
-    const body = await request.json() as Record<string, string>;
+    const body = (await request.json()) as Record<string, string>;
     return HttpResponse.json(makeAuthResponse(body.email, body.firstName, body.lastName));
   }),
 
@@ -61,8 +61,22 @@ export const handlers = [
   http.get('https://test-api.example.com/api/AppComponentConfigurations/:appId/auth-providers', () => {
     return HttpResponse.json({
       authProviders: [
-        { providerName: 'Google', displayName: 'Google', icon: 'google', isEnabled: true, clientId: 'g-id', redirectUri: '' },
-        { providerName: 'Microsoft', displayName: 'Microsoft', icon: 'ms', isEnabled: true, clientId: 'ms-id', redirectUri: '' },
+        {
+          providerName: 'Google',
+          displayName: 'Google',
+          icon: 'google',
+          isEnabled: true,
+          clientId: 'g-id',
+          redirectUri: '',
+        },
+        {
+          providerName: 'Microsoft',
+          displayName: 'Microsoft',
+          icon: 'ms',
+          isEnabled: true,
+          clientId: 'ms-id',
+          redirectUri: '',
+        },
       ],
     });
   }),
@@ -77,7 +91,7 @@ export const handlers = [
 
   // AI - chat
   http.post('https://test-api.example.com/api/ai/chat', async ({ request }) => {
-    const body = await request.json() as Record<string, string>;
+    const body = (await request.json()) as Record<string, string>;
     return HttpResponse.json({
       message: `Echo: ${body.message}`,
       sessionId: body.sessionId || 'new-session',
@@ -87,7 +101,15 @@ export const handlers = [
   // AI - flows
   http.get('https://test-api.example.com/api/ai/flows', () => {
     return HttpResponse.json([
-      { id: 'flow-1', name: 'Test Flow', description: 'A test flow', version: 1, isActive: true, inputFields: [], createdAt: '2024-01-01T00:00:00Z' },
+      {
+        id: 'flow-1',
+        name: 'Test Flow',
+        description: 'A test flow',
+        version: 1,
+        isActive: true,
+        inputFields: [],
+        createdAt: '2024-01-01T00:00:00Z',
+      },
     ]);
   }),
 
@@ -105,8 +127,8 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  // App tiers
-  http.get('https://test-api.example.com/api/apptiers/:appId/tiers', () => {
+  // App tiers - public endpoint
+  http.get('https://test-api.example.com/api/app-tiers/:appId/public', () => {
     return HttpResponse.json([
       { id: 'tier-free', name: 'Free', features: ['basic'] },
       { id: 'tier-pro', name: 'Pro', features: ['basic', 'advanced'] },
@@ -114,7 +136,7 @@ export const handlers = [
   }),
 
   // App tier - user subscription
-  http.get('https://test-api.example.com/api/apptiers/my-subscription', () => {
+  http.get('https://test-api.example.com/api/app-tiers/:appId/my-subscription', () => {
     return HttpResponse.json({ tierId: 'tier-free', tierName: 'Free' });
   }),
 ];

@@ -76,7 +76,7 @@ describe('AppTier service integration (msw)', () => {
 
   it('getUserSubscription returns current info', async () => {
     const client = await createAuthenticatedClient();
-    const sub = await client.appTier.getUserSubscription();
+    const sub = await client.appTier.getUserSubscription('test-app-id');
 
     expect(sub).toBeDefined();
     expect(sub?.tierName).toBe('Free');
@@ -102,7 +102,9 @@ describe('Cross-service integration (msw)', () => {
     });
 
     let authEvent = false;
-    client.events.on('authChanged', () => { authEvent = true; });
+    client.events.on('authChanged', () => {
+      authEvent = true;
+    });
 
     await client.auth.login({
       email: 'user@example.com',

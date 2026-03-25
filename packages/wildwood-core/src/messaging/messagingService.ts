@@ -71,6 +71,8 @@ export class MessagingService {
       messageType,
       replyToMessageId,
     });
+    // Auto-clear draft after successful send (matches Blazor behavior)
+    await this.clearDraft(threadId);
     return data;
   }
 

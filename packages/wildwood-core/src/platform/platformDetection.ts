@@ -60,7 +60,7 @@ function detectDistributionSource(platform: Platform): DistributionSource {
     (navigator as { standalone?: boolean }).standalone === true;
 
   // Check for Trusted Web Activity (Android TWA from Play Store)
-  if (platform === 'android' && document.referrer.includes('android-app://')) {
+  if (typeof document !== 'undefined' && platform === 'android' && document.referrer.includes('android-app://')) {
     return 'google-play-store';
   }
 
@@ -80,6 +80,15 @@ function detectDistributionSource(platform: Platform): DistributionSource {
  */
 export function isProviderAvailable(providerType: PaymentProviderType, platformInfo?: PlatformInfo): boolean {
   const info = platformInfo ?? detectPlatform();
+
+  // If platform requires app store payment, only the required provider is available
+  // (matches Blazor's exclusive provider enforcement)
+  if (info.requiresAppStorePayment) {
+    const requiredProvider = getRequiredAppStoreProviderType(info);
+    if (requiredProvider !== null && providerType !== requiredProvider) {
+      return false;
+    }
+  }
 
   switch (providerType) {
     case PaymentProviderType.AppleAppStore:
@@ -146,9 +155,9 @@ export async function isGooglePayAvailableAsync(): Promise<boolean> {
   if (typeof PaymentRequest === 'undefined') return false;
   try {
     const supportedMethods = [{ supportedMethods: 'https://google.com/pay' }];
-    const details = { total: { label: 'check', amount: { currency: 'USD', value: '0.00' } } };
+    const details = { total: { label: 'Google Pay check', amount: { currency: 'USD', value: '0.00' } } };
     const request = new PaymentRequest(supportedMethods, details);
-    return await request.canMakePayment();
+    return (await request.canMakePayment()) ?? false;
   } catch {
     return false;
   }

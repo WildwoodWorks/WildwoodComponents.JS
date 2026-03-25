@@ -14,8 +14,20 @@ import {
   Modal,
 } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import type { AIChatResponse, AISessionSummary, AIConfiguration } from '@wildwood/core';
+import type { AIChatResponse, AIChatRequest, AISessionSummary, AIConfiguration } from '@wildwood/core';
 import { useAI } from '../hooks/useAI';
+
+/** Result from file picker callback. Provide either `file` (Blob) or `uri` + `base64` for RN asset access. */
+export interface FilePickerResult {
+  /** File name to display and send */
+  fileName: string;
+  /** MIME type (e.g. 'image/png') */
+  mimeType: string;
+  /** A File or Blob object (works in Expo with fetch(uri).then(r => r.blob())) */
+  file?: File | Blob;
+  /** Base64-encoded file content (alternative to file blob) */
+  base64?: string;
+}
 
 export interface AIChatSettings {
   enableSessions?: boolean;
@@ -41,6 +53,8 @@ export interface AIChatComponentProps {
   onMessageReceived?: (response: AIChatResponse) => void;
   onSessionCreated?: (sessionId: string) => void;
   onAuthenticationFailed?: () => void;
+  /** Callback to launch a file picker. Return a FilePickerResult or null if cancelled. */
+  onPickFile?: () => Promise<FilePickerResult | null>;
   style?: ViewStyle;
 }
 
@@ -73,6 +87,7 @@ export function AIChatComponent({
   onMessageReceived,
   onSessionCreated,
   onAuthenticationFailed,
+  onPickFile,
   style,
 }: AIChatComponentProps) {
   // Merge settings with backward-compat for legacy props
@@ -93,6 +108,7 @@ export function AIChatComponent({
     loading,
     error,
     sendMessage,
+    sendMessageWithFile,
     getSessions,
     createSession,
     deleteSession,
@@ -105,6 +121,7 @@ export function AIChatComponent({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [pendingFile, setPendingFile] = useState<FilePickerResult | null>(null);
 
   // Sidebar state
   const [showSidebar, setShowSidebar] = useState(false);
@@ -163,11 +180,31 @@ export function AIChatComponent({
     setSending(true);
 
     try {
-      const response = await sendMessage({
+      const request: AIChatRequest = {
         message: userMessage,
         sessionId: currentSessionId || undefined,
         configurationId: currentConfigId || configurationName || '',
-      });
+      };
+
+      let response: AIChatResponse;
+      if (pendingFile) {
+        if (pendingFile.file) {
+          response = await sendMessageWithFile(request, pendingFile.file, pendingFile.fileName);
+        } else if (pendingFile.base64) {
+          // Send base64 directly in the request body
+          response = await sendMessage({
+            ...request,
+            fileBase64: pendingFile.base64,
+            fileMediaType: pendingFile.mimeType,
+            fileName: pendingFile.fileName,
+          });
+        } else {
+          response = await sendMessage(request);
+        }
+        setPendingFile(null);
+      } else {
+        response = await sendMessage(request);
+      }
 
       if (response.sessionId && !currentSessionId) {
         setCurrentSessionId(response.sessionId);
@@ -207,7 +244,9 @@ export function AIChatComponent({
     currentSessionId,
     currentConfigId,
     configurationName,
+    pendingFile,
     sendMessage,
+    sendMessageWithFile,
     onMessageReceived,
     onSessionCreated,
     onAuthenticationFailed,
@@ -434,8 +473,36 @@ export function AIChatComponent({
         }
       />
 
+      {/* Pending file badge */}
+      {pendingFile && (
+        <View style={styles.fileBadgeRow}>
+          <View style={styles.fileBadge}>
+            <Text style={styles.fileBadgeText} numberOfLines={1}>
+              {pendingFile.fileName}
+            </Text>
+            <Pressable onPress={() => setPendingFile(null)} hitSlop={6}>
+              <Text style={styles.fileBadgeRemove}>{'\u00D7'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       {/* Input area */}
       <View style={styles.inputRow}>
+        {settings.enableFileUpload && onPickFile && (
+          <Pressable
+            style={[styles.attachButton, sending && styles.disabledButton]}
+            onPress={async () => {
+              if (sending) return;
+              const result = await onPickFile();
+              if (result) setPendingFile(result);
+            }}
+            disabled={sending}
+            accessibilityLabel="Attach file"
+          >
+            <Text style={styles.attachButtonText}>{'\uD83D\uDCCE'}</Text>
+          </Pressable>
+        )}
         <TextInput
           style={styles.textInput}
           value={input}
@@ -722,6 +789,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     paddingHorizontal: 32,
+  },
+  fileBadgeRow: {
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    backgroundColor: '#fff',
+  },
+  fileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  fileBadgeText: {
+    fontSize: 12,
+    color: '#1D4ED8',
+    maxWidth: 200,
+  },
+  fileBadgeRemove: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  attachButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  attachButtonText: {
+    fontSize: 20,
   },
   inputRow: {
     flexDirection: 'row',

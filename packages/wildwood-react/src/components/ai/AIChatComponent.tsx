@@ -64,6 +64,7 @@ export function AIChatComponent({
     loading,
     error: aiError,
     sendMessage,
+    sendMessageWithFile,
     getSessions,
     createSession,
     deleteSession,
@@ -107,10 +108,14 @@ export function AIChatComponent({
   const [sttEnabled, setSttEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
+  // File upload state
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load sessions and configurations
   useEffect(() => {
@@ -189,11 +194,15 @@ export function AIChatComponent({
       setErrorMessage('');
 
       try {
-        const response = await sendMessage({
+        const chatRequest = {
           message: userMessage,
           sessionId: currentSessionId || undefined,
           configurationId: currentConfigId || configurationName || '',
-        });
+        };
+        const response = pendingFile
+          ? await sendMessageWithFile(chatRequest, pendingFile)
+          : await sendMessage(chatRequest);
+        setPendingFile(null);
 
         if (response.sessionId && !currentSessionId) {
           setCurrentSessionId(response.sessionId);
@@ -628,11 +637,43 @@ export function AIChatComponent({
           {/* Input container */}
           <div className="ww-aichat-input-container">
             {settings.enableFileUpload && (
-              <button type="button" className="ww-aichat-action-btn" title="Attach" disabled={sending}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                </svg>
-              </button>
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="ww-aichat-file-input"
+                  aria-label="Choose file to attach"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setPendingFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  className={`ww-aichat-action-btn ${pendingFile ? 'ww-active' : ''}`}
+                  title={pendingFile ? `Attached: ${pendingFile.name}` : 'Attach file'}
+                  disabled={sending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" />
+                  </svg>
+                </button>
+                {pendingFile && (
+                  <span className="ww-aichat-file-badge">
+                    {pendingFile.name}
+                    <button
+                      type="button"
+                      className="ww-aichat-file-remove"
+                      onClick={() => setPendingFile(null)}
+                      title="Remove file"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                )}
+              </>
             )}
 
             {/* Speech controls */}
