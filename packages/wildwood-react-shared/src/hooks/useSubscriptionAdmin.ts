@@ -11,6 +11,7 @@ import type {
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
   AppFeatureDefinitionModel,
+  AppFeatureOverrideModel,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -23,6 +24,7 @@ export interface UseSubscriptionAdminReturn {
   limitStatuses: AppTierLimitStatusModel[];
   featureDefinitions: AppFeatureDefinitionModel[];
   featureStatus: Record<string, boolean>;
+  featureOverrides: AppFeatureOverrideModel[];
 
   // State
   loading: boolean;
@@ -34,7 +36,7 @@ export interface UseSubscriptionAdminReturn {
   getAvailableAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
   getAllAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
 
-  // User-scoped
+  // User-scoped (self)
   getMySubscription: (appId: string) => Promise<UserTierSubscriptionModel | null>;
   getMyAddOns: (appId: string) => Promise<UserAddOnSubscriptionModel[]>;
 
@@ -43,6 +45,12 @@ export interface UseSubscriptionAdminReturn {
   getCompanyAddOnSubscriptions: (appId: string, companyId: string) => Promise<UserAddOnSubscriptionModel[]>;
   getCompanyLimitStatuses: (appId: string, companyId: string) => Promise<AppTierLimitStatusModel[]>;
   getCompanyFeatures: (appId: string, companyId: string) => Promise<Record<string, boolean>>;
+
+  // User-scoped admin queries
+  getUserSubscriptionAdmin: (appId: string, userId: string) => Promise<UserTierSubscriptionModel | null>;
+  getUserFeaturesAdmin: (appId: string, userId: string) => Promise<Record<string, boolean>>;
+  getUserLimitStatuses: (appId: string, userId: string) => Promise<AppTierLimitStatusModel[]>;
+  getUserAddOnsAdmin: (appId: string, userId: string) => Promise<UserAddOnSubscriptionModel[]>;
 
   // Feature definitions
   getFeatureDefinitions: (appId: string) => Promise<AppFeatureDefinitionModel[]>;
@@ -82,8 +90,54 @@ export interface UseSubscriptionAdminReturn {
   subscribeCompanyToAddOn: (appId: string, companyId: string, addOnId: string) => Promise<boolean>;
   cancelCompanyAddOn: (subscriptionId: string, immediate?: boolean) => Promise<boolean>;
 
+  // User-scoped admin actions
+  subscribeUserToTier: (
+    appId: string,
+    userId: string,
+    tierId: string,
+    pricingId?: string,
+  ) => Promise<AppTierChangeResultModel>;
+  changeUserTier: (
+    appId: string,
+    userId: string,
+    tierId: string,
+    pricingId?: string,
+    immediate?: boolean,
+  ) => Promise<AppTierChangeResultModel>;
+  cancelUserSubscription: (appId: string, userId: string) => Promise<boolean>;
+  subscribeUserToAddOn: (appId: string, userId: string, addOnId: string) => Promise<boolean>;
+  cancelUserAddOn: (appId: string, subscriptionId: string) => Promise<boolean>;
+
+  // Feature overrides (admin)
+  getFeatureOverrides: (appId: string, userId?: string) => Promise<AppFeatureOverrideModel[]>;
+  setFeatureOverride: (
+    appId: string,
+    userId: string | null,
+    featureCode: string,
+    isEnabled: boolean,
+    reason?: string,
+    expiresAt?: string,
+  ) => Promise<boolean>;
+  removeFeatureOverride: (appId: string, featureCode: string, userId?: string) => Promise<boolean>;
+
+  // Usage limit overrides (admin)
+  updateUsageLimit: (appId: string, limitCode: string, newMaxValue: number) => Promise<boolean>;
+  resetUsage: (appId: string, limitCode: string) => Promise<boolean>;
+  updateUserUsageLimit: (appId: string, userId: string, limitCode: string, newMaxValue: number) => Promise<boolean>;
+  resetUserUsage: (appId: string, userId: string, limitCode: string) => Promise<boolean>;
+  updateCompanyUsageLimit: (
+    appId: string,
+    companyId: string,
+    limitCode: string,
+    newMaxValue: number,
+  ) => Promise<boolean>;
+  resetCompanyUsage: (appId: string, companyId: string, limitCode: string) => Promise<boolean>;
+
+  // Settings
+  getTrackingMode: (appId: string) => Promise<string>;
+
   // Refresh all data for a given context
-  refreshAll: (appId: string, companyId?: string) => Promise<void>;
+  refreshAll: (appId: string, companyId?: string, userId?: string) => Promise<void>;
 }
 
 export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
@@ -98,6 +152,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   const [limitStatuses, setLimitStatuses] = useState<AppTierLimitStatusModel[]>([]);
   const [featureDefinitions, setFeatureDefinitions] = useState<AppFeatureDefinitionModel[]>([]);
   const [featureStatus, setFeatureStatus] = useState<Record<string, boolean>>({});
+  const [featureOverrides, setFeatureOverrides] = useState<AppFeatureOverrideModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clearError = useCallback(() => setError(null), []);
@@ -135,7 +190,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     return result;
   }, []);
 
-  // User-scoped
+  // User-scoped (self)
   const getMySubscription = useCallback(async (appId: string) => {
     const result = await clientRef.current.appTier.getUserSubscription(appId);
     setSubscription(result);
@@ -173,6 +228,31 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     return result;
   }, []);
 
+  // User-scoped admin queries
+  const getUserSubscriptionAdmin = useCallback(async (appId: string, userId: string) => {
+    const result = await clientRef.current.appTier.getUserSubscriptionAdmin(appId, userId);
+    setSubscription(result);
+    return result;
+  }, []);
+
+  const getUserFeaturesAdmin = useCallback(async (appId: string, userId: string) => {
+    const result = await clientRef.current.appTier.getUserFeaturesAdmin(appId, userId);
+    setFeatureStatus(result);
+    return result;
+  }, []);
+
+  const getUserLimitStatuses = useCallback(async (appId: string, userId: string) => {
+    const result = await clientRef.current.appTier.getUserLimitStatuses(appId, userId);
+    setLimitStatuses(result);
+    return result;
+  }, []);
+
+  const getUserAddOnsAdmin = useCallback(async (appId: string, userId: string) => {
+    const result = await clientRef.current.appTier.getUserAddOnsAdmin(appId, userId);
+    setAddOnSubscriptions(result);
+    return result;
+  }, []);
+
   // Feature definitions
   const getFeatureDefinitions = useCallback(async (appId: string) => {
     const result = await clientRef.current.appTier.getFeatureDefinitions(appId);
@@ -192,6 +272,36 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     setLimitStatuses(result);
     return result;
   }, []);
+
+  // Feature overrides
+  const getFeatureOverrides = useCallback(async (appId: string, userId?: string) => {
+    const result = await clientRef.current.appTier.getFeatureOverrides(appId, userId);
+    setFeatureOverrides(result);
+    return result;
+  }, []);
+
+  const setFeatureOverride = useCallback(
+    async (
+      appId: string,
+      userId: string | null,
+      featureCode: string,
+      isEnabled: boolean,
+      reason?: string,
+      expiresAt?: string,
+    ) => {
+      return wrap(() =>
+        clientRef.current.appTier.setFeatureOverride(appId, userId, featureCode, isEnabled, reason, expiresAt),
+      );
+    },
+    [wrap],
+  );
+
+  const removeFeatureOverride = useCallback(
+    async (appId: string, featureCode: string, userId?: string) => {
+      return wrap(() => clientRef.current.appTier.removeFeatureOverride(appId, featureCode, userId));
+    },
+    [wrap],
+  );
 
   // Actions
   const subscribeTo = useCallback(
@@ -272,15 +382,111 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     [wrap],
   );
 
+  // User-scoped admin actions
+  const subscribeUserToTier = useCallback(
+    async (appId: string, userId: string, tierId: string, pricingId?: string) => {
+      return wrap(() => clientRef.current.appTier.subscribeUserToTier(appId, userId, tierId, pricingId));
+    },
+    [wrap],
+  );
+
+  const changeUserTier = useCallback(
+    async (appId: string, userId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
+      return wrap(() => clientRef.current.appTier.changeUserTier(appId, userId, tierId, pricingId, immediate));
+    },
+    [wrap],
+  );
+
+  const cancelUserSubscription = useCallback(
+    async (appId: string, userId: string) => {
+      return wrap(() => clientRef.current.appTier.cancelUserSubscription(appId, userId));
+    },
+    [wrap],
+  );
+
+  const subscribeUserToAddOn = useCallback(
+    async (appId: string, userId: string, addOnId: string) => {
+      return wrap(() => clientRef.current.appTier.subscribeUserToAddOn(appId, userId, addOnId));
+    },
+    [wrap],
+  );
+
+  const cancelUserAddOn = useCallback(
+    async (appId: string, subscriptionId: string) => {
+      return wrap(() => clientRef.current.appTier.cancelUserAddOn(appId, subscriptionId));
+    },
+    [wrap],
+  );
+
+  // Usage limit overrides (admin)
+  const updateUsageLimit = useCallback(
+    async (appId: string, limitCode: string, newMaxValue: number) => {
+      return wrap(() => clientRef.current.appTier.updateUsageLimit(appId, limitCode, newMaxValue));
+    },
+    [wrap],
+  );
+
+  const resetUsage = useCallback(
+    async (appId: string, limitCode: string) => {
+      return wrap(() => clientRef.current.appTier.resetUsage(appId, limitCode));
+    },
+    [wrap],
+  );
+
+  const updateUserUsageLimit = useCallback(
+    async (appId: string, userId: string, limitCode: string, newMaxValue: number) => {
+      return wrap(() => clientRef.current.appTier.updateUserUsageLimit(appId, userId, limitCode, newMaxValue));
+    },
+    [wrap],
+  );
+
+  const resetUserUsage = useCallback(
+    async (appId: string, userId: string, limitCode: string) => {
+      return wrap(() => clientRef.current.appTier.resetUserUsage(appId, userId, limitCode));
+    },
+    [wrap],
+  );
+
+  const updateCompanyUsageLimit = useCallback(
+    async (appId: string, companyId: string, limitCode: string, newMaxValue: number) => {
+      return wrap(() => clientRef.current.appTier.updateCompanyUsageLimit(appId, companyId, limitCode, newMaxValue));
+    },
+    [wrap],
+  );
+
+  const resetCompanyUsage = useCallback(
+    async (appId: string, companyId: string, limitCode: string) => {
+      return wrap(() => clientRef.current.appTier.resetCompanyUsage(appId, companyId, limitCode));
+    },
+    [wrap],
+  );
+
+  // Settings
+  const getTrackingMode = useCallback(async (appId: string) => {
+    return clientRef.current.appTier.getTrackingMode(appId);
+  }, []);
+
   // Refresh all data
   const refreshAll = useCallback(
-    async (appId: string, companyId?: string) => {
+    async (appId: string, companyId?: string, userId?: string) => {
       setLoading(true);
       setError(null);
       try {
         const promises: Promise<unknown>[] = [getTiers(appId)];
 
-        if (companyId) {
+        if (userId) {
+          // User-scoped admin context
+          promises.push(
+            getUserSubscriptionAdmin(appId, userId),
+            getUserAddOnsAdmin(appId, userId),
+            getUserLimitStatuses(appId, userId),
+            getFeatureDefinitions(appId),
+            getUserFeaturesAdmin(appId, userId),
+            getAllAddOns(appId),
+            getFeatureOverrides(appId, userId),
+          );
+        } else if (companyId) {
+          // Company-scoped admin context
           promises.push(
             getCompanySubscription(appId, companyId),
             getCompanyAddOnSubscriptions(appId, companyId),
@@ -288,8 +494,10 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
             getFeatureDefinitions(appId),
             getCompanyFeatures(appId, companyId),
             getAllAddOns(appId),
+            getFeatureOverrides(appId),
           );
         } else {
+          // Self / current user context
           promises.push(
             getMySubscription(appId),
             getMyAddOns(appId),
@@ -325,6 +533,11 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
       getCompanyLimitStatuses,
       getCompanyFeatures,
       getAllAddOns,
+      getUserSubscriptionAdmin,
+      getUserAddOnsAdmin,
+      getUserLimitStatuses,
+      getUserFeaturesAdmin,
+      getFeatureOverrides,
     ],
   );
 
@@ -336,6 +549,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     limitStatuses,
     featureDefinitions,
     featureStatus,
+    featureOverrides,
     loading,
     error,
     clearError,
@@ -348,9 +562,16 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getCompanyAddOnSubscriptions,
     getCompanyLimitStatuses,
     getCompanyFeatures,
+    getUserSubscriptionAdmin,
+    getUserFeaturesAdmin,
+    getUserLimitStatuses,
+    getUserAddOnsAdmin,
     getFeatureDefinitions,
     getUserFeatures,
     getLimitStatuses,
+    getFeatureOverrides,
+    setFeatureOverride,
+    removeFeatureOverride,
     subscribeTo,
     selfSubscribeTo,
     changeTier,
@@ -362,6 +583,18 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     cancelCompanySubscription,
     subscribeCompanyToAddOn,
     cancelCompanyAddOn,
+    subscribeUserToTier,
+    changeUserTier,
+    cancelUserSubscription,
+    subscribeUserToAddOn,
+    cancelUserAddOn,
+    updateUsageLimit,
+    resetUsage,
+    updateUserUsageLimit,
+    resetUserUsage,
+    updateCompanyUsageLimit,
+    resetCompanyUsage,
+    getTrackingMode,
     refreshAll,
   };
 }

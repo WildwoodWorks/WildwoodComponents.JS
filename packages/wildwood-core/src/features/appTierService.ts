@@ -8,6 +8,7 @@ import type {
   UserAddOnSubscriptionModel,
   AppFeatureCheckResultModel,
   AppFeatureDefinitionModel,
+  AppFeatureOverrideModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
 } from './types.js';
@@ -371,6 +372,254 @@ export class AppTierService {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // User-Scoped Admin Queries
+  // ---------------------------------------------------------------------------
+
+  async getUserSubscriptionAdmin(appId: string, userId: string): Promise<UserTierSubscriptionModel | null> {
+    try {
+      const { data } = await this.http.get<UserTierSubscriptionModel>(`api/app-tiers/${appId}/subscriptions/${userId}`);
+      return data ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getUserFeaturesAdmin(appId: string, userId: string): Promise<Record<string, boolean>> {
+    try {
+      const { data } = await this.http.get<Record<string, boolean>>(
+        `api/app-tiers/${appId}/admin/user-features/${userId}`,
+      );
+      return data ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  async getUserLimitStatuses(appId: string, userId: string): Promise<AppTierLimitStatusModel[]> {
+    try {
+      const { data } = await this.http.get<AppTierLimitStatusModel[]>(
+        `api/app-tiers/${appId}/admin/user-limits/${userId}`,
+      );
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getUserAddOnsAdmin(appId: string, userId: string): Promise<UserAddOnSubscriptionModel[]> {
+    try {
+      const { data } = await this.http.get<UserAddOnSubscriptionModel[]>(
+        `api/app-tier-addons/${appId}/admin/user-addons/${userId}`,
+      );
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // User-Scoped Admin Actions
+  // ---------------------------------------------------------------------------
+
+  async subscribeUserToTier(
+    appId: string,
+    userId: string,
+    tierId: string,
+    pricingId?: string,
+  ): Promise<AppTierChangeResultModel> {
+    const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/subscribe`, {
+      AppId: appId,
+      UserId: userId,
+      AppTierId: tierId,
+      AppTierPricingId: pricingId,
+    });
+    return data;
+  }
+
+  async changeUserTier(
+    appId: string,
+    userId: string,
+    newTierId: string,
+    pricingId?: string,
+    immediate = false,
+  ): Promise<AppTierChangeResultModel> {
+    const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/change-tier`, {
+      AppId: appId,
+      UserId: userId,
+      NewAppTierId: newTierId,
+      NewAppTierPricingId: pricingId,
+      Immediate: immediate,
+    });
+    return data;
+  }
+
+  async cancelUserSubscription(appId: string, userId: string): Promise<boolean> {
+    try {
+      await this.http.post(`api/app-tiers/${appId}/cancel/${userId}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async subscribeUserToAddOn(appId: string, userId: string, addOnId: string): Promise<boolean> {
+    try {
+      await this.http.post(`api/app-tier-addons/${appId}/admin/subscribe-user/${userId}`, {
+        AppTierAddOnId: addOnId,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async cancelUserAddOn(appId: string, subscriptionId: string): Promise<boolean> {
+    try {
+      await this.http.post(`api/app-tier-addons/${appId}/admin/cancel-user-addon/${subscriptionId}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Feature Overrides (Admin)
+  // ---------------------------------------------------------------------------
+
+  async getFeatureOverrides(appId: string, userId?: string): Promise<AppFeatureOverrideModel[]> {
+    try {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+      const { data } = await this.http.get<AppFeatureOverrideModel[]>(
+        `api/app-tiers/${appId}/admin/feature-overrides${query}`,
+      );
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  async setFeatureOverride(
+    appId: string,
+    userId: string | null,
+    featureCode: string,
+    isEnabled: boolean,
+    reason?: string,
+    expiresAt?: string,
+  ): Promise<boolean> {
+    try {
+      await this.http.post(`api/app-tiers/${appId}/admin/feature-overrides`, {
+        UserId: userId,
+        FeatureCode: featureCode,
+        IsEnabled: isEnabled,
+        Reason: reason,
+        ExpiresAt: expiresAt,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async removeFeatureOverride(appId: string, featureCode: string, userId?: string): Promise<boolean> {
+    try {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+      await this.http.delete(
+        `api/app-tiers/${appId}/admin/feature-overrides/${encodeURIComponent(featureCode)}${query}`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Admin Usage Limit Overrides
+  // ---------------------------------------------------------------------------
+
+  async updateUsageLimit(appId: string, limitCode: string, newMaxValue: number): Promise<boolean> {
+    try {
+      await this.http.put(`api/app-tiers/${appId}/admin/usage-limits/${encodeURIComponent(limitCode)}`, {
+        NewMaxValue: newMaxValue,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async resetUsage(appId: string, limitCode: string): Promise<boolean> {
+    try {
+      await this.http.post(`api/app-tiers/${appId}/admin/usage-limits/${encodeURIComponent(limitCode)}/reset`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateUserUsageLimit(appId: string, userId: string, limitCode: string, newMaxValue: number): Promise<boolean> {
+    try {
+      await this.http.put(`api/app-tiers/${appId}/admin/usage-limits/user/${userId}/${encodeURIComponent(limitCode)}`, {
+        NewMaxValue: newMaxValue,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async resetUserUsage(appId: string, userId: string, limitCode: string): Promise<boolean> {
+    try {
+      await this.http.post(
+        `api/app-tiers/${appId}/admin/usage-limits/user/${userId}/${encodeURIComponent(limitCode)}/reset`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateCompanyUsageLimit(
+    appId: string,
+    companyId: string,
+    limitCode: string,
+    newMaxValue: number,
+  ): Promise<boolean> {
+    try {
+      await this.http.put(
+        `api/app-tiers/${appId}/admin/usage-limits/company/${companyId}/${encodeURIComponent(limitCode)}`,
+        { NewMaxValue: newMaxValue },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async resetCompanyUsage(appId: string, companyId: string, limitCode: string): Promise<boolean> {
+    try {
+      await this.http.post(
+        `api/app-tiers/${appId}/admin/usage-limits/company/${companyId}/${encodeURIComponent(limitCode)}/reset`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Settings
+  // ---------------------------------------------------------------------------
+
+  async getTrackingMode(appId: string): Promise<string> {
+    try {
+      const { data } = await this.http.get<{ trackingMode: string }>(`api/app-tiers/${appId}/settings/tracking-mode`);
+      return data?.trackingMode ?? 'User';
+    } catch {
+      return 'User';
     }
   }
 }

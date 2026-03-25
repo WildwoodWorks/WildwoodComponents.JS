@@ -186,6 +186,7 @@ export type {
   UserAddOnSubscriptionModel,
   AppFeatureCheckResultModel,
   AppFeatureDefinitionModel,
+  AppFeatureOverrideModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
 } from './features/types.js';

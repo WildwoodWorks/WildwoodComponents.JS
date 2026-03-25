@@ -1,5 +1,5 @@
 // SubscriptionAdminComponent - ported from WildwoodComponents.Blazor Subscription/Admin/SubscriptionAdminComponent.razor
-// Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, and usage.
+// Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, usage, and overrides.
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
@@ -9,12 +9,15 @@ import type { TierSelectedEventArgs } from './TierPlansPanel.js';
 import { FeaturesPanel } from './FeaturesPanel.js';
 import { AddOnsPanel } from './AddOnsPanel.js';
 import { UsageLimitsPanel } from './UsageLimitsPanel.js';
+import { OverridesPanel } from './OverridesPanel.js';
 
-export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage';
+export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
 export interface SubscriptionAdminComponentProps {
   appId: string;
   companyId?: string;
+  userId?: string;
+  isAdmin?: boolean;
   displayMode?: SubscriptionAdminDisplayMode;
   /** When true, use self-service endpoints (POST /my-subscription) instead of admin endpoints */
   selfService?: boolean;
@@ -26,11 +29,13 @@ export interface SubscriptionAdminComponentProps {
   className?: string;
 }
 
-type Tab = 'subscription' | 'tiers' | 'features' | 'usage';
+type Tab = 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
 export function SubscriptionAdminComponent({
   appId,
   companyId,
+  userId,
+  isAdmin = false,
   displayMode = 'tabs',
   selfService = false,
   currency = 'USD',
@@ -44,27 +49,31 @@ export function SubscriptionAdminComponent({
 
   useEffect(() => {
     if (appId) {
-      admin.refreshAll(appId, companyId).catch((err) => console.warn('Failed to load subscription data:', err));
+      admin.refreshAll(appId, companyId, userId).catch((err) => console.warn('Failed to load subscription data:', err));
     }
-  }, [appId, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appId, companyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = useCallback(async () => {
-    await admin.refreshAll(appId, companyId);
+    await admin.refreshAll(appId, companyId, userId);
     onSubscriptionChanged?.();
-  }, [admin, appId, companyId, onSubscriptionChanged]);
+  }, [admin, appId, companyId, userId, onSubscriptionChanged]);
 
   const handleCancelSubscription = useCallback(async () => {
-    if (companyId) {
+    if (userId) {
+      await admin.cancelUserSubscription(appId, userId);
+    } else if (companyId) {
       await admin.cancelCompanySubscription(appId, companyId);
     } else {
       await admin.cancelSubscription(appId);
     }
     await handleRefresh();
-  }, [admin, appId, companyId, handleRefresh]);
+  }, [admin, appId, companyId, userId, handleRefresh]);
 
   const handleTierSelected = useCallback(
     async (args: TierSelectedEventArgs) => {
-      if (companyId) {
+      if (userId) {
+        await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
+      } else if (companyId) {
         await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
       } else if (selfService) {
         await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
@@ -73,31 +82,89 @@ export function SubscriptionAdminComponent({
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, selfService, handleRefresh],
+    [admin, appId, companyId, userId, selfService, handleRefresh],
   );
 
   const handleAddOnSubscribe = useCallback(
     async (addOnId: string, pricingId?: string) => {
-      if (companyId) {
+      if (userId) {
+        await admin.subscribeUserToAddOn(appId, userId, addOnId);
+      } else if (companyId) {
         await admin.subscribeCompanyToAddOn(appId, companyId, addOnId);
       } else {
         await admin.subscribeToAddOn(appId, addOnId, pricingId);
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, handleRefresh],
+    [admin, appId, companyId, userId, handleRefresh],
   );
 
   const handleAddOnCancel = useCallback(
     async (subscriptionId: string) => {
-      if (companyId) {
+      if (userId) {
+        await admin.cancelUserAddOn(appId, subscriptionId);
+      } else if (companyId) {
         await admin.cancelCompanyAddOn(subscriptionId);
       } else {
         await admin.cancelAddOn(subscriptionId);
       }
       await handleRefresh();
     },
-    [admin, companyId, handleRefresh],
+    [admin, appId, companyId, userId, handleRefresh],
+  );
+
+  const handleToggleFeature = useCallback(
+    async (featureCode: string, isEnabled: boolean, reason?: string, expiresAt?: string) => {
+      const scopeUserId = userId ?? null;
+      await admin.setFeatureOverride(appId, scopeUserId, featureCode, isEnabled, reason, expiresAt);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleRemoveOverride = useCallback(
+    async (featureCode: string) => {
+      await admin.removeFeatureOverride(appId, featureCode, userId);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleMakePermanent = useCallback(
+    async (ov: { featureCode: string; isEnabled: boolean; reason?: string }) => {
+      const scopeUserId = userId ?? null;
+      await admin.setFeatureOverride(appId, scopeUserId, ov.featureCode, ov.isEnabled, ov.reason, undefined);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleUpdateLimit = useCallback(
+    async (limitCode: string, newMaxValue: number) => {
+      if (userId) {
+        await admin.updateUserUsageLimit(appId, userId, limitCode, newMaxValue);
+      } else if (companyId) {
+        await admin.updateCompanyUsageLimit(appId, companyId, limitCode, newMaxValue);
+      } else {
+        await admin.updateUsageLimit(appId, limitCode, newMaxValue);
+      }
+      await handleRefresh();
+    },
+    [admin, appId, companyId, userId, handleRefresh],
+  );
+
+  const handleResetUsage = useCallback(
+    async (limitCode: string) => {
+      if (userId) {
+        await admin.resetUserUsage(appId, userId, limitCode);
+      } else if (companyId) {
+        await admin.resetCompanyUsage(appId, companyId, limitCode);
+      } else {
+        await admin.resetUsage(appId, limitCode);
+      }
+      await handleRefresh();
+    },
+    [admin, appId, companyId, userId, handleRefresh],
   );
 
   if (!appId) {
@@ -113,6 +180,47 @@ export function SubscriptionAdminComponent({
     ...def,
     isEnabled: admin.featureStatus[def.featureCode] ?? false,
   }));
+
+  const featuresPanel = (
+    <FeaturesPanel
+      features={mergedFeatures}
+      featureOverrides={admin.featureOverrides}
+      isAdmin={isAdmin}
+      loading={admin.loading}
+      onToggleFeature={isAdmin ? handleToggleFeature : undefined}
+    />
+  );
+
+  const addOnsPanel = (
+    <AddOnsPanel
+      addOns={admin.addOns}
+      subscriptions={admin.addOnSubscriptions}
+      currentTierId={admin.subscription?.appTierId}
+      loading={admin.loading}
+      currency={currency}
+      onSubscribe={handleAddOnSubscribe}
+      onCancel={handleAddOnCancel}
+    />
+  );
+
+  const usageLimitsPanel = (
+    <UsageLimitsPanel
+      limitStatuses={admin.limitStatuses}
+      isAdmin={isAdmin}
+      loading={admin.loading}
+      onUpdateLimit={isAdmin ? handleUpdateLimit : undefined}
+      onResetUsage={isAdmin ? handleResetUsage : undefined}
+    />
+  );
+
+  const overridesPanel = isAdmin ? (
+    <OverridesPanel
+      overrides={admin.featureOverrides}
+      loading={admin.loading}
+      onRemoveOverride={handleRemoveOverride}
+      onMakePermanent={handleMakePermanent}
+    />
+  ) : null;
 
   // Single panel mode
   if (displayMode !== 'tabs') {
@@ -145,36 +253,30 @@ export function SubscriptionAdminComponent({
         )}
         {displayMode === 'features' && (
           <>
-            <FeaturesPanel features={mergedFeatures} loading={admin.loading} />
-            <AddOnsPanel
-              addOns={admin.addOns}
-              subscriptions={admin.addOnSubscriptions}
-              currentTierId={admin.subscription?.appTierId}
-              loading={admin.loading}
-              currency={currency}
-              onSubscribe={handleAddOnSubscribe}
-              onCancel={handleAddOnCancel}
-            />
+            {featuresPanel}
+            {addOnsPanel}
           </>
         )}
-        {displayMode === 'usage' && <UsageLimitsPanel limitStatuses={admin.limitStatuses} loading={admin.loading} />}
+        {displayMode === 'usage' && usageLimitsPanel}
+        {displayMode === 'overrides' && overridesPanel}
       </div>
     );
   }
 
   // Tabbed mode — optionally show status above tabs
-  const tabs: { key: Tab; label: string }[] = showStatusAboveTabs
-    ? [
-        { key: 'tiers', label: 'Plans' },
-        { key: 'features', label: 'Features & Add-Ons' },
-        { key: 'usage', label: 'Usage' },
-      ]
-    : [
-        { key: 'subscription', label: 'Subscription' },
-        { key: 'tiers', label: 'Plans' },
-        { key: 'features', label: 'Features & Add-Ons' },
-        { key: 'usage', label: 'Usage' },
-      ];
+  const tabs: { key: Tab; label: string }[] = [];
+
+  if (!showStatusAboveTabs) {
+    tabs.push({ key: 'subscription', label: 'Subscription' });
+  }
+  tabs.push(
+    { key: 'tiers', label: 'Plans' },
+    { key: 'features', label: 'Features & Add-Ons' },
+    { key: 'usage', label: 'Usage' },
+  );
+  if (isAdmin) {
+    tabs.push({ key: 'overrides', label: 'Overrides' });
+  }
 
   return (
     <div className={`ww-sub-admin ${className ?? ''}`}>
@@ -230,19 +332,12 @@ export function SubscriptionAdminComponent({
         )}
         {activeTab === 'features' && (
           <>
-            <FeaturesPanel features={mergedFeatures} loading={admin.loading} />
-            <AddOnsPanel
-              addOns={admin.addOns}
-              subscriptions={admin.addOnSubscriptions}
-              currentTierId={admin.subscription?.appTierId}
-              loading={admin.loading}
-              currency={currency}
-              onSubscribe={handleAddOnSubscribe}
-              onCancel={handleAddOnCancel}
-            />
+            {featuresPanel}
+            {addOnsPanel}
           </>
         )}
-        {activeTab === 'usage' && <UsageLimitsPanel limitStatuses={admin.limitStatuses} loading={admin.loading} />}
+        {activeTab === 'usage' && usageLimitsPanel}
+        {activeTab === 'overrides' && overridesPanel}
       </div>
     </div>
   );

@@ -1,11 +1,15 @@
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet, Pressable, TextInput } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AppTierLimitStatusModel } from '@wildwood/core';
 
 export interface UsageLimitsPanelProps {
   limitStatuses: AppTierLimitStatusModel[];
+  isAdmin?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  onUpdateLimit?: (limitCode: string, newMaxValue: number) => Promise<void>;
+  onResetUsage?: (limitCode: string) => Promise<void>;
 }
 
 function getStatusBadge(limit: AppTierLimitStatusModel): { text: string; color: string } {
@@ -29,7 +33,54 @@ function getCardBorderColor(limit: AppTierLimitStatusModel): string {
   return '#BBF7D0';
 }
 
-export function UsageLimitsPanel({ limitStatuses, loading, style }: UsageLimitsPanelProps) {
+export function UsageLimitsPanel({
+  limitStatuses,
+  isAdmin = false,
+  loading,
+  style,
+  onUpdateLimit,
+  onResetUsage,
+}: UsageLimitsPanelProps) {
+  const [editingLimitCode, setEditingLimitCode] = useState<string | null>(null);
+  const [editMaxValue, setEditMaxValue] = useState('0');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const startEditLimit = useCallback((limit: AppTierLimitStatusModel) => {
+    setEditingLimitCode(limit.limitCode);
+    setEditMaxValue(String(limit.maxValue));
+  }, []);
+
+  const cancelEditLimit = useCallback(() => {
+    setEditingLimitCode(null);
+  }, []);
+
+  const saveLimitMaxValue = useCallback(
+    async (limitCode: string) => {
+      if (!onUpdateLimit || isProcessing) return;
+      setIsProcessing(true);
+      try {
+        await onUpdateLimit(limitCode, Number(editMaxValue));
+        setEditingLimitCode(null);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [onUpdateLimit, isProcessing, editMaxValue],
+  );
+
+  const handleResetUsage = useCallback(
+    async (limitCode: string) => {
+      if (!onResetUsage || isProcessing) return;
+      setIsProcessing(true);
+      try {
+        await onResetUsage(limitCode);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [onResetUsage, isProcessing],
+  );
+
   if (loading) {
     return (
       <View style={[styles.container, style]}>
@@ -56,6 +107,7 @@ export function UsageLimitsPanel({ limitStatuses, loading, style }: UsageLimitsP
         const barWidth = limit.isUnlimited ? 100 : Math.min(limit.usagePercent, 100);
         const barColor = getBarColor(limit);
         const borderColor = getCardBorderColor(limit);
+        const isEditing = editingLimitCode === limit.limitCode;
 
         return (
           <View key={limit.limitCode} style={[styles.card, { borderColor }]}>
@@ -75,6 +127,27 @@ export function UsageLimitsPanel({ limitStatuses, loading, style }: UsageLimitsP
             <View style={styles.stats}>
               {limit.isUnlimited ? (
                 <Text style={styles.statCount}>{limit.currentUsage.toLocaleString()} used</Text>
+              ) : isAdmin && isEditing ? (
+                <View style={styles.editRow}>
+                  <Text style={styles.statCount}>{limit.currentUsage.toLocaleString()} /</Text>
+                  <TextInput
+                    style={styles.editInput}
+                    keyboardType="numeric"
+                    value={editMaxValue}
+                    onChangeText={setEditMaxValue}
+                    editable={!isProcessing}
+                  />
+                  <Pressable
+                    style={styles.editSaveBtn}
+                    onPress={() => saveLimitMaxValue(limit.limitCode)}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.editSaveBtnText}>{'\u2713'}</Text>
+                  </Pressable>
+                  <Pressable style={styles.editCancelBtn} onPress={cancelEditLimit} disabled={isProcessing}>
+                    <Text style={styles.editCancelBtnText}>{'\u2717'}</Text>
+                  </Pressable>
+                </View>
               ) : (
                 <>
                   <Text style={styles.statCount}>
@@ -86,6 +159,25 @@ export function UsageLimitsPanel({ limitStatuses, loading, style }: UsageLimitsP
             </View>
 
             {limit.statusMessage ? <Text style={styles.statusMessage}>{limit.statusMessage}</Text> : null}
+
+            {isAdmin && !isEditing && (
+              <View style={styles.adminActions}>
+                {!limit.isUnlimited && onUpdateLimit && (
+                  <Pressable style={styles.adminBtn} onPress={() => startEditLimit(limit)} disabled={isProcessing}>
+                    <Text style={styles.adminBtnText}>Edit Limit</Text>
+                  </Pressable>
+                )}
+                {limit.currentUsage > 0 && onResetUsage && (
+                  <Pressable
+                    style={[styles.adminBtn, styles.adminBtnWarning]}
+                    onPress={() => handleResetUsage(limit.limitCode)}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.adminBtnWarningText}>Reset Usage</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         );
       })}
@@ -122,4 +214,40 @@ const styles = StyleSheet.create({
   statCount: { fontSize: 13, fontWeight: '600', color: '#333' },
   statPercent: { fontSize: 13, color: '#666' },
   statusMessage: { fontSize: 12, color: '#999', marginTop: 2 },
+  editRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 13,
+    width: 80,
+    backgroundColor: '#fff',
+  },
+  editSaveBtn: {
+    backgroundColor: '#22C55E',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  editSaveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editCancelBtn: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  editCancelBtnText: { color: '#6B7280', fontSize: 14, fontWeight: '700' },
+  adminActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  adminBtn: {
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  adminBtnText: { color: '#2563EB', fontSize: 12, fontWeight: '600' },
+  adminBtnWarning: { borderColor: '#FDE68A' },
+  adminBtnWarningText: { color: '#D97706', fontSize: 12, fontWeight: '600' },
 });

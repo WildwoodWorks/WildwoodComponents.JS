@@ -92,6 +92,8 @@ export { AddOnsPanel } from './components/subscription/admin/AddOnsPanel.js';
 export type { AddOnsPanelProps } from './components/subscription/admin/AddOnsPanel.js';
 export { UsageLimitsPanel } from './components/subscription/admin/UsageLimitsPanel.js';
 export type { UsageLimitsPanelProps } from './components/subscription/admin/UsageLimitsPanel.js';
+export { OverridesPanel } from './components/subscription/admin/OverridesPanel.js';
+export type { OverridesPanelProps } from './components/subscription/admin/OverridesPanel.js';
 export { TokenRegistrationComponent } from './components/registration/TokenRegistrationComponent.js';
 export type { TokenRegistrationComponentProps } from './components/registration/TokenRegistrationComponent.js';
 export { SignupWithSubscriptionComponent } from './components/registration/SignupWithSubscriptionComponent.js';

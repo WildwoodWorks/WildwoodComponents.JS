@@ -6,13 +6,16 @@ import { SubscriptionStatusPanel } from './SubscriptionStatusPanel';
 import { FeaturesPanel } from './FeaturesPanel';
 import { AddOnsPanel } from './AddOnsPanel';
 import { UsageLimitsPanel } from './UsageLimitsPanel';
+import { OverridesPanel } from './OverridesPanel';
 import { AppTierComponent } from '../AppTierComponent';
 
-export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage';
+export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
 export interface SubscriptionAdminComponentProps {
   appId: string;
   companyId?: string;
+  userId?: string;
+  isAdmin?: boolean;
   displayMode?: SubscriptionAdminDisplayMode;
   selfService?: boolean;
   currency?: string;
@@ -22,11 +25,13 @@ export interface SubscriptionAdminComponentProps {
   style?: ViewStyle;
 }
 
-type Tab = 'subscription' | 'tiers' | 'features' | 'usage';
+type Tab = 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
 export function SubscriptionAdminComponent({
   appId,
   companyId,
+  userId,
+  isAdmin = false,
   displayMode = 'tabs',
   selfService = false,
   currency = 'USD',
@@ -40,27 +45,31 @@ export function SubscriptionAdminComponent({
 
   useEffect(() => {
     if (appId) {
-      admin.refreshAll(appId, companyId);
+      admin.refreshAll(appId, companyId, userId);
     }
-  }, [appId, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appId, companyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = useCallback(async () => {
-    await admin.refreshAll(appId, companyId);
+    await admin.refreshAll(appId, companyId, userId);
     onSubscriptionChanged?.();
-  }, [admin, appId, companyId, onSubscriptionChanged]);
+  }, [admin, appId, companyId, userId, onSubscriptionChanged]);
 
   const handleCancelSubscription = useCallback(async () => {
-    if (companyId) {
+    if (userId) {
+      await admin.cancelUserSubscription(appId, userId);
+    } else if (companyId) {
       await admin.cancelCompanySubscription(appId, companyId);
     } else {
       await admin.cancelSubscription(appId);
     }
     await handleRefresh();
-  }, [admin, appId, companyId, handleRefresh]);
+  }, [admin, appId, companyId, userId, handleRefresh]);
 
   const handleTierSelected = useCallback(
     async (tierId: string, pricingId?: string) => {
-      if (companyId) {
+      if (userId) {
+        await admin.subscribeUserToTier(appId, userId, tierId, pricingId);
+      } else if (companyId) {
         await admin.subscribeCompanyToTier(appId, companyId, tierId, pricingId);
       } else if (selfService) {
         await admin.selfSubscribeTo(appId, tierId, pricingId);
@@ -69,31 +78,87 @@ export function SubscriptionAdminComponent({
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, selfService, handleRefresh],
+    [admin, appId, companyId, userId, selfService, handleRefresh],
   );
 
   const handleAddOnSubscribe = useCallback(
     async (addOnId: string, pricingId?: string) => {
-      if (companyId) {
+      if (userId) {
+        await admin.subscribeUserToAddOn(appId, userId, addOnId);
+      } else if (companyId) {
         await admin.subscribeCompanyToAddOn(appId, companyId, addOnId);
       } else {
         await admin.subscribeToAddOn(appId, addOnId, pricingId);
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, handleRefresh],
+    [admin, appId, companyId, userId, handleRefresh],
   );
 
   const handleAddOnCancel = useCallback(
     async (subscriptionId: string) => {
-      if (companyId) {
+      if (userId) {
+        await admin.cancelUserAddOn(appId, subscriptionId);
+      } else if (companyId) {
         await admin.cancelCompanyAddOn(subscriptionId);
       } else {
         await admin.cancelAddOn(subscriptionId);
       }
       await handleRefresh();
     },
-    [admin, companyId, handleRefresh],
+    [admin, appId, companyId, userId, handleRefresh],
+  );
+
+  const handleToggleFeature = useCallback(
+    async (featureCode: string, isEnabled: boolean, reason?: string, expiresAt?: string) => {
+      await admin.setFeatureOverride(appId, userId ?? null, featureCode, isEnabled, reason, expiresAt);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleRemoveOverride = useCallback(
+    async (featureCode: string) => {
+      await admin.removeFeatureOverride(appId, featureCode, userId);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleMakePermanent = useCallback(
+    async (ov: { featureCode: string; isEnabled: boolean; reason?: string }) => {
+      await admin.setFeatureOverride(appId, userId ?? null, ov.featureCode, ov.isEnabled, ov.reason, undefined);
+      await handleRefresh();
+    },
+    [admin, appId, userId, handleRefresh],
+  );
+
+  const handleUpdateLimit = useCallback(
+    async (limitCode: string, newMaxValue: number) => {
+      if (userId) {
+        await admin.updateUserUsageLimit(appId, userId, limitCode, newMaxValue);
+      } else if (companyId) {
+        await admin.updateCompanyUsageLimit(appId, companyId, limitCode, newMaxValue);
+      } else {
+        await admin.updateUsageLimit(appId, limitCode, newMaxValue);
+      }
+      await handleRefresh();
+    },
+    [admin, appId, companyId, userId, handleRefresh],
+  );
+
+  const handleResetUsage = useCallback(
+    async (limitCode: string) => {
+      if (userId) {
+        await admin.resetUserUsage(appId, userId, limitCode);
+      } else if (companyId) {
+        await admin.resetCompanyUsage(appId, companyId, limitCode);
+      } else {
+        await admin.resetUsage(appId, limitCode);
+      }
+      await handleRefresh();
+    },
+    [admin, appId, companyId, userId, handleRefresh],
   );
 
   if (!appId) {
@@ -110,6 +175,47 @@ export function SubscriptionAdminComponent({
     ...def,
     isEnabled: admin.featureStatus[def.featureCode] ?? false,
   }));
+
+  const featuresContent = (
+    <>
+      <FeaturesPanel
+        features={mergedFeatures}
+        featureOverrides={admin.featureOverrides}
+        isAdmin={isAdmin}
+        loading={admin.loading}
+        onToggleFeature={isAdmin ? handleToggleFeature : undefined}
+      />
+      <View style={{ height: 16 }} />
+      <AddOnsPanel
+        addOns={admin.addOns}
+        subscriptions={admin.addOnSubscriptions}
+        currentTierId={admin.subscription?.appTierId}
+        loading={admin.loading}
+        currency={currency}
+        onSubscribe={handleAddOnSubscribe}
+        onCancel={handleAddOnCancel}
+      />
+    </>
+  );
+
+  const usageContent = (
+    <UsageLimitsPanel
+      limitStatuses={admin.limitStatuses}
+      isAdmin={isAdmin}
+      loading={admin.loading}
+      onUpdateLimit={isAdmin ? handleUpdateLimit : undefined}
+      onResetUsage={isAdmin ? handleResetUsage : undefined}
+    />
+  );
+
+  const overridesContent = isAdmin ? (
+    <OverridesPanel
+      overrides={admin.featureOverrides}
+      loading={admin.loading}
+      onRemoveOverride={handleRemoveOverride}
+      onMakePermanent={handleMakePermanent}
+    />
+  ) : null;
 
   // Single panel mode
   if (displayMode !== 'tabs') {
@@ -136,40 +242,26 @@ export function SubscriptionAdminComponent({
             onTierChanged={(tierId) => handleTierSelected(tierId)}
           />
         ) : null}
-        {displayMode === 'features' ? (
-          <>
-            <FeaturesPanel features={mergedFeatures} loading={admin.loading} />
-            <AddOnsPanel
-              addOns={admin.addOns}
-              subscriptions={admin.addOnSubscriptions}
-              currentTierId={admin.subscription?.appTierId}
-              loading={admin.loading}
-              currency={currency}
-              onSubscribe={handleAddOnSubscribe}
-              onCancel={handleAddOnCancel}
-            />
-          </>
-        ) : null}
-        {displayMode === 'usage' ? (
-          <UsageLimitsPanel limitStatuses={admin.limitStatuses} loading={admin.loading} />
-        ) : null}
+        {displayMode === 'features' ? featuresContent : null}
+        {displayMode === 'usage' ? usageContent : null}
+        {displayMode === 'overrides' ? overridesContent : null}
       </ScrollView>
     );
   }
 
   // Tabbed mode
-  const tabs: { key: Tab; label: string }[] = showStatusAboveTabs
-    ? [
-        { key: 'tiers', label: 'Plans' },
-        { key: 'features', label: 'Features & Add-Ons' },
-        { key: 'usage', label: 'Usage' },
-      ]
-    : [
-        { key: 'subscription', label: 'Subscription' },
-        { key: 'tiers', label: 'Plans' },
-        { key: 'features', label: 'Features & Add-Ons' },
-        { key: 'usage', label: 'Usage' },
-      ];
+  const tabs: { key: Tab; label: string }[] = [];
+  if (!showStatusAboveTabs) {
+    tabs.push({ key: 'subscription', label: 'Subscription' });
+  }
+  tabs.push(
+    { key: 'tiers', label: 'Plans' },
+    { key: 'features', label: 'Features & Add-Ons' },
+    { key: 'usage', label: 'Usage' },
+  );
+  if (isAdmin) {
+    tabs.push({ key: 'overrides', label: 'Overrides' });
+  }
 
   return (
     <ScrollView style={[styles.scroll, style]} contentContainerStyle={styles.scrollContent}>
@@ -220,24 +312,9 @@ export function SubscriptionAdminComponent({
             onTierChanged={(tierId) => handleTierSelected(tierId)}
           />
         ) : null}
-        {activeTab === 'features' ? (
-          <>
-            <FeaturesPanel features={mergedFeatures} loading={admin.loading} />
-            <View style={{ height: 16 }} />
-            <AddOnsPanel
-              addOns={admin.addOns}
-              subscriptions={admin.addOnSubscriptions}
-              currentTierId={admin.subscription?.appTierId}
-              loading={admin.loading}
-              currency={currency}
-              onSubscribe={handleAddOnSubscribe}
-              onCancel={handleAddOnCancel}
-            />
-          </>
-        ) : null}
-        {activeTab === 'usage' ? (
-          <UsageLimitsPanel limitStatuses={admin.limitStatuses} loading={admin.loading} />
-        ) : null}
+        {activeTab === 'features' ? featuresContent : null}
+        {activeTab === 'usage' ? usageContent : null}
+        {activeTab === 'overrides' ? overridesContent : null}
       </View>
     </ScrollView>
   );

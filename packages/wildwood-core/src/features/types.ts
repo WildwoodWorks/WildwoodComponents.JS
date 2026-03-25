@@ -52,6 +52,7 @@ export interface AppTierPricingModel {
   pricingModelName: string;
   price: number;
   billingFrequency: string;
+  billingFrequencyLabel?: string;
 }
 
 export interface AppTierFeatureModel {
@@ -70,6 +71,8 @@ export interface AppTierLimitModel {
   maxValue: number;
   limitType: string;
   unit: string;
+  isUnlimited: boolean;
+  maxValueDisplay?: string;
 }
 
 export interface AppTierAddOnModel {
@@ -109,21 +112,28 @@ export interface UserTierSubscriptionModel {
   userId: string;
   appId: string;
   appTierId: string;
+  appTierPricingId?: string;
   status: string;
+  paymentTransactionId?: string;
   startDate: string;
   endDate?: string;
   currentPeriodStart?: string;
   currentPeriodEnd?: string;
   trialEndDate?: string;
+  gracePeriodEndDate?: string;
+  pendingTierId?: string;
   tierName: string;
   tierDescription: string;
   isFreeTier: boolean;
   pendingTierName: string;
   pendingChangeDate?: string;
+  companyId?: string;
+  companyName?: string;
 }
 
 export interface UserAddOnSubscriptionModel {
   id: string;
+  companyId?: string;
   appTierAddOnId: string;
   status: string;
   addOnName: string;
@@ -131,6 +141,10 @@ export interface UserAddOnSubscriptionModel {
   isBundled: boolean;
   startDate: string;
   endDate?: string;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  trialEndDate?: string;
+  gracePeriodEndDate?: string;
 }
 
 export interface AppFeatureCheckResultModel {
@@ -176,4 +190,19 @@ export interface AppTierChangeResultModel {
   subscription?: UserTierSubscriptionModel;
   isScheduled: boolean;
   effectiveDate?: string;
+}
+
+export interface AppFeatureOverrideModel {
+  id: string;
+  appId: string;
+  companyId?: string;
+  userId?: string;
+  featureCode: string;
+  isEnabled: boolean;
+  reason?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
 }

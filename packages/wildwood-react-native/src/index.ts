@@ -100,6 +100,8 @@ export { AddOnsPanel } from './components/subscription/AddOnsPanel';
 export type { AddOnsPanelProps } from './components/subscription/AddOnsPanel';
 export { UsageLimitsPanel } from './components/subscription/UsageLimitsPanel';
 export type { UsageLimitsPanelProps } from './components/subscription/UsageLimitsPanel';
+export { OverridesPanel } from './components/subscription/OverridesPanel';
+export type { OverridesPanelProps } from './components/subscription/OverridesPanel';
 export { TierPlansPanel } from './components/subscription/TierPlansPanel';
 export type { TierPlansPanelProps, TierSelectedEventArgs } from './components/subscription/TierPlansPanel';
 
