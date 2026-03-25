@@ -472,7 +472,7 @@ export class AdminClient {
     if (!subscriptionId) throw new Error('subscriptionId is required');
     return this.request<void>(
       'POST',
-      `/api/app-tier-addons/subscriptions/${encodeURIComponent(subscriptionId)}/cancel/company${this.buildQuery({ immediate })}`,
+      `/api/app-tier-addons/subscriptions/${encodeURIComponent(subscriptionId)}/cancel${this.buildQuery({ immediate })}`,
     );
   }
 
