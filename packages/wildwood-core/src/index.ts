@@ -196,9 +196,15 @@ export { ThemeService } from './theme/themeService.js';
 export type { ComponentTheme, ThemeName } from './theme/types.js';
 
 // Platform
-export type { Platform, PlatformInfo, StorageAdapter } from './platform/types.js';
+export type { Platform, PlatformInfo, DistributionSource, StorageAdapter } from './platform/types.js';
 export { LocalStorageAdapter, MemoryStorageAdapter, createStorageAdapter } from './platform/storageService.js';
-export { detectPlatform } from './platform/platformDetection.js';
+export {
+  detectPlatform,
+  isProviderAvailable,
+  getRequiredAppStoreProviderType,
+  isApplePayAvailableAsync,
+  isGooglePayAvailableAsync,
+} from './platform/platformDetection.js';
 
 // Utils
 export { formatTimestamp, formatFileSize } from './utils/formatUtils.js';

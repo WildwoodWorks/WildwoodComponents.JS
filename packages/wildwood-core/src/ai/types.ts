@@ -62,6 +62,12 @@ export interface AIChatRequest {
   message: string;
   saveToSession?: boolean;
   macroValues?: Record<string, string>;
+  /** Base64-encoded file data for file attachments */
+  fileBase64?: string;
+  /** MIME type of the attached file (e.g. 'image/png', 'application/pdf') */
+  fileMediaType?: string;
+  /** Original filename of the attachment */
+  fileName?: string;
 }
 
 export interface AIChatResponse {

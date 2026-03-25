@@ -1,6 +1,7 @@
 // Messaging service - ported from WildwoodComponents.Blazor/Services/SecureMessagingService.cs
 
 import type { HttpClient } from '../client/httpClient.js';
+import type { StorageAdapter } from '../platform/types.js';
 import {
   type MessageThread,
   type SecureMessage,
@@ -8,13 +9,19 @@ import {
   type TypingIndicator,
   type OnlineStatus,
   type MessageSearchResult,
+  type MessageDraft,
   type UserStatus,
   ThreadType,
   MessageType,
 } from './types.js';
 
+const DRAFT_STORAGE_PREFIX = 'ww_draft_';
+
 export class MessagingService {
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private storage?: StorageAdapter,
+  ) {}
 
   // Threads
   async getThreads(companyAppId: string): Promise<MessageThread[]> {
@@ -200,5 +207,33 @@ export class MessagingService {
   async getOnlineStatuses(companyAppId: string): Promise<OnlineStatus[]> {
     const { data } = await this.http.get<OnlineStatus[]>(`api/messaging/${companyAppId}/statuses`);
     return data ?? [];
+  }
+
+  // Draft management (client-side, mirrors Blazor's localStorage-based drafts)
+  async saveDraft(threadId: string, content: string, replyToMessageId?: string): Promise<void> {
+    if (!this.storage) return;
+    const draft: MessageDraft = {
+      threadId,
+      content,
+      replyToMessageId,
+      lastModified: new Date().toISOString(),
+    };
+    await this.storage.setItem(`${DRAFT_STORAGE_PREFIX}${threadId}`, JSON.stringify(draft));
+  }
+
+  async getDraft(threadId: string): Promise<MessageDraft | null> {
+    if (!this.storage) return null;
+    const raw = await this.storage.getItem(`${DRAFT_STORAGE_PREFIX}${threadId}`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as MessageDraft;
+    } catch {
+      return null;
+    }
+  }
+
+  async clearDraft(threadId: string): Promise<void> {
+    if (!this.storage) return;
+    await this.storage.removeItem(`${DRAFT_STORAGE_PREFIX}${threadId}`);
   }
 }

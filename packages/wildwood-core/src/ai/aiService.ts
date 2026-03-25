@@ -31,6 +31,31 @@ export class AIService {
   }
 
   /**
+   * Send a message with a file attachment.
+   * Converts the file to Base64 and includes it in the request body.
+   * Mirrors Blazor's SendMessageWithFileAsync.
+   */
+  async sendMessageWithFile(request: AIChatRequest, file: File | Blob, fileName?: string): Promise<AIChatResponse> {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const fileBase64 = btoa(binary);
+
+    const resolvedName = fileName ?? (file instanceof File ? file.name : 'attachment');
+    const fileMediaType = file.type || getMediaTypeFromFileName(resolvedName);
+
+    return this.sendMessage({
+      ...request,
+      fileBase64,
+      fileMediaType,
+      fileName: resolvedName,
+    });
+  }
+
+  /**
    * Parses a structured API error response to extract user-friendly error messages and error codes.
    * Handles the structured error JSON format: { "error": "...", "limitCode": "...", "currentUsage": N, "maxValue": N, ... }
    */
@@ -245,4 +270,31 @@ export class AIService {
       return false;
     }
   }
+}
+
+/** Infer MIME type from file extension when File.type is unavailable */
+function getMediaTypeFromFileName(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    xml: 'application/xml',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    mp4: 'video/mp4',
+    zip: 'application/zip',
+  };
+  return map[ext] ?? 'application/octet-stream';
 }

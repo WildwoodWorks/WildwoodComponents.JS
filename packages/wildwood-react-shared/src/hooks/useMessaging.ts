@@ -6,6 +6,7 @@ import type {
   SecureMessage,
   CompanyAppUser,
   MessageSearchResult,
+  MessageDraft,
   TypingIndicator,
   OnlineStatus,
   UserStatus,
@@ -45,6 +46,9 @@ export interface UseMessagingReturn {
   downloadAttachment: (attachmentId: string) => Promise<ArrayBuffer>;
   updateOnlineStatus: (status: UserStatus, statusMessage?: string) => Promise<boolean>;
   getOnlineStatuses: () => Promise<OnlineStatus[]>;
+  saveDraft: (threadId: string, content: string, replyToMessageId?: string) => Promise<void>;
+  getDraft: (threadId: string) => Promise<MessageDraft | null>;
+  clearDraft: (threadId: string) => Promise<void>;
   onMessage: (handler: (message: SecureMessage) => void) => () => void;
   onTyping: (handler: (indicator: TypingIndicator) => void) => () => void;
   onStatusChange: (handler: (status: OnlineStatus) => void) => () => void;
@@ -276,6 +280,27 @@ export function useMessaging(): UseMessagingReturn {
     return client.messaging.getOnlineStatuses(appId);
   }, [client, appId]);
 
+  const saveDraft = useCallback(
+    async (threadId: string, content: string, replyToMessageId?: string) => {
+      return client.messaging.saveDraft(threadId, content, replyToMessageId);
+    },
+    [client],
+  );
+
+  const getDraft = useCallback(
+    async (threadId: string) => {
+      return client.messaging.getDraft(threadId);
+    },
+    [client],
+  );
+
+  const clearDraft = useCallback(
+    async (threadId: string) => {
+      return client.messaging.clearDraft(threadId);
+    },
+    [client],
+  );
+
   return {
     threads,
     loading,
@@ -304,6 +329,9 @@ export function useMessaging(): UseMessagingReturn {
     downloadAttachment,
     updateOnlineStatus,
     getOnlineStatuses,
+    saveDraft,
+    getDraft,
+    clearDraft,
     onMessage,
     onTyping,
     onStatusChange,
