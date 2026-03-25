@@ -20,7 +20,7 @@ export interface UseAppTierReturn {
   getUserSubscription: () => Promise<UserTierSubscriptionModel | null>;
   checkFeature: (featureKey: string) => Promise<AppFeatureCheckResultModel>;
   getLimitStatus: (limitKey: string) => Promise<AppTierLimitStatusModel>;
-  changeTier: (tierId: string, pricingModelId?: string) => Promise<AppTierChangeResultModel>;
+  changeTier: (tierId: string, pricingModelId?: string, immediate?: boolean) => Promise<AppTierChangeResultModel>;
   selfSubscribe: (appTierId: string, appTierPricingId?: string) => Promise<AppTierChangeResultModel>;
 }
 

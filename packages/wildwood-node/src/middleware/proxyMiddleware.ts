@@ -9,13 +9,10 @@ export interface ProxyMiddlewareOptions {
 }
 
 export function createProxyMiddleware(options: ProxyMiddlewareOptions) {
-  const {
-    baseUrl,
-    apiKey,
-    pathPrefix = '/api',
-    timeout = 30000,
-    onError,
-  } = options;
+  const { baseUrl, apiKey, pathPrefix = '/api', timeout = 30000, onError } = options;
+
+  // Normalize baseUrl to remove trailing slash
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
 
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.path.startsWith(pathPrefix)) {
@@ -23,7 +20,7 @@ export function createProxyMiddleware(options: ProxyMiddlewareOptions) {
     }
 
     const queryString = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
-    const targetUrl = `${baseUrl}${req.path}${queryString}`;
+    const targetUrl = `${normalizedBaseUrl}${req.path}${queryString}`;
     const headers: Record<string, string> = {
       'X-API-Key': apiKey,
       'Content-Type': req.headers['content-type'] || 'application/json',

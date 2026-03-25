@@ -175,9 +175,9 @@ export class AppTierService {
     paymentTransactionId?: string,
   ): Promise<AppTierChangeResultModel> {
     const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/${appId}/my-subscription`, {
-      appTierId,
-      appTierPricingId,
-      paymentTransactionId,
+      AppTierId: appTierId,
+      AppTierPricingId: appTierPricingId,
+      PaymentTransactionId: paymentTransactionId,
     });
     return data;
   }
