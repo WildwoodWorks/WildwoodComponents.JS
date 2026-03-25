@@ -81,6 +81,11 @@ export function NavMenu() {
             Pricing Display
           </NavLink>
         </li>
+        <li>
+          <NavLink to="/subscription-admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Subscription Admin
+          </NavLink>
+        </li>
         <li className="nav-section">Other</li>
         <li>
           <NavLink to="/disclaimer" className={({ isActive }) => (isActive ? 'active' : '')}>

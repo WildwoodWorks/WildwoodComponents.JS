@@ -7,7 +7,8 @@ import { FeaturesPanel } from './FeaturesPanel';
 import { AddOnsPanel } from './AddOnsPanel';
 import { UsageLimitsPanel } from './UsageLimitsPanel';
 import { OverridesPanel } from './OverridesPanel';
-import { AppTierComponent } from '../AppTierComponent';
+import { TierPlansPanel } from './TierPlansPanel';
+import type { TierSelectedEventArgs } from './TierPlansPanel';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
@@ -66,15 +67,15 @@ export function SubscriptionAdminComponent({
   }, [admin, appId, companyId, userId, handleRefresh]);
 
   const handleTierSelected = useCallback(
-    async (tierId: string, pricingId?: string) => {
+    async (args: TierSelectedEventArgs) => {
       if (userId) {
-        await admin.subscribeUserToTier(appId, userId, tierId, pricingId);
+        await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
       } else if (companyId) {
-        await admin.subscribeCompanyToTier(appId, companyId, tierId, pricingId);
+        await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
       } else if (selfService) {
-        await admin.selfSubscribeTo(appId, tierId, pricingId);
+        await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
       } else {
-        await admin.subscribeTo(appId, tierId, pricingId);
+        await admin.subscribeTo(appId, args.tierId, args.pricingId);
       }
       await handleRefresh();
     },
@@ -237,9 +238,13 @@ export function SubscriptionAdminComponent({
           />
         ) : null}
         {displayMode === 'tiers' ? (
-          <AppTierComponent
+          <TierPlansPanel
+            tiers={admin.tiers}
+            currentTierId={admin.subscription?.appTierId}
+            loading={admin.loading}
             showBillingToggle={showBillingToggle}
-            onTierChanged={(tierId) => handleTierSelected(tierId)}
+            currency={currency}
+            onTierSelected={handleTierSelected}
           />
         ) : null}
         {displayMode === 'features' ? featuresContent : null}
@@ -307,9 +312,13 @@ export function SubscriptionAdminComponent({
           />
         ) : null}
         {activeTab === 'tiers' ? (
-          <AppTierComponent
+          <TierPlansPanel
+            tiers={admin.tiers}
+            currentTierId={admin.subscription?.appTierId}
+            loading={admin.loading}
             showBillingToggle={showBillingToggle}
-            onTierChanged={(tierId) => handleTierSelected(tierId)}
+            currency={currency}
+            onTierSelected={handleTierSelected}
           />
         ) : null}
         {activeTab === 'features' ? featuresContent : null}

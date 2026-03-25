@@ -173,6 +173,42 @@ const { limitStatuses, subscription, features, loading, error, refresh } = useUs
 });
 ```
 
+#### `useSubscriptionAdmin()`
+
+Full admin hook for subscription management. Returns state + action methods for all 3 scopes (self, company, user).
+
+```jsx
+import { useSubscriptionAdmin } from '@wildwood/react';
+
+const admin = useSubscriptionAdmin();
+
+// Load data — routes automatically based on context
+await admin.refreshAll(appId);                        // self
+await admin.refreshAll(appId, companyId);              // company scope
+await admin.refreshAll(appId, companyId, userId);      // user scope
+
+// State
+admin.subscription          // UserTierSubscriptionModel | null
+admin.tiers                 // AppTierModel[]
+admin.addOns                // AppTierAddOnModel[]
+admin.addOnSubscriptions    // UserAddOnSubscriptionModel[]
+admin.featureDefinitions    // AppFeatureDefinitionModel[]
+admin.featureStatus         // Record<string, boolean>
+admin.featureOverrides      // AppFeatureOverrideModel[]
+admin.limitStatuses         // AppTierLimitStatusModel[]
+admin.loading               // boolean
+admin.error                 // string | null
+
+// Admin actions
+await admin.setFeatureOverride(appId, userId, featureCode, isEnabled, reason?, expiresAt?);
+await admin.removeFeatureOverride(appId, featureCode, userId?);
+await admin.updateUsageLimit(appId, limitCode, newMaxValue);
+await admin.resetUsage(appId, limitCode);
+await admin.subscribeUserToTier(appId, userId, tierId, pricingId?);
+await admin.cancelUserSubscription(appId, userId);
+// ... and more (company-scoped variants, add-on management, etc.)
+```
+
 ### Components
 
 #### `UsageDashboardComponent` — Authenticated usage overview
@@ -209,20 +245,53 @@ Tabbed admin interface for subscription management. Includes panels for subscrip
 ```jsx
 import { SubscriptionAdminComponent } from '@wildwood/react';
 
+// End-user self-service mode
 <SubscriptionAdminComponent
   appId={APP_ID}
-  showStatusAboveTabs={true}     // prominent status card above tabs
-  selfService={true}              // use self-service endpoints (end-user mode)
+  showStatusAboveTabs={true}
+  selfService={true}
   showBillingToggle={true}
+  currency="USD"
+/>
+
+// Admin mode — manage a specific user's subscription
+<SubscriptionAdminComponent
+  appId={APP_ID}
+  userId={targetUserId}
+  isAdmin={true}
+  showStatusAboveTabs={true}
   currency="USD"
 />
 ```
 
 Props:
 - `selfService` (default `false`): When true, uses `POST /my-subscription` (end-user). When false, uses admin subscribe endpoint.
-- `showStatusAboveTabs` (default `false`): When true, renders subscription status in a prominent card above tabs and removes the Subscription tab.
+- `isAdmin` (default `false`): When true, enables admin controls: feature toggle overrides, usage limit editing/reset, and the Overrides tab.
+- `userId` (optional): When provided, uses user-scoped admin endpoints to manage a specific user's subscription, features, and usage.
 - `companyId` (optional): When provided, uses company-scoped endpoints for admin management of a specific company's subscription.
-- `displayMode` (default `'tabs'`): Set to `'subscription'`, `'tiers'`, `'features'`, or `'usage'` to render a single panel instead of tabs.
+- `showStatusAboveTabs` (default `false`): When true, renders subscription status in a prominent card above tabs and removes the Subscription tab.
+- `displayMode` (default `'tabs'`): Set to `'subscription'`, `'tiers'`, `'features'`, `'usage'`, or `'overrides'` to render a single panel instead of tabs.
+
+**Admin capabilities** (when `isAdmin={true}`):
+- **FeaturesPanel**: Toggle features on/off with confirmation flow (reason + expiration). Shows override badge on features with active overrides.
+- **UsageLimitsPanel**: Inline edit max values, reset usage counters per limit.
+- **OverridesPanel**: View all active feature overrides, make them permanent (remove expiration), or remove them entirely.
+- **3-context routing**: Handlers automatically route API calls through `userId > companyId > self` context.
+
+#### Sub-panels (individually importable)
+
+Each tab's content is a standalone component you can use independently:
+
+```jsx
+import {
+  SubscriptionStatusPanel,
+  TierPlansPanel,
+  FeaturesPanel,
+  AddOnsPanel,
+  UsageLimitsPanel,
+  OverridesPanel,
+} from '@wildwood/react';
+```
 
 #### `PricingDisplayComponent` — Public pricing grid (no auth required)
 
@@ -275,6 +344,43 @@ const tiers = await client.appTier.getPublicTiers(appId);
 
 // Authenticated — returns all limit statuses for the current user
 const limits = await client.appTier.getAllLimitStatuses(appId);
+
+// Admin — feature overrides
+const overrides = await client.appTier.getFeatureOverrides(appId, userId);
+await client.appTier.setFeatureOverride(appId, userId, 'FEATURE_CODE', true, 'reason', expiresAt);
+await client.appTier.removeFeatureOverride(appId, 'FEATURE_CODE', userId);
+
+// Admin — usage limit overrides
+await client.appTier.updateUsageLimit(appId, 'LIMIT_CODE', 1000);
+await client.appTier.resetUsage(appId, 'LIMIT_CODE');
+
+// Admin — user-scoped management
+const sub = await client.appTier.getUserSubscriptionAdmin(appId, userId);
+await client.appTier.subscribeUserToTier(appId, userId, tierId, pricingId);
+await client.appTier.cancelUserSubscription(appId, userId);
+```
+
+### Node.js AdminClient — server-side tier admin
+
+`@wildwood/node` `AdminClient` exposes the same admin operations for server-to-server use (API key auth, no JWT):
+
+```typescript
+import { createAdminClient } from '@wildwood/node';
+
+const admin = createAdminClient({ baseUrl: API_URL, apiKey: API_KEY });
+
+// Subscription management
+await admin.subscribeUserToTier(appId, userId, tierId, pricingId);
+await admin.cancelUserSubscription(appId, userId);
+
+// Feature overrides
+await admin.setFeatureOverride(appId, userId, 'FEATURE_CODE', true, 'reason');
+await admin.removeFeatureOverride(appId, 'FEATURE_CODE', userId);
+
+// Usage limits
+await admin.updateUsageLimit(appId, 'LIMIT_CODE', 1000);
+await admin.resetUsage(appId, 'LIMIT_CODE');
+await admin.resetUserUsage(appId, userId, 'LIMIT_CODE');
 ```
 
 ### Integration pattern: Landing page → Signup → Subscription

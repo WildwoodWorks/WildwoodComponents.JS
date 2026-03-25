@@ -166,7 +166,7 @@ export class AdminClient {
 
       const contentType = response.headers.get('content-type');
       if (contentType?.includes('application/json')) {
-        return await response.json() as T;
+        return (await response.json()) as T;
       }
       // Non-JSON responses (e.g. 204 No Content) - return void-compatible value
       return undefined as unknown as T;
@@ -194,7 +194,10 @@ export class AdminClient {
 
   async getUsers(appId: string, page = 1, pageSize = 20) {
     if (!appId) throw new Error('appId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/users${this.buildQuery({ appId, page, pageSize })}`);
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/admin/users${this.buildQuery({ appId, page, pageSize })}`,
+    );
   }
 
   async disableUser(userId: string) {
@@ -247,16 +250,25 @@ export class AdminClient {
 
   async getAuditLogsForUser(userId: string, maxResults = 50) {
     if (!userId) throw new Error('userId is required');
-    return this.request<AuditLogEntry[]>('GET', `/api/auditlogs/user/${encodeURIComponent(userId)}${this.buildQuery({ maxResults })}`);
+    return this.request<AuditLogEntry[]>(
+      'GET',
+      `/api/auditlogs/user/${encodeURIComponent(userId)}${this.buildQuery({ maxResults })}`,
+    );
   }
 
   async getAuditLogsForCompany(companyId: string, maxResults = 50) {
     if (!companyId) throw new Error('companyId is required');
-    return this.request<AuditLogEntry[]>('GET', `/api/auditlogs/company/${encodeURIComponent(companyId)}${this.buildQuery({ maxResults })}`);
+    return this.request<AuditLogEntry[]>(
+      'GET',
+      `/api/auditlogs/company/${encodeURIComponent(companyId)}${this.buildQuery({ maxResults })}`,
+    );
   }
 
   async getAuditSummary(startDate: string, endDate: string, companyId?: string) {
-    return this.request<Record<string, unknown>>('GET', `/api/auditlogs/summary${this.buildQuery({ startDate, endDate, companyId })}`);
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/auditlogs/summary${this.buildQuery({ startDate, endDate, companyId })}`,
+    );
   }
 
   async getAuditActions() {
@@ -270,7 +282,10 @@ export class AdminClient {
   // ── Error logs ──
 
   async queryErrorLogs(query: ErrorLogQuery) {
-    return this.request<PagedResult<ErrorLogEntry>>('GET', `/api/errorlogs${this.buildQuery(query as Record<string, unknown>)}`);
+    return this.request<PagedResult<ErrorLogEntry>>(
+      'GET',
+      `/api/errorlogs${this.buildQuery(query as Record<string, unknown>)}`,
+    );
   }
 
   async getErrorLog(id: string) {
@@ -295,42 +310,240 @@ export class AdminClient {
 
   async replySms(smsLogId: string, message: string) {
     if (!smsLogId) throw new Error('smsLogId is required');
-    return this.request<Record<string, unknown>>('POST', `/api/admin/sms/reply/${encodeURIComponent(smsLogId)}`, { message });
+    return this.request<Record<string, unknown>>('POST', `/api/admin/sms/reply/${encodeURIComponent(smsLogId)}`, {
+      message,
+    });
   }
 
   async getSmsHistory(userId: string, limit = 50) {
     if (!userId) throw new Error('userId is required');
-    return this.request<SmsLogEntry[]>('GET', `/api/admin/sms/user/${encodeURIComponent(userId)}/history${this.buildQuery({ limit })}`);
+    return this.request<SmsLogEntry[]>(
+      'GET',
+      `/api/admin/sms/user/${encodeURIComponent(userId)}/history${this.buildQuery({ limit })}`,
+    );
   }
 
   async getSmsConversation(phoneNumber: string, limit = 50) {
     if (!phoneNumber) throw new Error('phoneNumber is required');
-    return this.request<SmsLogEntry[]>('GET', `/api/admin/sms/conversation/${encodeURIComponent(phoneNumber)}${this.buildQuery({ limit })}`);
+    return this.request<SmsLogEntry[]>(
+      'GET',
+      `/api/admin/sms/conversation/${encodeURIComponent(phoneNumber)}${this.buildQuery({ limit })}`,
+    );
   }
 
   async querySmsLogs(query: SmsLogQuery) {
-    return this.request<PagedResult<SmsLogEntry>>('GET', `/api/admin/sms-logs${this.buildQuery(query as Record<string, unknown>)}`);
+    return this.request<PagedResult<SmsLogEntry>>(
+      'GET',
+      `/api/admin/sms-logs${this.buildQuery(query as Record<string, unknown>)}`,
+    );
   }
 
   async getSmsStats(companyId: string, fromDate?: string, toDate?: string) {
     if (!companyId) throw new Error('companyId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/sms-logs/stats${this.buildQuery({ companyId, fromDate, toDate })}`);
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/admin/sms-logs/stats${this.buildQuery({ companyId, fromDate, toDate })}`,
+    );
   }
 
-  async getSmsCostAnalytics(companyId: string, options?: { fromDate?: string; toDate?: string; groupBy?: 'day' | 'week' | 'month' | 'provider' | 'messageType' }) {
+  async getSmsCostAnalytics(
+    companyId: string,
+    options?: { fromDate?: string; toDate?: string; groupBy?: 'day' | 'week' | 'month' | 'provider' | 'messageType' },
+  ) {
     if (!companyId) throw new Error('companyId is required');
-    return this.request<Record<string, unknown>>('GET', `/api/admin/sms-logs/cost-analytics${this.buildQuery({ companyId, ...options })}`);
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/admin/sms-logs/cost-analytics${this.buildQuery({ companyId, ...options })}`,
+    );
   }
 
   // ── Two-Factor Admin ──
 
   async getTwoFactorUsers(query?: { pageNumber?: number; pageSize?: number }) {
-    return this.request<PagedResult<Record<string, unknown>>>('GET', `/api/admin/twofactor/users${this.buildQuery(query ?? {})}`);
+    return this.request<PagedResult<Record<string, unknown>>>(
+      'GET',
+      `/api/admin/twofactor/users${this.buildQuery(query ?? {})}`,
+    );
   }
 
   async getTwoFactorUserDetails(userId: string) {
     if (!userId) throw new Error('userId is required');
     return this.request<Record<string, unknown>>('GET', `/api/admin/twofactor/users/${encodeURIComponent(userId)}`);
+  }
+
+  // ── App Tier Admin ──
+
+  async getSubscription(appId: string, userId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/app-tiers/${encodeURIComponent(appId)}/subscriptions/${encodeURIComponent(userId)}`,
+    );
+  }
+
+  async subscribeUserToTier(appId: string, userId: string, tierId: string, pricingId?: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!tierId) throw new Error('tierId is required');
+    return this.request<Record<string, unknown>>('POST', `/api/app-tiers/${encodeURIComponent(appId)}/subscribe/user`, {
+      userId,
+      tierId,
+      pricingId,
+    });
+  }
+
+  async changeUserTier(appId: string, userId: string, newTierId: string, pricingId?: string, immediate = false) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!newTierId) throw new Error('newTierId is required');
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/change-tier/user`,
+      { userId, newTierId, pricingId, immediate },
+    );
+  }
+
+  async cancelUserSubscription(appId: string, userId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/cancel/user/${encodeURIComponent(userId)}`,
+    );
+  }
+
+  async subscribeCompanyToTier(appId: string, companyId: string, tierId: string, pricingId?: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!companyId) throw new Error('companyId is required');
+    if (!tierId) throw new Error('tierId is required');
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/subscribe/company`,
+      { companyId, tierId, pricingId },
+    );
+  }
+
+  async cancelCompanySubscription(appId: string, companyId: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!companyId) throw new Error('companyId is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/cancel/company/${encodeURIComponent(companyId)}`,
+    );
+  }
+
+  // ── Feature Overrides ──
+
+  async getFeatureOverrides(appId: string, userId?: string) {
+    if (!appId) throw new Error('appId is required');
+    const query = userId ? this.buildQuery({ userId }) : '';
+    return this.request<Record<string, unknown>[]>(
+      'GET',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/feature-overrides${query}`,
+    );
+  }
+
+  async setFeatureOverride(
+    appId: string,
+    userId: string | null,
+    featureCode: string,
+    isEnabled: boolean,
+    reason?: string,
+    expiresAt?: string,
+  ) {
+    if (!appId) throw new Error('appId is required');
+    if (!featureCode) throw new Error('featureCode is required');
+    return this.request<void>('POST', `/api/app-tiers/${encodeURIComponent(appId)}/admin/feature-overrides`, {
+      userId,
+      featureCode,
+      isEnabled,
+      reason,
+      expiresAt,
+    });
+  }
+
+  async removeFeatureOverride(appId: string, featureCode: string, userId?: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!featureCode) throw new Error('featureCode is required');
+    const query = userId ? this.buildQuery({ userId }) : '';
+    return this.request<void>(
+      'DELETE',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/feature-overrides/${encodeURIComponent(featureCode)}${query}`,
+    );
+  }
+
+  // ── Usage Limit Overrides ──
+
+  async updateUsageLimit(appId: string, limitCode: string, newMaxValue: number) {
+    if (!appId) throw new Error('appId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'PUT',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/${encodeURIComponent(limitCode)}`,
+      { maxValue: newMaxValue },
+    );
+  }
+
+  async resetUsage(appId: string, limitCode: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/${encodeURIComponent(limitCode)}/reset`,
+    );
+  }
+
+  async updateUserUsageLimit(appId: string, userId: string, limitCode: string, newMaxValue: number) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'PUT',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/user/${encodeURIComponent(userId)}/${encodeURIComponent(limitCode)}`,
+      { maxValue: newMaxValue },
+    );
+  }
+
+  async resetUserUsage(appId: string, userId: string, limitCode: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/user/${encodeURIComponent(userId)}/${encodeURIComponent(limitCode)}/reset`,
+    );
+  }
+
+  async updateCompanyUsageLimit(appId: string, companyId: string, limitCode: string, newMaxValue: number) {
+    if (!appId) throw new Error('appId is required');
+    if (!companyId) throw new Error('companyId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'PUT',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/company/${encodeURIComponent(companyId)}/${encodeURIComponent(limitCode)}`,
+      { maxValue: newMaxValue },
+    );
+  }
+
+  async resetCompanyUsage(appId: string, companyId: string, limitCode: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!companyId) throw new Error('companyId is required');
+    if (!limitCode) throw new Error('limitCode is required');
+    return this.request<void>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/usage-limits/company/${encodeURIComponent(companyId)}/${encodeURIComponent(limitCode)}/reset`,
+    );
+  }
+
+  // ── App Tier Tracking ──
+
+  async getTrackingMode(appId: string) {
+    if (!appId) throw new Error('appId is required');
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/app-tiers/${encodeURIComponent(appId)}/settings/tracking-mode`,
+    );
   }
 
   // ── Data Encryption ──
@@ -340,19 +553,31 @@ export class AdminClient {
   }
 
   async migrateAllEncryption(dryRun = true) {
-    return this.request<Record<string, unknown>>('POST', `/api/admin/dataencryption/migrate-all${this.buildQuery({ dryRun })}`);
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/admin/dataencryption/migrate-all${this.buildQuery({ dryRun })}`,
+    );
   }
 
   async migrateTotpSecrets(dryRun = true) {
-    return this.request<Record<string, unknown>>('POST', `/api/admin/dataencryption/migrate-totp-secrets${this.buildQuery({ dryRun })}`);
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/admin/dataencryption/migrate-totp-secrets${this.buildQuery({ dryRun })}`,
+    );
   }
 
   async migrateAiProviderKeys(dryRun = true) {
-    return this.request<Record<string, unknown>>('POST', `/api/admin/dataencryption/migrate-ai-provider-keys${this.buildQuery({ dryRun })}`);
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/admin/dataencryption/migrate-ai-provider-keys${this.buildQuery({ dryRun })}`,
+    );
   }
 
   async migratePaymentProviderSecrets(dryRun = true) {
-    return this.request<Record<string, unknown>>('POST', `/api/admin/dataencryption/migrate-payment-provider-secrets${this.buildQuery({ dryRun })}`);
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/api/admin/dataencryption/migrate-payment-provider-secrets${this.buildQuery({ dryRun })}`,
+    );
   }
 }
 
