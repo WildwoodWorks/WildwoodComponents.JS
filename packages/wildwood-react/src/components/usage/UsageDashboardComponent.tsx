@@ -1,4 +1,6 @@
+import type { AppTierLimitStatusModel, UserTierSubscriptionModel } from '@wildwood/core';
 import { useUsageDashboard } from '../../hooks/useUsageDashboard.js';
+import type { UseUsageDashboardOptions } from '../../hooks/useUsageDashboard.js';
 
 export interface UsageDashboardComponentProps {
   title?: string;
@@ -8,6 +10,22 @@ export interface UsageDashboardComponentProps {
   warningThreshold?: number;
   onUpgradeClick?: () => void;
   className?: string;
+  /**
+   * Override limit statuses instead of fetching from the Wildwood API.
+   * When provided, the internal useUsageDashboard() hook is still called
+   * but its limitStatuses are replaced with this value.
+   */
+  limitStatuses?: AppTierLimitStatusModel[];
+  /**
+   * Override subscription instead of fetching from the Wildwood API.
+   * When provided, replaces the internal hook's subscription data.
+   */
+  subscription?: UserTierSubscriptionModel | null;
+  /**
+   * Options passed to the internal useUsageDashboard() hook.
+   * Use this to configure refreshInterval or onMergeUsage callback.
+   */
+  usageDashboardOptions?: UseUsageDashboardOptions;
 }
 
 function getBarClass(percent: number, isExceeded: boolean, warningThreshold: number): string {
@@ -23,8 +41,15 @@ export function UsageDashboardComponent({
   warningThreshold = 80,
   onUpgradeClick,
   className,
+  limitStatuses: limitStatusesOverride,
+  subscription: subscriptionOverride,
+  usageDashboardOptions,
 }: UsageDashboardComponentProps) {
-  const { limitStatuses, subscription, loading, error, refresh } = useUsageDashboard();
+  const hook = useUsageDashboard(usageDashboardOptions);
+
+  const limitStatuses = limitStatusesOverride ?? hook.limitStatuses;
+  const subscription = subscriptionOverride !== undefined ? subscriptionOverride : hook.subscription;
+  const { loading, error, refresh } = hook;
 
   const anyAtWarning = limitStatuses.some((s) => s.usagePercent >= warningThreshold || s.isExceeded);
   const anyOverage = limitStatuses.some((s) => s.isExceeded && !s.isHardBlocked);

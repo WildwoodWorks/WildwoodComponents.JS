@@ -163,14 +163,25 @@ Forcing logout on 401 causes login loops during token refresh.
 
 #### `useUsageDashboard(options?)`
 
-Fetches all limit statuses and subscription info for the authenticated user. Auto-refreshes on interval.
+Fetches all limit statuses and subscription info for the authenticated user. Auto-refreshes on interval. Supports an `onMergeUsage` callback for apps that have local/real-time usage data to overlay onto the API-sourced limits.
 
 ```jsx
 import { useUsageDashboard } from '@wildwood/react';
 
-const { limitStatuses, subscription, features, loading, error, refresh } = useUsageDashboard({
+// Basic usage — API data only
+const { limitStatuses, subscription, loading, error, refresh } = useUsageDashboard({
   refreshInterval: 60000, // optional, ms
 });
+
+// With local usage merge — overlay real-time data onto API limits
+const { limitStatuses, rawLimitStatuses, subscription, loading, error, refresh } = useUsageDashboard({
+  onMergeUsage: (statuses, subscription) => {
+    // Fetch local usage and merge into statuses
+    // Return modified AppTierLimitStatusModel[] (sync or async)
+    return statuses.map(s => ({ ...s, currentUsage: localData[s.limitCode] ?? s.currentUsage }));
+  },
+});
+// limitStatuses = merged result, rawLimitStatuses = original API data
 ```
 
 #### `useSubscriptionAdmin()`
@@ -213,15 +224,23 @@ await admin.cancelUserSubscription(appId, userId);
 
 #### `UsageDashboardComponent` — Authenticated usage overview
 
-Shows progress bars (green/yellow/red) for each tier limit, current tier badge, period info, overage indicators, and upgrade CTA.
+Shows progress bars (green/yellow/red) for each tier limit, current tier badge, period info, overage indicators, and upgrade CTA. Supports override props for apps with local/real-time usage data.
 
 ```jsx
 import { UsageDashboardComponent } from '@wildwood/react';
 
+// Basic — uses internal useUsageDashboard() hook
 <UsageDashboardComponent
   showOverageInfo={true}
   warningThreshold={75}           // % at which bar turns yellow
   onUpgradeClick={() => navigate('/upgrade')}
+/>
+
+// With overrides — inject custom limitStatuses and/or subscription
+<UsageDashboardComponent
+  limitStatuses={mergedLimitStatuses}       // override API data with local/merged data
+  subscription={customSubscription}         // override subscription (optional)
+  usageDashboardOptions={{ onMergeUsage }}  // or use the hook's merge callback
 />
 ```
 
@@ -400,6 +419,8 @@ await admin.resetUserUsage(appId, userId, 'LIMIT_CODE');
 | Custom signup + subscribe flow | Use `SignupWithSubscriptionComponent` |
 | Manually wiring individual subscription panels | Use `SubscriptionAdminComponent` (single component with tabs) |
 | Using admin subscribe endpoint for end-users | Set `selfService={true}` on `SubscriptionAdminComponent` |
+| Duplicating usage merge logic across pages | Use `useUsageDashboard({ onMergeUsage })` or `UsageDashboardComponent` `limitStatuses` prop |
+| Building a custom usage dashboard for local data | Pass `limitStatuses` override to `UsageDashboardComponent`, or use `onMergeUsage` callback in the hook |
 
 ### Debugging empty subscription/tier data
 
