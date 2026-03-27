@@ -271,7 +271,9 @@ export class AppTierService {
 
   async getFeatureDefinitions(appId: string): Promise<AppFeatureDefinitionModel[]> {
     try {
-      const { data } = await this.http.get<AppFeatureDefinitionModel[]>(`api/app-feature-definitions/${appId}/active`);
+      const { data } = await this.http.get<AppFeatureDefinitionModel[]>(
+        `api/app-feature-definitions/${appId}?activeOnly=true`,
+      );
       return data ?? [];
     } catch {
       return [];

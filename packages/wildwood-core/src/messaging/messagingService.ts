@@ -25,7 +25,9 @@ export class MessagingService {
 
   // Threads
   async getThreads(companyAppId: string): Promise<MessageThread[]> {
-    const { data } = await this.http.get<MessageThread[]>(`api/messaging/${companyAppId}/threads`);
+    const { data } = await this.http.get<MessageThread[]>(
+      `api/messaging/threads?companyAppId=${encodeURIComponent(companyAppId)}`,
+    );
     return data ?? [];
   }
 
@@ -44,7 +46,8 @@ export class MessagingService {
     participantIds: string[],
     threadType: ThreadType = ThreadType.Direct,
   ): Promise<MessageThread> {
-    const { data } = await this.http.post<MessageThread>(`api/messaging/${companyAppId}/threads`, {
+    const { data } = await this.http.post<MessageThread>('api/messaging/threads', {
+      companyAppId,
       subject,
       participantIds,
       threadType,
@@ -66,7 +69,8 @@ export class MessagingService {
     messageType: MessageType = MessageType.Text,
     replyToMessageId?: string,
   ): Promise<SecureMessage> {
-    const { data } = await this.http.post<SecureMessage>(`api/messaging/threads/${threadId}/messages`, {
+    const { data } = await this.http.post<SecureMessage>('api/messaging/messages', {
+      threadId,
       content,
       messageType,
       replyToMessageId,
@@ -132,13 +136,15 @@ export class MessagingService {
 
   // Users
   async getCompanyAppUsers(companyAppId: string): Promise<CompanyAppUser[]> {
-    const { data } = await this.http.get<CompanyAppUser[]>(`api/messaging/${companyAppId}/users`);
+    const { data } = await this.http.get<CompanyAppUser[]>(
+      `api/messaging/users?companyAppId=${encodeURIComponent(companyAppId)}`,
+    );
     return data ?? [];
   }
 
   async searchUsers(companyAppId: string, searchTerm: string): Promise<CompanyAppUser[]> {
     const { data } = await this.http.get<CompanyAppUser[]>(
-      `api/messaging/${companyAppId}/users/search?q=${encodeURIComponent(searchTerm)}`,
+      `api/messaging/users/search?companyAppId=${encodeURIComponent(companyAppId)}&q=${encodeURIComponent(searchTerm)}`,
     );
     return data ?? [];
   }
@@ -169,7 +175,7 @@ export class MessagingService {
 
   // Attachments
   async downloadAttachment(attachmentId: string): Promise<ArrayBuffer> {
-    const { data } = await this.http.get<ArrayBuffer>(`api/messaging/attachments/${attachmentId}/download`);
+    const { data } = await this.http.get<ArrayBuffer>(`api/messaging/attachments/${attachmentId}`);
     return data;
   }
 
@@ -179,18 +185,19 @@ export class MessagingService {
   ): Promise<{ attachmentId: string; fileName: string; fileSize: number; contentType: string }> {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('threadId', threadId);
     const { data } = await this.http.post<{
       attachmentId: string;
       fileName: string;
       fileSize: number;
       contentType: string;
-    }>(`api/messaging/threads/${threadId}/attachments`, formData);
+    }>('api/messaging/attachments', formData);
     return data;
   }
 
   // Search
   async searchMessages(companyAppId: string, searchTerm: string, threadId?: string): Promise<MessageSearchResult[]> {
-    let url = `api/messaging/${companyAppId}/search?q=${encodeURIComponent(searchTerm)}`;
+    let url = `api/messaging/search?companyAppId=${encodeURIComponent(companyAppId)}&q=${encodeURIComponent(searchTerm)}`;
     if (threadId) url += `&threadId=${encodeURIComponent(threadId)}`;
     const { data } = await this.http.get<MessageSearchResult[]>(url);
     return data ?? [];
@@ -199,7 +206,7 @@ export class MessagingService {
   // Online status
   async updateOnlineStatus(companyAppId: string, status: UserStatus, statusMessage?: string): Promise<boolean> {
     try {
-      await this.http.post(`api/messaging/${companyAppId}/status`, { status, statusMessage });
+      await this.http.post('api/messaging/status', { companyAppId, status, statusMessage });
       return true;
     } catch {
       return false;
@@ -207,7 +214,9 @@ export class MessagingService {
   }
 
   async getOnlineStatuses(companyAppId: string): Promise<OnlineStatus[]> {
-    const { data } = await this.http.get<OnlineStatus[]>(`api/messaging/${companyAppId}/statuses`);
+    const { data } = await this.http.get<OnlineStatus[]>(
+      `api/messaging/status?companyAppId=${encodeURIComponent(companyAppId)}`,
+    );
     return data ?? [];
   }
 

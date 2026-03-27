@@ -442,9 +442,10 @@ SDK service methods (`getUserSubscription`, `getUserFeatures`, `getFeatureDefini
 ## WildwoodAPI Connection
 
 Default test configuration — see `WildwoodComponentsTestSuite.React/.env.example`:
-- **API URL**: https://api.wildwoodworks.com.co/api/
+- **API URL**: Set via `VITE_API_BASE_URL` environment variable (e.g., `https://api.wildwoodworks.io/`)
 - **AppId**: Set via `VITE_APP_ID` environment variable
 - **Test user**: Configure in `.env` file (not committed)
+- **No hardcoded production URLs** — all API URLs must come from environment variables or WildwoodProvider config
 
 ## Related Projects
 

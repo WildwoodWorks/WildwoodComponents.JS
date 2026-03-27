@@ -168,7 +168,7 @@ export function AuthenticationComponent({
     </>
   );
 
-  const renderSubmitButton = (label: string, loadingLabel: string, onPress: () => void) => (
+  const renderSubmitButton = (label: string, _loadingLabel: string, onPress: () => void) => (
     <Pressable style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={onPress} disabled={loading}>
       {loading ? (
         <ActivityIndicator color="#fff" size="small" />

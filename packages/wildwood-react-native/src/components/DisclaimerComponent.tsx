@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import type { PendingDisclaimersResponse } from '@wildwood/core';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 
 export interface DisclaimerComponentProps {

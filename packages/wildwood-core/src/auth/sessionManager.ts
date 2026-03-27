@@ -19,7 +19,7 @@ const RECENT_REFRESH_WINDOW_MS = 30_000; // 30 seconds
 
 export class SessionManager {
   private currentUser: AuthenticationResponse | null = null;
-  private sessionExpiry: number | null = null; // epoch ms
+  private sessionExpiry: Date | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private isInitializedFlag = false;
   private disposed = false;
@@ -80,8 +80,8 @@ export class SessionManager {
       // Restore session expiry
       const expiryStr = await this.storage.getItem(SESSION_KEYS.sessionExpiry);
       if (expiryStr) {
-        const expiry = parseInt(expiryStr, 10);
-        if (!isNaN(expiry)) {
+        const expiry = new Date(expiryStr);
+        if (!isNaN(expiry.getTime())) {
           this.sessionExpiry = expiry;
           if (this.isSessionExpired()) {
             await this.clearStorage();
@@ -124,11 +124,11 @@ export class SessionManager {
     try {
       this.currentUser = authResponse;
       const expirationMinutes = this.config.sessionExpirationMinutes ?? 60;
-      this.sessionExpiry = Date.now() + expirationMinutes * 60 * 1000;
+      this.sessionExpiry = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
-      // Persist
+      // Persist (ISO 8601 format to match .NET WildwoodSessionManager)
       await this.storage.setItem(SESSION_KEYS.authData, JSON.stringify(authResponse));
-      await this.storage.setItem(SESSION_KEYS.sessionExpiry, String(this.sessionExpiry));
+      await this.storage.setItem(SESSION_KEYS.sessionExpiry, this.sessionExpiry.toISOString());
 
       // Schedule proactive refresh
       if (this.config.enableAutoTokenRefresh) {
@@ -275,14 +275,14 @@ export class SessionManager {
 
   private isSessionExpired(): boolean {
     if (this.sessionExpiry == null) return false;
-    return Date.now() > this.sessionExpiry;
+    return Date.now() > this.sessionExpiry.getTime();
   }
 
   private async extendSession(): Promise<void> {
     const expirationMinutes = this.config.sessionExpirationMinutes ?? 60;
-    this.sessionExpiry = Date.now() + expirationMinutes * 60 * 1000;
+    this.sessionExpiry = new Date(Date.now() + expirationMinutes * 60 * 1000);
     try {
-      await this.storage.setItem(SESSION_KEYS.sessionExpiry, String(this.sessionExpiry));
+      await this.storage.setItem(SESSION_KEYS.sessionExpiry, this.sessionExpiry.toISOString());
     } catch {
       // Storage write failures are non-fatal
     }

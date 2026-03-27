@@ -86,6 +86,26 @@ export function NavMenu() {
             Subscription Admin
           </NavLink>
         </li>
+        <li>
+          <NavLink to="/payment-form" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Payment Form
+          </NavLink>
+        </li>
+        <li>
+          <NavLink to="/subscription-manager" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Subscription Manager
+          </NavLink>
+        </li>
+        <li>
+          <NavLink to="/signup-with-subscription" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Signup + Subscription
+          </NavLink>
+        </li>
+        <li>
+          <NavLink to="/usage-dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Usage Dashboard
+          </NavLink>
+        </li>
         <li className="nav-section">Other</li>
         <li>
           <NavLink to="/disclaimer" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -95,6 +115,11 @@ export function NavMenu() {
         <li>
           <NavLink to="/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
             Notifications
+          </NavLink>
+        </li>
+        <li>
+          <NavLink to="/notification-toast" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Notification Toast
           </NavLink>
         </li>
         <li>

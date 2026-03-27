@@ -92,7 +92,7 @@ export function TokenRegistrationComponent({
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
   const [autoLoginComplete, setAutoLoginComplete] = useState(false);
   const [autoLoginError, setAutoLoginError] = useState('');
-  const [registrationResponse, setRegistrationResponse] = useState<AuthenticationResponse | null>(null);
+  const [_registrationResponse, setRegistrationResponse] = useState<AuthenticationResponse | null>(null);
 
   // Auth config (password requirements)
   const [authConfig, setAuthConfig] = useState<AuthenticationConfiguration | null>(null);

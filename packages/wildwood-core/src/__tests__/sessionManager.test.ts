@@ -110,9 +110,9 @@ describe('SessionManager', () => {
 
     it('clears expired session on init', async () => {
       const { session, storage, events } = createDeps();
-      const expiredMs = Date.now() - 1000; // already expired
+      const expiredDate = new Date(Date.now() - 1000); // already expired
 
-      await storage.setItem('ww_session_expiry', String(expiredMs));
+      await storage.setItem('ww_session_expiry', expiredDate.toISOString());
       await storage.setItem('ww_session_auth', '{}');
 
       const handler = vi.fn();
@@ -166,7 +166,8 @@ describe('SessionManager', () => {
 
       await session.login(mockAuthResponse());
 
-      const expiry = Number(await storage.getItem('ww_session_expiry'));
+      const expiryStr = await storage.getItem('ww_session_expiry');
+      const expiry = new Date(expiryStr!).getTime();
       const expectedExpiry = Date.now() + 30 * 60 * 1000;
       expect(expiry).toBeCloseTo(expectedExpiry, -2); // within ~100ms
     });
@@ -227,14 +228,14 @@ describe('SessionManager', () => {
       const { session, storage } = createDeps({ sessionExpirationMinutes: 60 });
       await session.login(mockAuthResponse());
 
-      const originalExpiry = Number(await storage.getItem('ww_session_expiry'));
+      const originalExpiry = new Date((await storage.getItem('ww_session_expiry')) as string).getTime();
 
       // Advance 30 minutes
       vi.advanceTimersByTime(30 * 60 * 1000);
 
       await session.touchSession();
 
-      const newExpiry = Number(await storage.getItem('ww_session_expiry'));
+      const newExpiry = new Date((await storage.getItem('ww_session_expiry')) as string).getTime();
       expect(newExpiry).toBeGreaterThan(originalExpiry);
     });
 
@@ -245,12 +246,12 @@ describe('SessionManager', () => {
       });
       await session.login(mockAuthResponse());
 
-      const originalExpiry = Number(await storage.getItem('ww_session_expiry'));
+      const originalExpiry = await storage.getItem('ww_session_expiry');
 
       vi.advanceTimersByTime(30 * 60 * 1000);
       await session.touchSession();
 
-      const newExpiry = Number(await storage.getItem('ww_session_expiry'));
+      const newExpiry = await storage.getItem('ww_session_expiry');
       expect(newExpiry).toBe(originalExpiry);
     });
   });

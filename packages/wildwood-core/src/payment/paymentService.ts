@@ -56,7 +56,12 @@ export class PaymentService {
     receiptData: string,
     providerType: PaymentProviderType,
   ): Promise<PaymentCompletionResult> {
-    const { data } = await this.http.post<PaymentCompletionResult>('api/payment/validate-receipt', {
+    // Use provider-specific endpoint (matches .NET PaymentProviderService)
+    const endpoint =
+      providerType === 10 /* AppleAppStore */
+        ? 'api/payment/validate-apple-receipt'
+        : 'api/payment/validate-google-receipt';
+    const { data } = await this.http.post<PaymentCompletionResult>(endpoint, {
       appId,
       receiptData,
       providerType,
@@ -124,13 +129,15 @@ export class SubscriptionService {
   constructor(private http: HttpClient) {}
 
   async getPlans(appId: string): Promise<SubscriptionPlan[]> {
-    const { data } = await this.http.get<SubscriptionPlan[]>(`api/subscriptions/${appId}/plans`);
+    const { data } = await this.http.get<SubscriptionPlan[]>(
+      `api/subscription/plans?appId=${encodeURIComponent(appId)}`,
+    );
     return data ?? [];
   }
 
   async getSubscription(subscriptionId: string): Promise<Subscription | null> {
     try {
-      const { data } = await this.http.get<Subscription>(`api/subscriptions/${subscriptionId}`);
+      const { data } = await this.http.get<Subscription>(`api/subscription/current/${subscriptionId}`);
       return data ?? null;
     } catch {
       return null;
@@ -138,12 +145,12 @@ export class SubscriptionService {
   }
 
   async getUserSubscriptions(): Promise<Subscription[]> {
-    const { data } = await this.http.get<Subscription[]>('api/subscriptions/my');
+    const { data } = await this.http.get<Subscription[]>('api/subscription/my');
     return data ?? [];
   }
 
   async subscribe(planId: string, paymentMethodId?: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>('api/subscriptions/subscribe', {
+    const { data } = await this.http.post<SubscriptionResult>('api/subscription/subscribe', {
       planId,
       paymentMethodId,
     });
@@ -151,24 +158,24 @@ export class SubscriptionService {
   }
 
   async cancelSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/cancel`);
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/cancel/${subscriptionId}`);
     return data;
   }
 
   async changePlan(subscriptionId: string, newPlanId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/change-plan`, {
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/upgrade/${subscriptionId}`, {
       newPlanId,
     });
     return data;
   }
 
   async pauseSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/pause`);
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/pause/${subscriptionId}`);
     return data;
   }
 
   async resumeSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscriptions/${subscriptionId}/resume`);
+    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/resume/${subscriptionId}`);
     return data;
   }
 }

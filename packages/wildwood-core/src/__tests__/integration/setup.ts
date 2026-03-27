@@ -114,7 +114,7 @@ export const handlers = [
   }),
 
   // Disclaimers - pending
-  http.get('https://test-api.example.com/api/disclaimers/:appId/pending', () => {
+  http.get('https://test-api.example.com/api/disclaimeracceptance/pending/:appId', () => {
     return HttpResponse.json({
       disclaimers: [
         { id: 'disc-1', title: 'Terms of Service', content: 'Please accept.', version: 1, versionId: 'v1' },
@@ -123,7 +123,7 @@ export const handlers = [
   }),
 
   // Disclaimers - accept
-  http.post('https://test-api.example.com/api/disclaimers/accept', () => {
+  http.post('https://test-api.example.com/api/disclaimeracceptance/accept', () => {
     return HttpResponse.json({ success: true });
   }),
 

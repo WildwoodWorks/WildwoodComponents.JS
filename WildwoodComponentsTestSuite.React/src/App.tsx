@@ -16,9 +16,14 @@ import { PaymentTest } from './pages/PaymentTest';
 import { SubscriptionTest } from './pages/SubscriptionTest';
 import { PricingDisplayTest } from './pages/PricingDisplayTest';
 import { SubscriptionAdminTest } from './pages/SubscriptionAdminTest';
+import { NotificationToastTest } from './pages/NotificationToastTest';
+import { PaymentFormTest } from './pages/PaymentFormTest';
+import { SignupWithSubscriptionTest } from './pages/SignupWithSubscriptionTest';
+import { SubscriptionManagerTest } from './pages/SubscriptionManagerTest';
+import { UsageDashboardTest } from './pages/UsageDashboardTest';
 
 const config = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.wildwoodworks.com.co/api/',
+  baseUrl: import.meta.env.VITE_API_BASE_URL,
   appId: import.meta.env.VITE_APP_ID || '',
   enableAutoTokenRefresh: true,
   sessionExpirationMinutes: 60,
@@ -44,6 +49,11 @@ export function App() {
           <Route path="subscription" element={<SubscriptionTest />} />
           <Route path="pricing-display" element={<PricingDisplayTest />} />
           <Route path="subscription-admin" element={<SubscriptionAdminTest />} />
+          <Route path="notification-toast" element={<NotificationToastTest />} />
+          <Route path="payment-form" element={<PaymentFormTest />} />
+          <Route path="signup-with-subscription" element={<SignupWithSubscriptionTest />} />
+          <Route path="subscription-manager" element={<SubscriptionManagerTest />} />
+          <Route path="usage-dashboard" element={<UsageDashboardTest />} />
         </Route>
       </Routes>
     </WildwoodProvider>

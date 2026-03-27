@@ -10,7 +10,7 @@ export default defineConfig({
     https: {},
     proxy: {
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'https://api.wildwoodworks.com.co/api/',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       },

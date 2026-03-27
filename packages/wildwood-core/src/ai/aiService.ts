@@ -185,7 +185,7 @@ export class AIService {
 
   async renameSession(sessionId: string, newName: string): Promise<boolean> {
     try {
-      await this.http.put(`api/ai/sessions/${sessionId}/rename`, { sessionName: newName });
+      await this.http.put(`api/ai/sessions/${sessionId}/name`, { newName });
       return true;
     } catch {
       return false;
@@ -195,7 +195,7 @@ export class AIService {
   // TTS
   async getTTSVoices(): Promise<TTSVoice[]> {
     try {
-      const { data } = await this.http.get<TTSVoice[]>('api/ai/tts/voices');
+      const { data } = await this.http.get<TTSVoice[]>('api/tts/voices');
       return data ?? [];
     } catch {
       return [];
@@ -204,7 +204,7 @@ export class AIService {
 
   async getTTSVoicesForConfiguration(configurationId: string): Promise<TTSVoice[]> {
     try {
-      const { data } = await this.http.get<TTSVoice[]>(`api/ai/tts/voices/${configurationId}`);
+      const { data } = await this.http.get<TTSVoice[]>(`api/tts/voices/configuration/${configurationId}`);
       return data ?? [];
     } catch {
       return [];
@@ -218,7 +218,7 @@ export class AIService {
     configurationId?: string,
   ): Promise<{ audioBase64: string; contentType: string } | null> {
     try {
-      const { data } = await this.http.post<{ audioBase64: string; contentType: string }>('api/ai/tts/synthesize', {
+      const { data } = await this.http.post<{ audioBase64: string; contentType: string }>('api/tts/synthesize/base64', {
         text,
         voice,
         speed,

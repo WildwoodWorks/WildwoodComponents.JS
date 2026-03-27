@@ -35,7 +35,7 @@ export function SignupWithSubscriptionComponent({
   preSelectedTierId,
   registrationToken: initialToken,
   requireToken = false,
-  allowOpenRegistration = true,
+  allowOpenRegistration: _allowOpenRegistration = true,
   skipTierSelection = false,
   currency = 'USD',
   onComplete,

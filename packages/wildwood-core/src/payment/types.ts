@@ -118,6 +118,7 @@ export interface InitiatePaymentResponse {
   approvalUrl?: string;
   orderId?: string;
   subscriptionId?: string;
+  requiresClientConfirmation?: boolean;
   errorMessage?: string;
   errorCode?: string;
   providerType: PaymentProviderType;
