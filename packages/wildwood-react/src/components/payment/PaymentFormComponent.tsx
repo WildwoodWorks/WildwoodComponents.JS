@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { getCurrencySymbol } from '@wildwood/core';

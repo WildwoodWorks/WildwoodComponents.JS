@@ -2,9 +2,15 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // RN components import react-native which can't run in Node.
-    // Only run tests that don't import react-native directly.
+    globals: true,
+    include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/dist/**'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/__tests__/**', '**/dist/**', '**/node_modules/**'],
+      reporter: ['text', 'lcov'],
+    },
   },
   resolve: {
     alias: {

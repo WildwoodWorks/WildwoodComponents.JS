@@ -1,3 +1,5 @@
+'use client';
+
 // ErrorBoundary - mirrors Blazor BaseWildwoodComponent automatic error handling
 // Catches render errors in child components and displays a fallback UI
 
@@ -52,11 +54,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="ww-error-content">
             <h3 className="ww-error-title">Something went wrong</h3>
             <p className="ww-error-message">{error.message}</p>
-            <button
-              type="button"
-              className="ww-btn-primary ww-error-retry"
-              onClick={this.reset}
-            >
+            <button type="button" className="ww-btn-primary ww-error-retry" onClick={this.reset}>
               Try Again
             </button>
           </div>

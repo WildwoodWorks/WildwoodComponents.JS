@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import type { AIChatResponse } from '@wildwood/core';
@@ -29,34 +31,37 @@ export function AIProxyComponent({
   const [error, setError] = useState<string | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
 
-  const handleSubmit = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!input.trim() || loading) return;
 
-    setError(null);
-    setResponse(null);
+      setError(null);
+      setResponse(null);
 
-    try {
-      const result = await sendMessage({
-        configurationId,
-        message: input.trim(),
-        saveToSession: false,
-      });
+      try {
+        const result = await sendMessage({
+          configurationId,
+          message: input.trim(),
+          saveToSession: false,
+        });
 
-      if (result.isError) {
-        setError(result.errorMessage ?? 'AI request failed');
-        onError?.(result.errorMessage ?? 'AI request failed');
-      } else {
-        setResponse(result.response);
-        setTokensUsed(result.tokensUsed);
-        onResponse?.(result);
+        if (result.isError) {
+          setError(result.errorMessage ?? 'AI request failed');
+          onError?.(result.errorMessage ?? 'AI request failed');
+        } else {
+          setResponse(result.response);
+          setTokensUsed(result.tokensUsed);
+          onResponse?.(result);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'AI request failed';
+        setError(msg);
+        onError?.(msg);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'AI request failed';
-      setError(msg);
-      onError?.(msg);
-    }
-  }, [input, loading, sendMessage, configurationId, onResponse, onError]);
+    },
+    [input, loading, sendMessage, configurationId, onResponse, onError],
+  );
 
   return (
     <div className={`ww-ai-proxy ${className ?? ''}`}>
@@ -81,9 +86,7 @@ export function AIProxyComponent({
       {response && (
         <div className="ww-ai-proxy-response">
           <div className="ww-ai-proxy-content">{response}</div>
-          {tokensUsed > 0 && (
-            <small className="ww-text-muted">Tokens used: {tokensUsed}</small>
-          )}
+          {tokensUsed > 0 && <small className="ww-text-muted">Tokens used: {tokensUsed}</small>}
         </div>
       )}
     </div>

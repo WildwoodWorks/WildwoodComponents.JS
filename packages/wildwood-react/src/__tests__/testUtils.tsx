@@ -1,4 +1,3 @@
-import React from 'react';
 import type { ReactNode } from 'react';
 import { WildwoodContext } from '../provider/WildwoodContext.js';
 import { createWildwoodClient } from '@wildwood/core';
@@ -13,10 +12,6 @@ export function createTestClient() {
 
 export function createWrapper(client = createTestClient()) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <WildwoodContext.Provider value={client}>
-        {children}
-      </WildwoodContext.Provider>
-    );
+    return <WildwoodContext.Provider value={client}>{children}</WildwoodContext.Provider>;
   };
 }

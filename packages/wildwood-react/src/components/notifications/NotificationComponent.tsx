@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback } from 'react';
 import { useNotifications } from '../../hooks/useNotifications.js';
 
@@ -9,9 +11,7 @@ export interface NotificationComponentProps {
  * Notification manager component - provides UI to trigger and manage notifications.
  * Complements NotificationToastComponent which renders the actual toasts.
  */
-export function NotificationComponent({
-  className,
-}: NotificationComponentProps) {
+export function NotificationComponent({ className }: NotificationComponentProps) {
   const { toasts, success, error, warning, info, dismiss, clear } = useNotifications();
 
   const [message, setMessage] = useState('');
@@ -22,10 +22,18 @@ export function NotificationComponent({
     if (!message.trim()) return;
     const titleVal = title.trim() || undefined;
     switch (type) {
-      case 'success': success(message, titleVal); break;
-      case 'error': error(message, titleVal); break;
-      case 'warning': warning(message, titleVal); break;
-      default: info(message, titleVal); break;
+      case 'success':
+        success(message, titleVal);
+        break;
+      case 'error':
+        error(message, titleVal);
+        break;
+      case 'warning':
+        warning(message, titleVal);
+        break;
+      default:
+        info(message, titleVal);
+        break;
     }
     setMessage('');
     setTitle('');
@@ -37,11 +45,7 @@ export function NotificationComponent({
         <h4>Send Notification</h4>
         <div className="ww-form-group">
           <label>Type</label>
-          <select
-            className="ww-form-control"
-            value={type}
-            onChange={(e) => setType(e.target.value as typeof type)}
-          >
+          <select className="ww-form-control" value={type} onChange={(e) => setType(e.target.value as typeof type)}>
             <option value="info">Info</option>
             <option value="success">Success</option>
             <option value="warning">Warning</option>
@@ -86,7 +90,10 @@ export function NotificationComponent({
               <span className={`ww-badge ww-badge-${toast.type === 'Error' ? 'danger' : toast.type.toLowerCase()}`}>
                 {toast.type}
               </span>
-              <span>{toast.title ? `${toast.title}: ` : ''}{toast.message}</span>
+              <span>
+                {toast.title ? `${toast.title}: ` : ''}
+                {toast.message}
+              </span>
               <button type="button" className="ww-btn-icon ww-btn-sm" onClick={() => dismiss(toast.id)}>
                 &times;
               </button>

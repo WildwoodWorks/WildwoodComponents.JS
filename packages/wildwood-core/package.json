@@ -28,8 +28,8 @@
     "@types/node": "^25.3.5",
     "@vitest/coverage-v8": "^4.0.18",
     "msw": "^2.12.10",
-    "tsup": "^8.4.0",
-    "typescript": "^5.7.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
