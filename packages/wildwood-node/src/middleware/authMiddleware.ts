@@ -1,16 +1,28 @@
 import type { Request, Response, NextFunction } from 'express';
-import { decodeToken, isTokenExpired, extractRoles } from '../utils/tokenValidator.js';
+import { validateTokenClaims, verifyToken, extractRoles } from '../utils/tokenValidator.js';
 import type { TokenValidationOptions } from '../utils/tokenValidator.js';
+import { createJwksClient } from '../utils/jwksClient.js';
+import type { JwksClient } from '../utils/jwksClient.js';
 
 export interface AuthMiddlewareOptions {
+  /**
+   * Wildwood API base URL (e.g. https://api.wildwoodworks.io).
+   * Used to auto-create a JWKS client for RS256 token verification when `jwksClient` is not provided.
+   */
   baseUrl: string;
   apiKey?: string;
   tokenHeader?: string;
   userProperty?: string;
   excludePaths?: string[];
   onError?: (error: Error, req: Request, res: Response) => void;
-  /** Optional issuer/audience/clock tolerance for local JWT validation */
+  /** Optional issuer/audience/clock tolerance for JWT claim validation */
   tokenValidation?: TokenValidationOptions;
+  /**
+   * JWKS client for RS256 signature verification.
+   * If omitted, one is auto-created from `baseUrl`.
+   * Set to `false` to disable signature verification entirely (decode-only mode).
+   */
+  jwksClient?: JwksClient | false;
 }
 
 export interface WildwoodUser {
@@ -36,7 +48,6 @@ declare global {
 export function createAuthMiddleware(options: AuthMiddlewareOptions) {
   const {
     baseUrl,
-    apiKey,
     tokenHeader = 'authorization',
     userProperty = 'wildwoodUser',
     excludePaths = [],
@@ -44,8 +55,8 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
     tokenValidation,
   } = options;
 
-  // Normalize baseUrl to remove trailing slash
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  // Auto-create JWKS client from baseUrl unless explicitly disabled
+  const jwksClient = options.jwksClient === false ? null : (options.jwksClient ?? createJwksClient(baseUrl));
 
   return async (req: Request, res: Response, next: NextFunction) => {
     // Check excluded paths
@@ -67,31 +78,38 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
 
     try {
-      // Decode and validate JWT locally
-      const payload = decodeToken(token);
+      let payload;
 
-      // Check expiration
-      const tolerance = tokenValidation?.clockToleranceSeconds ?? 0;
-      if (isTokenExpired(token, tolerance)) {
-        if (onError) {
-          return onError(new Error('Token has expired'), req, res);
-        }
-        return res.status(401).json({ error: 'Token has expired' });
-      }
+      if (jwksClient) {
+        // Full RS256 signature verification via JWKS
+        const result = await verifyToken(token, {
+          jwksClient,
+          issuer: tokenValidation?.issuer,
+          audience: tokenValidation?.audience,
+          clockToleranceSeconds: tokenValidation?.clockToleranceSeconds,
+        });
 
-      // Validate issuer/audience if configured
-      if (tokenValidation?.issuer && payload.iss !== tokenValidation.issuer) {
-        if (onError) {
-          return onError(new Error(`Invalid issuer: ${payload.iss}`), req, res);
+        if (!result.valid || !result.payload) {
+          const error = new Error(result.error ?? 'Token verification failed');
+          if (onError) {
+            return onError(error, req, res);
+          }
+          return res.status(401).json({ error: result.error ?? 'Invalid token' });
         }
-        return res.status(401).json({ error: 'Invalid token issuer' });
-      }
 
-      if (tokenValidation?.audience && payload.aud !== tokenValidation.audience) {
-        if (onError) {
-          return onError(new Error(`Invalid audience: ${payload.aud}`), req, res);
+        payload = result.payload;
+      } else {
+        // Decode-only mode (no signature verification)
+        const result = validateTokenClaims(token, tokenValidation);
+        if (!result.valid || !result.payload) {
+          const error = new Error(result.error ?? 'Token validation failed');
+          if (onError) {
+            return onError(error, req, res);
+          }
+          return res.status(401).json({ error: result.error ?? 'Invalid token' });
         }
-        return res.status(401).json({ error: 'Invalid token audience' });
+
+        payload = result.payload;
       }
 
       // Build user object from JWT claims

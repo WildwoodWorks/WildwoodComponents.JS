@@ -9,8 +9,19 @@ export { createRateLimitMiddleware } from './middleware/rateLimitMiddleware.js';
 export type { RateLimitOptions } from './middleware/rateLimitMiddleware.js';
 
 // Utils
-export { decodeToken, isTokenExpired, validateTokenClaims, extractRoles } from './utils/tokenValidator.js';
-export type { TokenPayload, TokenValidationOptions } from './utils/tokenValidator.js';
+export {
+  decodeToken,
+  decodeTokenHeader,
+  isTokenExpired,
+  validateTokenClaims,
+  verifyToken,
+  extractRoles,
+} from './utils/tokenValidator.js';
+export type { TokenPayload, TokenValidationOptions, TokenVerificationOptions } from './utils/tokenValidator.js';
+
+// JWKS
+export { JwksClient, verifyRS256Signature, createJwksClient } from './utils/jwksClient.js';
+export type { JwksKey, JwksResponse, JwksClientOptions } from './utils/jwksClient.js';
 
 // Admin
 export { AdminClient, createAdminClient } from './admin/adminClient.js';
