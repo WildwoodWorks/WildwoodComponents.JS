@@ -1,8 +1,9 @@
 // AuthenticationComponent - ported from WildwoodComponents.Blazor AuthenticationComponent
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
 
+import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { AuthenticationResponse } from '@wildwood/core';
+import type { AuthenticationResponse, PendingDisclaimerModel } from '@wildwood/core';
 import { openOAuthPopup, isPopupSupported } from '@wildwood/core';
 import { useAuthenticationLogic } from '@wildwood/react-shared';
 
@@ -150,6 +151,8 @@ export function AuthenticationComponent({
     onAuthenticationSuccess,
     onAuthenticationError,
   });
+
+  const [expandedDisclaimer, setExpandedDisclaimer] = useState<PendingDisclaimerModel | null>(null);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -733,6 +736,9 @@ export function AuthenticationComponent({
                   >
                     {d.contentFormat !== 'html' ? d.content : undefined}
                   </div>
+                  <button type="button" className="ww-disclaimer-expand-btn" onClick={() => setExpandedDisclaimer(d)}>
+                    Read Full Document
+                  </button>
                 </div>
               ))}
               <div className="ww-form-group">
@@ -747,6 +753,57 @@ export function AuthenticationComponent({
                     : `Accept${pendingAuth.pendingDisclaimers.length > 1 ? ` All (${pendingAuth.pendingDisclaimers.length})` : ''} & Continue`}
                 </button>
               </div>
+
+              {expandedDisclaimer && (
+                <div className="ww-disclaimer-modal-overlay" onClick={() => setExpandedDisclaimer(null)}>
+                  <div className="ww-disclaimer-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="ww-disclaimer-modal-header">
+                      <h3>{expandedDisclaimer.title}</h3>
+                      <button
+                        type="button"
+                        className="ww-disclaimer-modal-close"
+                        onClick={() => setExpandedDisclaimer(null)}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                    <div className="ww-disclaimer-modal-body">
+                      <div className="ww-disclaimer-modal-meta">
+                        {expandedDisclaimer.versionNumber != null && (
+                          <span className="ww-badge">v{expandedDisclaimer.versionNumber}</span>
+                        )}
+                        {expandedDisclaimer.disclaimerType && <span>{expandedDisclaimer.disclaimerType}</span>}
+                        {expandedDisclaimer.previouslyAcceptedVersion != null && (
+                          <span>Previously accepted: v{expandedDisclaimer.previouslyAcceptedVersion}</span>
+                        )}
+                      </div>
+                      {expandedDisclaimer.changeNotes && (
+                        <div className="ww-disclaimer-change-notes ww-disclaimer-modal-change-notes">
+                          <strong>What changed:</strong> {expandedDisclaimer.changeNotes}
+                        </div>
+                      )}
+                      <div
+                        dangerouslySetInnerHTML={
+                          expandedDisclaimer.contentFormat === 'html'
+                            ? { __html: sanitizeHtml(expandedDisclaimer.content) }
+                            : undefined
+                        }
+                      >
+                        {expandedDisclaimer.contentFormat !== 'html' ? expandedDisclaimer.content : undefined}
+                      </div>
+                    </div>
+                    <div className="ww-disclaimer-modal-footer">
+                      <button
+                        type="button"
+                        className="ww-btn ww-btn-primary"
+                        onClick={() => setExpandedDisclaimer(null)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

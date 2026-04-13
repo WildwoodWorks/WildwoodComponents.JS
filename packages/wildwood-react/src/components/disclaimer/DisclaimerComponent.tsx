@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../../hooks/useDisclaimer.js';
 
 // Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
@@ -33,6 +34,7 @@ export interface DisclaimerComponentProps {
 export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className }: DisclaimerComponentProps) {
   const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
   const [error, setError] = useState<string | null>(null);
+  const [expandedDisclaimer, setExpandedDisclaimer] = useState<PendingDisclaimerModel | null>(null);
 
   const pendingList = disclaimers?.disclaimers ?? [];
 
@@ -101,6 +103,9 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
                   <div className="ww-disclaimer-text">{d.content}</div>
                 )}
               </div>
+              <button type="button" className="ww-disclaimer-expand-btn" onClick={() => setExpandedDisclaimer(d)}>
+                Read Full Document
+              </button>
               <div className="ww-disclaimer-footer">
                 <button
                   type="button"
@@ -127,6 +132,49 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
             </div>
           )}
         </>
+      )}
+
+      {expandedDisclaimer && (
+        <div className="ww-disclaimer-modal-overlay" onClick={() => setExpandedDisclaimer(null)}>
+          <div className="ww-disclaimer-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ww-disclaimer-modal-header">
+              <h3>{expandedDisclaimer.title}</h3>
+              <button type="button" className="ww-disclaimer-modal-close" onClick={() => setExpandedDisclaimer(null)}>
+                &times;
+              </button>
+            </div>
+            <div className="ww-disclaimer-modal-body">
+              <div className="ww-disclaimer-modal-meta">
+                {expandedDisclaimer.versionNumber != null && (
+                  <span className="ww-badge">v{expandedDisclaimer.versionNumber}</span>
+                )}
+                {expandedDisclaimer.disclaimerType && <span>{expandedDisclaimer.disclaimerType}</span>}
+                {expandedDisclaimer.previouslyAcceptedVersion != null && (
+                  <span>Previously accepted: v{expandedDisclaimer.previouslyAcceptedVersion}</span>
+                )}
+              </div>
+              {expandedDisclaimer.changeNotes && (
+                <div className="ww-disclaimer-change-notes ww-disclaimer-modal-change-notes">
+                  <strong>What changed:</strong> {expandedDisclaimer.changeNotes}
+                </div>
+              )}
+              <div
+                dangerouslySetInnerHTML={
+                  expandedDisclaimer.contentFormat === 'html'
+                    ? { __html: sanitizeHtml(expandedDisclaimer.content) }
+                    : undefined
+                }
+              >
+                {expandedDisclaimer.contentFormat !== 'html' ? expandedDisclaimer.content : undefined}
+              </div>
+            </div>
+            <div className="ww-disclaimer-modal-footer">
+              <button type="button" className="ww-btn ww-btn-primary" onClick={() => setExpandedDisclaimer(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
