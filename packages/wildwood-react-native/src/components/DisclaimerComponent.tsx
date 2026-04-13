@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert, Modal } from 'react-native';
 import type { ViewStyle } from 'react-native';
+import type { PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 
 export interface DisclaimerComponentProps {
@@ -40,6 +41,7 @@ export function DisclaimerComponent({
   const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
 
   const [accepting, setAccepting] = useState(false);
+  const [expandedDisclaimer, setExpandedDisclaimer] = useState<PendingDisclaimerModel | null>(null);
 
   useEffect(() => {
     if (autoLoad) {
@@ -116,9 +118,22 @@ export function DisclaimerComponent({
             </View>
           </View>
 
+          {d.previouslyAcceptedVersion != null && (
+            <View style={styles.updateNotice}>
+              <Text style={styles.updateNoticeText}>
+                Updated from v{d.previouslyAcceptedVersion}
+                {d.changeNotes ? `: ${d.changeNotes}` : ''}
+              </Text>
+            </View>
+          )}
+
           <ScrollView style={styles.contentArea} nestedScrollEnabled>
             <Text style={styles.contentText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
           </ScrollView>
+
+          <Pressable style={styles.readFullButton} onPress={() => setExpandedDisclaimer(d)}>
+            <Text style={styles.readFullButtonText}>Read Full Document</Text>
+          </Pressable>
 
           <Pressable
             style={[styles.acceptButton, (accepting || loading) && styles.buttonDisabled]}
@@ -147,6 +162,58 @@ export function DisclaimerComponent({
           )}
         </Pressable>
       )}
+      <Modal
+        visible={expandedDisclaimer !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setExpandedDisclaimer(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setExpandedDisclaimer(null)}>
+          <View style={styles.modalContainer} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{expandedDisclaimer?.title}</Text>
+              <Pressable onPress={() => setExpandedDisclaimer(null)} hitSlop={8}>
+                <Text style={styles.modalCloseIcon}>{'\u00D7'}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.modalMeta}>
+              {expandedDisclaimer?.versionNumber != null && (
+                <View style={styles.versionBadge}>
+                  <Text style={styles.versionBadgeText}>v{expandedDisclaimer.versionNumber}</Text>
+                </View>
+              )}
+              {expandedDisclaimer?.disclaimerType ? (
+                <Text style={styles.metaText}>{expandedDisclaimer.disclaimerType}</Text>
+              ) : null}
+              {expandedDisclaimer?.previouslyAcceptedVersion != null && (
+                <Text style={styles.metaText}>
+                  Previously accepted: v{expandedDisclaimer.previouslyAcceptedVersion}
+                </Text>
+              )}
+            </View>
+            {expandedDisclaimer?.changeNotes ? (
+              <View style={styles.modalChangeNotes}>
+                <Text style={styles.changeNotesText}>
+                  <Text style={styles.changeNotesLabel}>What changed: </Text>
+                  {expandedDisclaimer.changeNotes}
+                </Text>
+              </View>
+            ) : null}
+            <ScrollView style={styles.modalScrollContent}>
+              <Text style={styles.modalContentText}>
+                {expandedDisclaimer?.contentFormat === 'html'
+                  ? stripHtml(expandedDisclaimer.content)
+                  : expandedDisclaimer?.content}
+              </Text>
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <Pressable style={styles.modalCloseButton} onPress={() => setExpandedDisclaimer(null)}>
+                <Text style={styles.modalCloseButtonText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -223,6 +290,32 @@ const styles = StyleSheet.create({
     color: '#555',
     lineHeight: 20,
   },
+  updateNotice: {
+    backgroundColor: '#EFF6FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  updateNoticeText: {
+    fontSize: 13,
+    color: '#1E40AF',
+  },
+  readFullButton: {
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  readFullButtonText: {
+    color: '#007AFF',
+    fontSize: 13,
+    fontWeight: '500',
+  },
   acceptButton: {
     backgroundColor: '#007AFF',
     borderRadius: 8,
@@ -251,6 +344,100 @@ const styles = StyleSheet.create({
   acceptAllButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '100%',
+    maxHeight: '85%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalCloseIcon: {
+    fontSize: 24,
+    color: '#6B7280',
+    lineHeight: 24,
+  },
+  modalMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  metaText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  modalChangeNotes: {
+    backgroundColor: '#EFF6FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  changeNotesText: {
+    fontSize: 13,
+    color: '#1E40AF',
+  },
+  changeNotesLabel: {
+    fontWeight: '600',
+  },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  modalContentText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 22,
+  },
+  modalFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'flex-end',
+  },
+  modalCloseButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  modalCloseButtonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '600',
   },
 });
