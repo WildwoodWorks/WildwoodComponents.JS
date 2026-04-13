@@ -35,7 +35,7 @@ export function AppTierComponent({
   title,
   subtitle,
   preSelectedTierId,
-  showAddOns = false,
+  showAddOns: _showAddOns = false,
   showBillingToggle = true,
   showCurrentPlan = true,
   showFeatureComparison = true,

@@ -49,7 +49,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const notifications = new NotificationService();
   const twoFactor = new TwoFactorService(http);
   const captcha = new CaptchaService();
-  const disclaimer = new DisclaimerService(http);
+  const disclaimer = new DisclaimerService(http, config.appId ?? '');
   const appTier = new AppTierService(http);
   const theme = new ThemeService(storage, events);
 

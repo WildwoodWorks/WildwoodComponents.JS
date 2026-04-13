@@ -46,7 +46,7 @@ export function useDisclaimer(): UseDisclaimerReturn {
     async (disclaimerId: string, versionId: string) => {
       setError(null);
       try {
-        const result = await client.disclaimer.acceptDisclaimer(disclaimerId, versionId);
+        const result = await client.disclaimer.acceptDisclaimer(disclaimerId, versionId, appId);
         await getPendingDisclaimers();
         return result;
       } catch (err) {
@@ -54,14 +54,14 @@ export function useDisclaimer(): UseDisclaimerReturn {
         throw err;
       }
     },
-    [client, getPendingDisclaimers],
+    [client, appId, getPendingDisclaimers],
   );
 
   const acceptAllDisclaimers = useCallback(
     async (acceptances: Array<{ disclaimerId: string; versionId: string }>) => {
       setError(null);
       try {
-        const result = await client.disclaimer.acceptAllDisclaimers(acceptances);
+        const result = await client.disclaimer.acceptAllDisclaimers(acceptances, appId);
         setDisclaimers(null);
         return result;
       } catch (err) {
@@ -69,7 +69,7 @@ export function useDisclaimer(): UseDisclaimerReturn {
         throw err;
       }
     },
-    [client],
+    [client, appId],
   );
 
   return { disclaimers, loading, error, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers };

@@ -61,7 +61,7 @@ export function AIChatComponent({
   const settings = { ...defaultSettings, ...userSettings };
   const {
     sessions,
-    loading,
+    loading: _loading,
     error: aiError,
     sendMessage,
     sendMessageWithFile,
@@ -106,7 +106,7 @@ export function AIChatComponent({
 
   // Speech-to-text state
   const [sttEnabled, setSttEnabled] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [isListening, _setIsListening] = useState(false);
 
   // File upload state
   const [pendingFile, setPendingFile] = useState<File | null>(null);

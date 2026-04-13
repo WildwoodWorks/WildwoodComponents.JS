@@ -36,7 +36,7 @@ export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFac
     setAuthenticatorCode,
   } = useTwoFactorLogic({
     onStatusChange,
-    confirmAction: (title, msg) => Promise.resolve(window.confirm(msg)),
+    confirmAction: (_title, msg) => Promise.resolve(window.confirm(msg)),
   });
 
   return (

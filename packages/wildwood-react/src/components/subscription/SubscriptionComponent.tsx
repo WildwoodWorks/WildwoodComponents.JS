@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { SubscriptionStatus, BillingInterval, formatPrice } from '@wildwood/core';
+import { SubscriptionStatus, formatPrice } from '@wildwood/core';
 import type { SubscriptionPlan } from '@wildwood/core';
 import { useSubscription } from '../../hooks/useSubscription.js';
 import { PaymentComponent } from '../payment/PaymentComponent.js';

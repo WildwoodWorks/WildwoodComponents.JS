@@ -151,7 +151,7 @@ export function PaymentComponent({
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [billingCountry, setBillingCountry] = useState('US');
+  const [_billingCountry, _setBillingCountry] = useState('US');
 
   // Stripe Elements state
   const stripeRef = useRef<StripeInstance | null>(null);

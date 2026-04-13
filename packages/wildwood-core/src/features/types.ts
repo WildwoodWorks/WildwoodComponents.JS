@@ -4,8 +4,8 @@
 export { type PendingDisclaimerModel } from '../auth/types.js';
 
 export interface DisclaimerAcceptanceResult {
-  companyDisclaimerId: string;
-  companyDisclaimerVersionId: string;
+  success: boolean;
+  message?: string;
 }
 
 export interface PendingDisclaimersResponse {

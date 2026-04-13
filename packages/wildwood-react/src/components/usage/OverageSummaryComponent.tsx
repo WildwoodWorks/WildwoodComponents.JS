@@ -21,7 +21,7 @@ export function OverageSummaryComponent({
   onViewDetails,
   className,
 }: OverageSummaryComponentProps) {
-  const { limitStatuses, loading } = useUsageDashboard();
+  const { limitStatuses, loading: _loading } = useUsageDashboard();
 
   const overageItems: OverageItem[] = useMemo(() => {
     return limitStatuses

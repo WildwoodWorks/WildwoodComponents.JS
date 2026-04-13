@@ -521,19 +521,27 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
     clearMessages();
     setIsLoading(true);
     try {
+      // Store JWT first so the acceptance API call is authenticated.
+      // The API returns tokens with pending disclaimers — we need them
+      // stored before calling the accept endpoint which requires [Authorize].
+      await client.session.login(pendingAuth);
+
       await client.disclaimer.acceptAllDisclaimers(
         pendingAuth.pendingDisclaimers.map((d) => ({
           disclaimerId: d.disclaimerId,
           versionId: d.versionId,
         })),
+        appId,
       );
-      await completeAuth(pendingAuth);
+
+      // Session already stored above, just fire the success callback
+      onAuthenticationSuccess?.(pendingAuth);
     } catch (err) {
       handleError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [pendingAuth, client, completeAuth, clearMessages, handleError]);
+  }, [pendingAuth, client, appId, onAuthenticationSuccess, clearMessages, handleError]);
 
   // ---------------------------------------------------------------------------
   // View helpers

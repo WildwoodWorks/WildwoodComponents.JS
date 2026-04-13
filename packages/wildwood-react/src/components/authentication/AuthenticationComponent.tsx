@@ -121,7 +121,6 @@ export function AuthenticationComponent({
     // Handlers
     clearMessages,
     handleError,
-    completeAuth,
     processAuthResponse,
     handleLogin,
     handleRegister,
@@ -712,7 +711,20 @@ export function AuthenticationComponent({
               <p className="ww-text-muted">Please review and accept the following before continuing.</p>
               {pendingAuth.pendingDisclaimers.map((d) => (
                 <div key={d.disclaimerId} className="ww-disclaimer-item">
-                  <h4>{d.title}</h4>
+                  <div className="ww-disclaimer-header">
+                    <h4>{d.title}</h4>
+                    {d.versionNumber != null && <span className="ww-badge">v{d.versionNumber}</span>}
+                  </div>
+                  {d.previouslyAcceptedVersion != null && (
+                    <p className="ww-text-muted ww-disclaimer-update-notice">
+                      Updated from v{d.previouslyAcceptedVersion} — please review the changes.
+                    </p>
+                  )}
+                  {d.changeNotes && (
+                    <div className="ww-disclaimer-change-notes">
+                      <strong>What changed:</strong> {d.changeNotes}
+                    </div>
+                  )}
                   <div
                     className="ww-disclaimer-content"
                     dangerouslySetInnerHTML={
@@ -730,7 +742,9 @@ export function AuthenticationComponent({
                   disabled={isLoading}
                   onClick={handleAcceptDisclaimers}
                 >
-                  {isLoading ? 'Accepting...' : 'Accept & Continue'}
+                  {isLoading
+                    ? 'Accepting...'
+                    : `Accept${pendingAuth.pendingDisclaimers.length > 1 ? ` All (${pendingAuth.pendingDisclaimers.length})` : ''} & Continue`}
                 </button>
               </div>
             </div>
