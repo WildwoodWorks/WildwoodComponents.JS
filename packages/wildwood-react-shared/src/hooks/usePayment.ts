@@ -16,8 +16,8 @@ export interface UsePaymentReturn {
   loading: boolean;
   error: string | null;
   savedMethods: SavedPaymentMethodDto[];
-  getAppPaymentConfiguration: () => Promise<AppPaymentConfigurationDto | null>;
-  getAvailableProviders: () => Promise<PlatformFilteredProvidersDto>;
+  getAppPaymentConfiguration: (appId?: string) => Promise<AppPaymentConfigurationDto | null>;
+  getAvailableProviders: (appId?: string) => Promise<PlatformFilteredProvidersDto>;
   initiatePayment: (request: InitiatePaymentRequest) => Promise<InitiatePaymentResponse>;
   confirmPayment: (
     paymentIntentId: string,
@@ -41,13 +41,19 @@ export function usePayment(): UsePaymentReturn {
 
   const appId = client.config.appId ?? '';
 
-  const getAppPaymentConfiguration = useCallback(async () => {
-    return client.payment.getAppPaymentConfiguration(appId);
-  }, [client, appId]);
+  const getAppPaymentConfiguration = useCallback(
+    async (overrideAppId?: string) => {
+      return client.payment.getAppPaymentConfiguration(overrideAppId ?? appId);
+    },
+    [client, appId],
+  );
 
-  const getAvailableProviders = useCallback(async () => {
-    return client.payment.getAvailableProviders(appId);
-  }, [client, appId]);
+  const getAvailableProviders = useCallback(
+    async (overrideAppId?: string) => {
+      return client.payment.getAvailableProviders(overrideAppId ?? appId);
+    },
+    [client, appId],
+  );
 
   const initiatePayment = useCallback(
     async (request: InitiatePaymentRequest) => {

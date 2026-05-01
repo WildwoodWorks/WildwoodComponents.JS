@@ -178,7 +178,7 @@ export function PaymentComponent({
     }
 
     const load = async () => {
-      const appConfig = await getAppPaymentConfiguration();
+      const appConfig = await getAppPaymentConfiguration(appId);
       if (appConfig) {
         setConfig(appConfig);
         const enabled = appConfig.providers?.filter((p) => p.isEnabled) ?? [];
