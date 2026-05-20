@@ -17,6 +17,8 @@ export interface UseAIReturn {
   error: string | null;
   sendMessage: (request: AIChatRequest) => Promise<AIChatResponse>;
   sendMessageWithFile: (request: AIChatRequest, file: File | Blob, fileName?: string) => Promise<AIChatResponse>;
+  sendProxyMessage: (request: AIChatRequest) => Promise<AIChatResponse>;
+  sendProxyMessageWithFile: (request: AIChatRequest, file: File | Blob, fileName?: string) => Promise<AIChatResponse>;
   getSessions: () => Promise<AISessionSummary[]>;
   getSession: (sessionId: string) => Promise<AISession | null>;
   createSession: (configName: string, title?: string) => Promise<AISession | null>;
@@ -64,6 +66,40 @@ export function useAI(): UseAIReturn {
       setError(null);
       try {
         return await client.ai.sendMessageWithFile(request, file, fileName);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'AI request failed';
+        setError(msg);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client],
+  );
+
+  const sendProxyMessage = useCallback(
+    async (request: AIChatRequest) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await client.ai.sendProxyMessage(request);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'AI request failed';
+        setError(msg);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client],
+  );
+
+  const sendProxyMessageWithFile = useCallback(
+    async (request: AIChatRequest, file: File | Blob, fileName?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await client.ai.sendProxyMessageWithFile(request, file, fileName);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);
@@ -158,6 +194,8 @@ export function useAI(): UseAIReturn {
     error,
     sendMessage,
     sendMessageWithFile,
+    sendProxyMessage,
+    sendProxyMessageWithFile,
     getSessions,
     getSession,
     createSession,

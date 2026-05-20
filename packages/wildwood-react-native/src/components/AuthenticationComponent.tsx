@@ -13,7 +13,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import type { AuthenticationResponse, PendingDisclaimerModel } from '@wildwood/core';
+import { sanitizeHtml, type AuthenticationResponse, type PendingDisclaimerModel } from '@wildwood/core';
 import { useAuthenticationLogic } from '@wildwood/react-shared';
 
 export interface AuthenticationComponentProps {
@@ -131,9 +131,10 @@ export function AuthenticationComponent({
     return '\u{1F511}'; // key (generic)
   };
 
-  // Strip HTML tags for plain text rendering in RN (no dangerouslySetInnerHTML)
-  const stripHtml = (html: string): string => {
-    return html
+  // Sanitize first (strips dangerous tags/attrs/URL schemes), then flatten to text for RN's <Text>.
+  // Mirrors DisclaimerComponent.renderHtmlAsText \u2014 defense-in-depth even though tags are eventually stripped.
+  const renderHtmlAsText = (html: string): string => {
+    return sanitizeHtml(html)
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n\n')
       .replace(/<\/li>/gi, '\n')
@@ -511,7 +512,9 @@ export function AuthenticationComponent({
               <Text style={styles.disclaimerChangeNotes}>What changed: {d.changeNotes}</Text>
             )}
             <ScrollView style={styles.disclaimerContent} nestedScrollEnabled>
-              <Text style={styles.disclaimerText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
+              <Text style={styles.disclaimerText}>
+                {d.contentFormat === 'html' ? renderHtmlAsText(d.content) : d.content}
+              </Text>
             </ScrollView>
           </View>
         ))}

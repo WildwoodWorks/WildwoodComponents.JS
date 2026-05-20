@@ -50,7 +50,10 @@ export class WildwoodError extends Error {
       else if (typeof obj.error === 'string') message = obj.error;
       else if (typeof obj.title === 'string') message = obj.title;
 
-      if (typeof obj.error === 'string') {
+      if (typeof obj.errorCode === 'string') {
+        code = WildwoodError.mapApiCode(obj.errorCode);
+      }
+      if (!code && typeof obj.error === 'string') {
         code = WildwoodError.mapApiCode(obj.error);
       }
 

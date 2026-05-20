@@ -19,11 +19,27 @@ export interface TTSVoice {
 }
 
 export class AIService {
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private appId?: string,
+  ) {}
 
   async sendMessage(request: AIChatRequest): Promise<AIChatResponse> {
+    return this.postChat('api/ai/chat', request);
+  }
+
+  /**
+   * Send a message via the AI proxy endpoint.
+   * Routes to POST /api/ai/proxy; the backing handler is identical to /api/ai/chat,
+   * but the proxy alias is the canonical endpoint for AIProxyComponent usage.
+   */
+  async sendProxyMessage(request: AIChatRequest): Promise<AIChatResponse> {
+    return this.postChat('api/ai/proxy', request);
+  }
+
+  private async postChat(endpoint: string, request: AIChatRequest): Promise<AIChatResponse> {
     try {
-      const { data } = await this.http.post<AIChatResponse>('api/ai/chat', request);
+      const { data } = await this.http.post<AIChatResponse>(endpoint, request);
       return data;
     } catch (err: unknown) {
       return this.parseErrorResponse(err);
@@ -36,6 +52,26 @@ export class AIService {
    * Mirrors Blazor's SendMessageWithFileAsync.
    */
   async sendMessageWithFile(request: AIChatRequest, file: File | Blob, fileName?: string): Promise<AIChatResponse> {
+    return this.sendFileRequest(request, file, fileName, false);
+  }
+
+  /**
+   * Send a file via the AI proxy endpoint. Mirrors WildwoodAIProxyService.SendRequestWithFileAsync.
+   */
+  async sendProxyMessageWithFile(
+    request: AIChatRequest,
+    file: File | Blob,
+    fileName?: string,
+  ): Promise<AIChatResponse> {
+    return this.sendFileRequest(request, file, fileName, true);
+  }
+
+  private async sendFileRequest(
+    request: AIChatRequest,
+    file: File | Blob,
+    fileName: string | undefined,
+    viaProxy: boolean,
+  ): Promise<AIChatResponse> {
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     // Use chunked encoding to avoid call stack limits with large files
@@ -50,12 +86,13 @@ export class AIService {
     const resolvedName = fileName ?? (file instanceof File ? file.name : 'attachment');
     const fileMediaType = file.type || getMediaTypeFromFileName(resolvedName);
 
-    return this.sendMessage({
+    const withFile: AIChatRequest = {
       ...request,
       fileBase64,
       fileMediaType,
       fileName: resolvedName,
-    });
+    };
+    return viaProxy ? this.sendProxyMessage(withFile) : this.sendMessage(withFile);
   }
 
   /**
@@ -124,8 +161,12 @@ export class AIService {
   }
 
   async getConfigurations(configurationType?: string): Promise<AIConfiguration[]> {
-    const params = configurationType ? `?configurationType=${encodeURIComponent(configurationType)}` : '';
-    const { data } = await this.http.get<AIConfiguration[]>(`api/ai/configurations${params}`);
+    const params = new URLSearchParams();
+    if (configurationType) params.set('configurationType', configurationType);
+    if (this.appId) params.set('requestedAppId', this.appId);
+    const query = params.toString();
+    const url = query ? `api/ai/configurations?${query}` : 'api/ai/configurations';
+    const { data } = await this.http.get<AIConfiguration[]>(url);
     return data ?? [];
   }
 

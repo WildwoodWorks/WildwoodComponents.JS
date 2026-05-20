@@ -36,6 +36,8 @@ export {
 export type { JwtPayload } from './auth/tokenUtils.js';
 export { openOAuthPopup, isPopupSupported } from './auth/oauthPopup.js';
 export type { OAuthPopupResult } from './auth/oauthPopup.js';
+export { AuthErrorCodes } from './auth/authErrorCodes.js';
+export type { AuthErrorCode } from './auth/authErrorCodes.js';
 export type {
   LoginRequest,
   RegistrationRequest,
@@ -208,6 +210,7 @@ export {
 
 // Utils
 export { formatTimestamp, formatFileSize } from './utils/formatUtils.js';
+export { sanitizeHtml } from './utils/htmlSanitizer.js';
 
 // Events
 export { WildwoodEventEmitter } from './events/eventEmitter.js';

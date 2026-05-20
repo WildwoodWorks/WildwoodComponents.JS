@@ -33,6 +33,7 @@ export class AuthService {
     private http: HttpClient,
     private storage: StorageAdapter,
     private events: WildwoodEventEmitter,
+    private defaultAppVersion: string = '1.0.0',
   ) {}
 
   /** Register a callback for auth state changes (used by SessionManager) */
@@ -60,7 +61,7 @@ export class AuthService {
       ProviderName: request.providerName,
       ProviderToken: request.providerToken,
       TrustedDeviceToken: request.trustedDeviceToken,
-      AppVersion: request.appVersion ?? '1.0.0',
+      AppVersion: request.appVersion ?? this.defaultAppVersion,
     };
 
     const { data } = await this.http.post<AuthenticationResponse>('api/auth/login', loginDto, { skipAuth: true });
@@ -328,7 +329,10 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await this.http.post('api/auth/logout');
+      const refreshToken = await this.storage.getItem(STORAGE_KEYS.refreshToken);
+      if (refreshToken) {
+        await this.http.post('api/auth/revoke-token', { RefreshToken: refreshToken });
+      }
     } catch {
       // Best-effort server logout
     } finally {

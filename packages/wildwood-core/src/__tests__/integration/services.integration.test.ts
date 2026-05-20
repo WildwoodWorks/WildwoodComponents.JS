@@ -39,6 +39,16 @@ describe('AI service integration (msw)', () => {
     expect(response.message).toBe('Echo: Hello AI');
   });
 
+  it('sendProxyMessage hits the proxy endpoint', async () => {
+    const client = await createAuthenticatedClient();
+    const response = await client.ai.sendProxyMessage({
+      message: 'Hello proxy',
+      configurationId: 'cfg-1',
+    });
+
+    expect(response.message).toBe('Proxy echo: Hello proxy');
+  });
+
   it('getFlowDefinitions returns flows', async () => {
     const client = await createAuthenticatedClient();
     const flows = await client.ai.getFlowDefinitions();

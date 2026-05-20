@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert, Modal } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import type { PendingDisclaimerModel } from '@wildwood/core';
+import { sanitizeHtml, type PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 
 export interface DisclaimerComponentProps {
@@ -14,8 +14,11 @@ export interface DisclaimerComponentProps {
   style?: ViewStyle;
 }
 
-const stripHtml = (html: string): string => {
-  return html
+// Sanitize first (strips dangerous tags/attrs/URL schemes), then flatten to text
+// for RN's <Text> renderer. Sanitizing first is defense-in-depth: nothing renders
+// HTML today, but it ensures script content can't leak through if a future renderer is swapped in.
+const renderHtmlAsText = (html: string): string => {
+  return sanitizeHtml(html)
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<\/li>/gi, '\n')
@@ -128,7 +131,9 @@ export function DisclaimerComponent({
           )}
 
           <ScrollView style={styles.contentArea} nestedScrollEnabled>
-            <Text style={styles.contentText}>{d.contentFormat === 'html' ? stripHtml(d.content) : d.content}</Text>
+            <Text style={styles.contentText}>
+              {d.contentFormat === 'html' ? renderHtmlAsText(d.content) : d.content}
+            </Text>
           </ScrollView>
 
           <Pressable style={styles.readFullButton} onPress={() => setExpandedDisclaimer(d)}>
@@ -202,7 +207,7 @@ export function DisclaimerComponent({
             <ScrollView style={styles.modalScrollContent}>
               <Text style={styles.modalContentText}>
                 {expandedDisclaimer?.contentFormat === 'html'
-                  ? stripHtml(expandedDisclaimer.content)
+                  ? renderHtmlAsText(expandedDisclaimer.content)
                   : expandedDisclaimer?.content}
               </Text>
             </ScrollView>

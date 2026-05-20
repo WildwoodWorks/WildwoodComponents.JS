@@ -98,6 +98,15 @@ export const handlers = [
     });
   }),
 
+  // AI - proxy (alias of /api/ai/chat used by AIProxyComponent)
+  http.post('https://test-api.example.com/api/ai/proxy', async ({ request }) => {
+    const body = (await request.json()) as Record<string, string>;
+    return HttpResponse.json({
+      message: `Proxy echo: ${body.message}`,
+      sessionId: body.sessionId || 'new-session',
+    });
+  }),
+
   // AI - flows
   http.get('https://test-api.example.com/api/ai/flows', () => {
     return HttpResponse.json([
