@@ -21,7 +21,7 @@ export interface TierPlansPanelProps {
   showBillingToggle?: boolean;
   currency?: string;
   enterpriseContactUrl?: string;
-  onTierSelected?: (args: TierSelectedEventArgs) => void;
+  onTierSelected?: (args: TierSelectedEventArgs) => void | Promise<void>;
   className?: string;
 }
 
@@ -45,7 +45,7 @@ export function TierPlansPanel({
       const pricing = getSelectedPricing(tier, billingAnnual);
       setProcessingTierId(tier.id);
       try {
-        onTierSelected?.({
+        await onTierSelected?.({
           tierId: tier.id,
           tierName: tier.name,
           pricingId: pricing?.id,
@@ -53,6 +53,9 @@ export function TierPlansPanel({
           isFreeTier: tier.isFreeTier,
           isChange: !!currentTierId && currentTierId !== tier.id,
         });
+      } catch {
+        // Consumer's error surfaces via useSubscriptionAdmin's `error` state;
+        // swallow here so the click doesn't produce an unhandled-promise warning.
       } finally {
         setProcessingTierId(null);
       }
@@ -108,6 +111,7 @@ export function TierPlansPanel({
               pricing={pricing}
               currency={currency}
               isCurrent={isCurrent}
+              hasSubscription={!!currentTierId}
               enterpriseContactUrl={enterpriseContactUrl}
               disabled={processingTierId === tier.id}
               processingText={processingTierId === tier.id ? 'Processing...' : undefined}

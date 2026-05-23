@@ -264,11 +264,10 @@ Tabbed admin interface for subscription management. Includes panels for subscrip
 ```jsx
 import { SubscriptionAdminComponent } from '@wildwood/react';
 
-// End-user self-service mode
+// End-user self-service (no userId / no companyId → routes through /my-subscription endpoints)
 <SubscriptionAdminComponent
   appId={APP_ID}
   showStatusAboveTabs={true}
-  selfService={true}
   showBillingToggle={true}
   currency="USD"
 />
@@ -283,8 +282,67 @@ import { SubscriptionAdminComponent } from '@wildwood/react';
 />
 ```
 
+Tier-switch routing (automatic, based on `args.isChange` from `TierPlansPanel`):
+- **No existing subscription** → `selfSubscribe` / `subscribeUserToTier` / `subscribeCompanyToTier` (creates).
+- **Existing subscription, different tier** → `changeTier` / `changeUserTier` / `changeCompanyTier` (uses `/my-subscription/change` endpoints).
+
+Server-side payment requirements on `ChangeTierAsync`:
+- **Free → paid**: requires `PaymentTransactionId` (or admin override). Error: `"Payment is required to upgrade from a free tier to a paid tier"`.
+- **Paid → paid upgrade** (new tier costs more per month than current): requires `PaymentTransactionId` (or admin override). Error: `"Payment is required to upgrade to a higher-priced tier"`. Prices are normalized to monthly using `PricingModel.BillingFrequency`, so monthly-vs-annual comparisons reflect the actual rate.
+- **Paid → paid downgrade, paid → free, free → free, same-price lateral move**: no payment required.
+- **Admin routes** (`POST /change-tier`, `POST /change-tier/company`): controllers set `IsAdminOverride=true` automatically and bypass payment checks regardless of the price delta.
+
+Wiring up payment for free → paid upgrades (`onPaymentRequired` extension point):
+
+```jsx
+import { SubscriptionAdminComponent, PaymentFormComponent } from '@wildwood/react';
+import { useState } from 'react';
+
+function MySubscriptionPage() {
+  const [paymentPrompt, setPaymentPrompt] = useState(null);
+  const resolveRef = useRef(null);
+
+  const handlePaymentRequired = ({ tierId, tierName, pricingId, price }) =>
+    new Promise((resolve) => {
+      resolveRef.current = resolve;
+      setPaymentPrompt({ tierId, tierName, pricingId, price });
+    });
+
+  const handlePaymentSuccess = (response) => {
+    resolveRef.current?.(response.paymentIntentId); // or orderId — provider-dependent
+    setPaymentPrompt(null);
+  };
+
+  const handlePaymentCancel = () => {
+    resolveRef.current?.(null);
+    setPaymentPrompt(null);
+  };
+
+  return (
+    <>
+      <SubscriptionAdminComponent
+        appId={APP_ID}
+        onPaymentRequired={handlePaymentRequired}
+      />
+      {paymentPrompt && (
+        <Modal onClose={handlePaymentCancel}>
+          <PaymentFormComponent
+            providerId={PROVIDER_ID}
+            appId={APP_ID}
+            amount={paymentPrompt.price}
+            description={`Upgrade to ${paymentPrompt.tierName}`}
+            onPaymentSuccess={handlePaymentSuccess}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+```
+
+The callback receives `{ tierId, tierName, pricingId, price }` and must return a payment transaction id (`string`) to retry, or `null`/`undefined` to cancel and surface the original error. Without the callback, the server's 400 propagates to the alert banner.
+
 Props:
-- `selfService` (default `false`): When true, uses `POST /my-subscription` (end-user). When false, uses admin subscribe endpoint.
 - `isAdmin` (default `false`): When true, enables admin controls: feature toggle overrides, usage limit editing/reset, and the Overrides tab.
 - `userId` (optional): When provided, uses user-scoped admin endpoints to manage a specific user's subscription, features, and usage.
 - `companyId` (optional): When provided, uses company-scoped endpoints for admin management of a specific company's subscription.
@@ -418,7 +476,8 @@ await admin.resetUserUsage(appId, userId, 'LIMIT_CODE');
 | Manually calling tier check endpoints | Use `useUsageDashboard()` hook |
 | Custom signup + subscribe flow | Use `SignupWithSubscriptionComponent` |
 | Manually wiring individual subscription panels | Use `SubscriptionAdminComponent` (single component with tabs) |
-| Using admin subscribe endpoint for end-users | Set `selfService={true}` on `SubscriptionAdminComponent` |
+| Using admin subscribe endpoint for end-users | Omit `userId` and `companyId` — `SubscriptionAdminComponent` routes self-service automatically |
+| Calling `appTier.subscribeTo` directly | Removed in favor of `selfSubscribe` (self) or `subscribeUserToTier` / `subscribeCompanyToTier` (admin). For switching tiers on an existing subscription, use `changeTier` / `changeUserTier` / `changeCompanyTier`. |
 | Duplicating usage merge logic across pages | Use `useUsageDashboard({ onMergeUsage })` or `UsageDashboardComponent` `limitStatuses` prop |
 | Building a custom usage dashboard for local data | Pass `limitStatuses` override to `UsageDashboardComponent`, or use `onMergeUsage` callback in the hook |
 

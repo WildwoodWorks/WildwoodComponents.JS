@@ -4,7 +4,6 @@ import { ComponentTestPage } from '../components/shared/ComponentTestPage';
 
 export function SubscriptionAdminTest() {
   const [isAdmin, setIsAdmin] = useState(true);
-  const [selfService, setSelfService] = useState(false);
   const [showStatusAboveTabs, setShowStatusAboveTabs] = useState(true);
   const [showBillingToggle, setShowBillingToggle] = useState(true);
   const [displayMode, setDisplayMode] = useState<string>('tabs');
@@ -19,7 +18,6 @@ export function SubscriptionAdminTest() {
       description="Full admin interface for subscription management: status, tier plans, features, add-ons, usage limits, and feature overrides."
       settings={{
         isAdmin: { type: 'boolean', value: isAdmin },
-        selfService: { type: 'boolean', value: selfService },
         showStatusAboveTabs: { type: 'boolean', value: showStatusAboveTabs },
         showBillingToggle: { type: 'boolean', value: showBillingToggle },
         displayMode: {
@@ -32,7 +30,6 @@ export function SubscriptionAdminTest() {
       }}
       onSettingChange={(key, value) => {
         if (key === 'isAdmin') setIsAdmin(value as boolean);
-        if (key === 'selfService') setSelfService(value as boolean);
         if (key === 'showStatusAboveTabs') setShowStatusAboveTabs(value as boolean);
         if (key === 'showBillingToggle') setShowBillingToggle(value as boolean);
         if (key === 'displayMode') setDisplayMode(value as string);
@@ -43,7 +40,6 @@ export function SubscriptionAdminTest() {
       <SubscriptionAdminComponent
         appId={appId}
         isAdmin={isAdmin}
-        selfService={selfService}
         showStatusAboveTabs={showStatusAboveTabs}
         showBillingToggle={showBillingToggle}
         displayMode={displayMode as 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides'}

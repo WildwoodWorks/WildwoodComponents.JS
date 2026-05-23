@@ -18,7 +18,6 @@ export interface SubscriptionAdminComponentProps {
   userId?: string;
   isAdmin?: boolean;
   displayMode?: SubscriptionAdminDisplayMode;
-  selfService?: boolean;
   currency?: string;
   showBillingToggle?: boolean;
   showStatusAboveTabs?: boolean;
@@ -34,7 +33,6 @@ export function SubscriptionAdminComponent({
   userId,
   isAdmin = false,
   displayMode = 'tabs',
-  selfService = false,
   currency = 'USD',
   showBillingToggle = true,
   showStatusAboveTabs = false,
@@ -68,18 +66,24 @@ export function SubscriptionAdminComponent({
 
   const handleTierSelected = useCallback(
     async (args: TierSelectedEventArgs) => {
-      if (userId) {
+      if (args.isChange) {
+        if (userId) {
+          await admin.changeUserTier(appId, userId, args.tierId, args.pricingId, true);
+        } else if (companyId) {
+          await admin.changeCompanyTier(appId, companyId, args.tierId, args.pricingId, true);
+        } else {
+          await admin.changeTier(appId, args.tierId, args.pricingId, true);
+        }
+      } else if (userId) {
         await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
       } else if (companyId) {
         await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
-      } else if (selfService) {
-        await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
       } else {
-        await admin.subscribeTo(appId, args.tierId, args.pricingId);
+        await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, userId, selfService, handleRefresh],
+    [admin, appId, companyId, userId, handleRefresh],
   );
 
   const handleAddOnSubscribe = useCallback(

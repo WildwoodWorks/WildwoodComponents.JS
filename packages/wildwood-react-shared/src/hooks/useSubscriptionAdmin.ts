@@ -60,13 +60,18 @@ export interface UseSubscriptionAdminReturn {
   getLimitStatuses: (appId: string) => Promise<AppTierLimitStatusModel[]>;
 
   // Actions
-  subscribeTo: (appId: string, tierId: string, pricingId?: string) => Promise<AppTierChangeResultModel>;
-  selfSubscribeTo: (appId: string, tierId: string, pricingId?: string) => Promise<AppTierChangeResultModel>;
+  selfSubscribeTo: (
+    appId: string,
+    tierId: string,
+    pricingId?: string,
+    paymentTransactionId?: string,
+  ) => Promise<AppTierChangeResultModel>;
   changeTier: (
     appId: string,
     tierId: string,
     pricingId?: string,
     immediate?: boolean,
+    paymentTransactionId?: string,
   ) => Promise<AppTierChangeResultModel>;
   cancelSubscription: (appId: string) => Promise<boolean>;
   subscribeToAddOn: (appId: string, addOnId: string, pricingId?: string) => Promise<boolean>;
@@ -304,23 +309,18 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   );
 
   // Actions
-  const subscribeTo = useCallback(
-    async (appId: string, tierId: string, pricingId?: string) => {
-      return wrap(() => clientRef.current.appTier.subscribeTo(appId, tierId, pricingId));
-    },
-    [wrap],
-  );
-
   const selfSubscribeTo = useCallback(
-    async (appId: string, tierId: string, pricingId?: string) => {
-      return wrap(() => clientRef.current.appTier.selfSubscribe(appId, tierId, pricingId));
+    async (appId: string, tierId: string, pricingId?: string, paymentTransactionId?: string) => {
+      return wrap(() => clientRef.current.appTier.selfSubscribe(appId, tierId, pricingId, paymentTransactionId));
     },
     [wrap],
   );
 
   const changeTier = useCallback(
-    async (appId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
-      return wrap(() => clientRef.current.appTier.changeTier(appId, tierId, pricingId, immediate));
+    async (appId: string, tierId: string, pricingId?: string, immediate?: boolean, paymentTransactionId?: string) => {
+      return wrap(() =>
+        clientRef.current.appTier.changeTier(appId, tierId, pricingId, immediate, paymentTransactionId),
+      );
     },
     [wrap],
   );
@@ -573,7 +573,6 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getFeatureOverrides,
     setFeatureOverride,
     removeFeatureOverride,
-    subscribeTo,
     selfSubscribeTo,
     changeTier,
     cancelSubscription,

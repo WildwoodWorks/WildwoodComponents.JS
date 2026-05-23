@@ -99,37 +99,22 @@ export class AppTierService {
   // ---------------------------------------------------------------------------
 
   /**
-   * Subscribe to a tier (admin endpoint).
-   */
-  async subscribeTo(
-    appId: string,
-    tierId: string,
-    pricingId?: string,
-    paymentTransactionId?: string,
-  ): Promise<AppTierChangeResultModel> {
-    const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/${appId}/subscribe`, {
-      AppId: appId,
-      AppTierId: tierId,
-      AppTierPricingId: pricingId,
-      PaymentTransactionId: paymentTransactionId,
-    });
-    return data;
-  }
-
-  /**
    * Self-service tier change for the authenticated user.
    * Uses POST /{appId}/my-subscription/change (SelfChangeTierDto).
+   * Pass paymentTransactionId when upgrading from a free tier to a paid tier.
    */
   async changeTier(
     appId: string,
     newTierId: string,
     newPricingId?: string,
     immediate = true,
+    paymentTransactionId?: string,
   ): Promise<AppTierChangeResultModel> {
     const { data } = await this.http.post<AppTierChangeResultModel>(`api/app-tiers/${appId}/my-subscription/change`, {
       NewAppTierId: newTierId,
       NewAppTierPricingId: newPricingId,
       Immediate: immediate,
+      PaymentTransactionId: paymentTransactionId,
     });
     return data;
   }

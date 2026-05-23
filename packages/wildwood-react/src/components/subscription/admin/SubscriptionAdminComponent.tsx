@@ -2,6 +2,7 @@
 // Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, usage, and overrides.
 
 import { useState, useEffect, useCallback } from 'react';
+import { WildwoodError } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel.js';
 import { TierPlansPanel } from './TierPlansPanel.js';
@@ -13,18 +14,39 @@ import { OverridesPanel } from './OverridesPanel.js';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
+export interface PaymentRequiredArgs {
+  tierId: string;
+  tierName: string;
+  pricingId?: string;
+  price?: number;
+}
+
+function isPaymentRequiredError(err: unknown): boolean {
+  return (
+    err instanceof WildwoodError &&
+    err.status === 400 &&
+    typeof err.message === 'string' &&
+    err.message.toLowerCase().includes('payment is required')
+  );
+}
+
 export interface SubscriptionAdminComponentProps {
   appId: string;
   companyId?: string;
   userId?: string;
   isAdmin?: boolean;
   displayMode?: SubscriptionAdminDisplayMode;
-  /** When true, use self-service endpoints (POST /my-subscription) instead of admin endpoints */
-  selfService?: boolean;
   currency?: string;
   showBillingToggle?: boolean;
   /** When true, render the subscription status card above the tab bar instead of as a tab */
   showStatusAboveTabs?: boolean;
+  /**
+   * Called when the server returns "Payment is required" for a tier change.
+   * Return a payment transaction id (string) to retry with payment, or null/undefined to cancel.
+   * If not provided, the error surfaces via the alert banner like any other failure.
+   * Consumers typically wire this to a modal containing PaymentFormComponent.
+   */
+  onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
   onSubscriptionChanged?: () => void;
   className?: string;
 }
@@ -37,10 +59,10 @@ export function SubscriptionAdminComponent({
   userId,
   isAdmin = false,
   displayMode = 'tabs',
-  selfService = false,
   currency = 'USD',
   showBillingToggle = true,
   showStatusAboveTabs = false,
+  onPaymentRequired,
   onSubscriptionChanged,
   className,
 }: SubscriptionAdminComponentProps) {
@@ -70,19 +92,45 @@ export function SubscriptionAdminComponent({
   }, [admin, appId, companyId, userId, handleRefresh]);
 
   const handleTierSelected = useCallback(
-    async (args: TierSelectedEventArgs) => {
-      if (userId) {
-        await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
-      } else if (companyId) {
-        await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
-      } else if (selfService) {
-        await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
-      } else {
-        await admin.subscribeTo(appId, args.tierId, args.pricingId);
+    async (args: TierSelectedEventArgs, paymentTransactionId?: string) => {
+      const attempt = async (txnId?: string) => {
+        if (args.isChange) {
+          if (userId) {
+            await admin.changeUserTier(appId, userId, args.tierId, args.pricingId, true);
+          } else if (companyId) {
+            await admin.changeCompanyTier(appId, companyId, args.tierId, args.pricingId, true);
+          } else {
+            await admin.changeTier(appId, args.tierId, args.pricingId, true, txnId);
+          }
+        } else if (userId) {
+          await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
+        } else if (companyId) {
+          await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
+        } else {
+          await admin.selfSubscribeTo(appId, args.tierId, args.pricingId, txnId);
+        }
+      };
+
+      try {
+        await attempt(paymentTransactionId);
+      } catch (err) {
+        if (isPaymentRequiredError(err) && onPaymentRequired) {
+          const txnId = await onPaymentRequired({
+            tierId: args.tierId,
+            tierName: args.tierName,
+            pricingId: args.pricingId,
+            price: args.price,
+          });
+          if (!txnId) throw err;
+          admin.clearError();
+          await attempt(txnId);
+        } else {
+          throw err;
+        }
       }
       await handleRefresh();
     },
-    [admin, appId, companyId, userId, selfService, handleRefresh],
+    [admin, appId, companyId, userId, onPaymentRequired, handleRefresh],
   );
 
   const handleAddOnSubscribe = useCallback(
