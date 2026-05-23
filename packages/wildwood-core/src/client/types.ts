@@ -9,6 +9,8 @@ export interface WildwoodConfig {
   apiKey?: string;
   /** Application identifier */
   appId?: string;
+  /** Application version sent with auth requests. Default: "1.0.0". */
+  appVersion?: string;
   /** Show detailed error messages (default: true) */
   enableDetailedErrors?: boolean;
   /** HTTP request timeout in seconds (default: 30) */

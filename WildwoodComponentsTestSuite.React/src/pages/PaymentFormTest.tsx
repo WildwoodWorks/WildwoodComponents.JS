@@ -43,7 +43,7 @@ export function PaymentFormTest() {
         description={description || undefined}
         customerId={customerId || undefined}
         onPaymentSuccess={(response) => {
-          log(`Payment success: transactionId=${response.transactionId ?? 'N/A'}`);
+          log(`Payment success: paymentIntentId=${response.paymentIntentId ?? 'N/A'}`);
           console.log('Payment success:', response);
         }}
         onPaymentError={(errorMsg) => {

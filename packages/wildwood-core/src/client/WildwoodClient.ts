@@ -40,9 +40,9 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const events = new WildwoodEventEmitter();
   const storage = createStorageAdapter(config.storage);
   const http = new HttpClient(config);
-  const auth = new AuthService(http, storage, events);
+  const auth = new AuthService(http, storage, events, config.appVersion);
   const session = new SessionManager(config, auth, storage, events, http);
-  const ai = new AIService(http);
+  const ai = new AIService(http, config.appId);
   const messaging = new MessagingService(http, storage);
   const payment = new PaymentService(http);
   const subscription = new SubscriptionService(http);

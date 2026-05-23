@@ -1,29 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { PendingDisclaimerModel } from '@wildwood/core';
+import { sanitizeHtml, type PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../../hooks/useDisclaimer.js';
-
-// Sanitize HTML by stripping dangerous tags/attributes while preserving safe content
-function sanitizeHtml(html: string): string {
-  if (typeof DOMParser === 'undefined') return html;
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const dangerous = doc.querySelectorAll('script, style, iframe, object, embed, form, link, meta');
-  dangerous.forEach((el) => el.remove());
-  const allElements = doc.querySelectorAll('*');
-  allElements.forEach((el) => {
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith('on') || attr.name === 'srcdoc' || attr.name === 'formaction') {
-        el.removeAttribute(attr.name);
-      }
-      if (attr.name === 'href' || attr.name === 'src' || attr.name === 'action') {
-        const val = attr.value.trim().toLowerCase();
-        if (val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('vbscript:')) {
-          el.removeAttribute(attr.name);
-        }
-      }
-    }
-  });
-  return doc.body.innerHTML;
-}
 
 export interface DisclaimerComponentProps {
   autoLoad?: boolean;
@@ -45,6 +22,15 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
       });
     }
   }, [autoLoad, getPendingDisclaimers]);
+
+  useEffect(() => {
+    if (!expandedDisclaimer) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpandedDisclaimer(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [expandedDisclaimer]);
 
   const handleAccept = useCallback(
     async (disclaimerId: string, versionId: string) => {
