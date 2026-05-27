@@ -2,7 +2,7 @@
 // Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, usage, and overrides.
 
 import { useState, useEffect, useCallback } from 'react';
-import type { TierChangePreviewModel } from '@wildwood/core';
+import type { TierChangePreviewModel, AppFeatureDefinitionModel } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel.js';
 import { TierPlansPanel } from './TierPlansPanel.js';
@@ -68,7 +68,9 @@ export function SubscriptionAdminComponent({
 
   useEffect(() => {
     if (appId) {
-      admin.refreshAll(appId, companyId, userId).catch((err) => console.warn('Failed to load subscription data:', err));
+      admin
+        .refreshAll(appId, companyId, userId)
+        .catch((e: unknown) => console.warn('Failed to load subscription data:', e));
     }
   }, [appId, companyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -98,7 +100,7 @@ export function SubscriptionAdminComponent({
         }
         setPendingArgs(args);
         setPreview(result);
-      } catch (err) {
+      } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn('Preview failed:', msg);
       }
@@ -267,7 +269,7 @@ export function SubscriptionAdminComponent({
   }
 
   // Merge feature definitions with status
-  const mergedFeatures = admin.featureDefinitions.map((def) => ({
+  const mergedFeatures = admin.featureDefinitions.map((def: AppFeatureDefinitionModel) => ({
     ...def,
     isEnabled: admin.featureStatus[def.featureCode] ?? false,
   }));
