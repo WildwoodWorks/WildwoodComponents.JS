@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
+import type { TierChangePreviewModel } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../hooks/useSubscriptionAdmin';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel';
 import { FeaturesPanel } from './FeaturesPanel';
@@ -9,8 +10,16 @@ import { UsageLimitsPanel } from './UsageLimitsPanel';
 import { OverridesPanel } from './OverridesPanel';
 import { TierPlansPanel } from './TierPlansPanel';
 import type { TierSelectedEventArgs } from './TierPlansPanel';
+import { TierChangeConfirmationModal } from './TierChangeConfirmationModal';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
+
+export interface PaymentRequiredArgs {
+  tierId: string;
+  tierName: string;
+  pricingId?: string;
+  price?: number;
+}
 
 export interface SubscriptionAdminComponentProps {
   appId: string;
@@ -21,6 +30,7 @@ export interface SubscriptionAdminComponentProps {
   currency?: string;
   showBillingToggle?: boolean;
   showStatusAboveTabs?: boolean;
+  onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
   onSubscriptionChanged?: () => void;
   style?: ViewStyle;
 }
@@ -36,11 +46,15 @@ export function SubscriptionAdminComponent({
   currency = 'USD',
   showBillingToggle = true,
   showStatusAboveTabs = false,
+  onPaymentRequired,
   onSubscriptionChanged,
   style,
 }: SubscriptionAdminComponentProps) {
   const admin = useSubscriptionAdmin();
   const [activeTab, setActiveTab] = useState<Tab>(showStatusAboveTabs ? 'tiers' : 'subscription');
+  const [preview, setPreview] = useState<TierChangePreviewModel | null>(null);
+  const [pendingArgs, setPendingArgs] = useState<TierSelectedEventArgs | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     if (appId) {
@@ -66,25 +80,89 @@ export function SubscriptionAdminComponent({
 
   const handleTierSelected = useCallback(
     async (args: TierSelectedEventArgs) => {
-      if (args.isChange) {
-        if (userId) {
-          await admin.changeUserTier(appId, userId, args.tierId, args.pricingId, true);
-        } else if (companyId) {
-          await admin.changeCompanyTier(appId, companyId, args.tierId, args.pricingId, true);
-        } else {
-          await admin.changeTier(appId, args.tierId, args.pricingId, true);
+      try {
+        const result = await admin.previewTierChange(appId, args.tierId, args.pricingId, userId);
+        if (!result.success) {
+          admin.clearError();
+          throw new Error(result.errorMessage ?? 'Failed to preview tier change');
         }
-      } else if (userId) {
-        await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
-      } else if (companyId) {
-        await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
-      } else {
-        await admin.selfSubscribeTo(appId, args.tierId, args.pricingId);
+        setPendingArgs(args);
+        setPreview(result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('Preview failed:', msg);
       }
-      await handleRefresh();
     },
-    [admin, appId, companyId, userId, handleRefresh],
+    [admin, appId, userId],
   );
+
+  const handleConfirmChange = useCallback(
+    async (options: { immediate: boolean; bypassPayment: boolean }) => {
+      if (!pendingArgs) return;
+      setConfirmLoading(true);
+      admin.clearError();
+
+      try {
+        const doChange = async (txnId?: string) => {
+          if (pendingArgs.isChange) {
+            if (userId) {
+              await admin.changeUserTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate);
+            } else if (companyId) {
+              await admin.changeCompanyTier(
+                appId,
+                companyId,
+                pendingArgs.tierId,
+                pendingArgs.pricingId,
+                options.immediate,
+              );
+            } else {
+              await admin.changeTier(appId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate, txnId);
+            }
+          } else if (userId) {
+            await admin.subscribeUserToTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId);
+          } else if (companyId) {
+            await admin.subscribeCompanyToTier(appId, companyId, pendingArgs.tierId, pendingArgs.pricingId);
+          } else {
+            await admin.selfSubscribeTo(appId, pendingArgs.tierId, pendingArgs.pricingId, txnId);
+          }
+        };
+
+        if (preview?.paymentRequired && !options.bypassPayment) {
+          if (!onPaymentRequired) {
+            admin.clearError();
+            throw new Error('Payment is required. Wire the onPaymentRequired callback to collect payment.');
+          }
+          const txnId = await onPaymentRequired({
+            tierId: pendingArgs.tierId,
+            tierName: pendingArgs.tierName,
+            pricingId: pendingArgs.pricingId,
+            price: preview.proratedChargeToday ?? preview.newPrice ?? 0,
+          });
+          if (!txnId) {
+            setConfirmLoading(false);
+            return;
+          }
+          await doChange(txnId);
+        } else {
+          await doChange();
+        }
+
+        setPreview(null);
+        setPendingArgs(null);
+        await handleRefresh();
+      } catch {
+        // Error surfaces via admin.error
+      } finally {
+        setConfirmLoading(false);
+      }
+    },
+    [admin, appId, companyId, userId, pendingArgs, preview, onPaymentRequired, handleRefresh],
+  );
+
+  const handleCancelConfirmation = useCallback(() => {
+    setPreview(null);
+    setPendingArgs(null);
+  }, []);
 
   const handleAddOnSubscribe = useCallback(
     async (addOnId: string, pricingId?: string) => {
@@ -329,6 +407,15 @@ export function SubscriptionAdminComponent({
         {activeTab === 'usage' ? usageContent : null}
         {activeTab === 'overrides' ? overridesContent : null}
       </View>
+
+      {preview ? (
+        <TierChangeConfirmationModal
+          preview={preview}
+          onConfirm={handleConfirmChange}
+          onCancel={handleCancelConfirmation}
+          loading={confirmLoading}
+        />
+      ) : null}
     </ScrollView>
   );
 }

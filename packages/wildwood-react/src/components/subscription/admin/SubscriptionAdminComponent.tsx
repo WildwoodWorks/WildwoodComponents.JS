@@ -2,7 +2,7 @@
 // Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, usage, and overrides.
 
 import { useState, useEffect, useCallback } from 'react';
-import { WildwoodError } from '@wildwood/core';
+import type { TierChangePreviewModel } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel.js';
 import { TierPlansPanel } from './TierPlansPanel.js';
@@ -11,6 +11,7 @@ import { FeaturesPanel } from './FeaturesPanel.js';
 import { AddOnsPanel } from './AddOnsPanel.js';
 import { UsageLimitsPanel } from './UsageLimitsPanel.js';
 import { OverridesPanel } from './OverridesPanel.js';
+import { TierChangeConfirmationModal } from '../TierChangeConfirmationModal.js';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
@@ -19,15 +20,6 @@ export interface PaymentRequiredArgs {
   tierName: string;
   pricingId?: string;
   price?: number;
-}
-
-function isPaymentRequiredError(err: unknown): boolean {
-  return (
-    err instanceof WildwoodError &&
-    err.status === 400 &&
-    typeof err.message === 'string' &&
-    err.message.toLowerCase().includes('payment is required')
-  );
 }
 
 export interface SubscriptionAdminComponentProps {
@@ -41,12 +33,13 @@ export interface SubscriptionAdminComponentProps {
   /** When true, render the subscription status card above the tab bar instead of as a tab */
   showStatusAboveTabs?: boolean;
   /**
-   * Called when the server returns "Payment is required" for a tier change.
-   * Return a payment transaction id (string) to retry with payment, or null/undefined to cancel.
-   * If not provided, the error surfaces via the alert banner like any other failure.
+   * Called when the server confirms a tier change requires payment and no card on file.
+   * Return a payment transaction id (string) to complete the change, or null/undefined to cancel.
    * Consumers typically wire this to a modal containing PaymentFormComponent.
    */
   onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
+  /** Override the internally-fetched limit statuses (e.g. with locally-merged real-time usage data) */
+  limitStatusesOverride?: unknown[];
   onSubscriptionChanged?: () => void;
   className?: string;
 }
@@ -63,11 +56,15 @@ export function SubscriptionAdminComponent({
   showBillingToggle = true,
   showStatusAboveTabs = false,
   onPaymentRequired,
+  limitStatusesOverride,
   onSubscriptionChanged,
   className,
 }: SubscriptionAdminComponentProps) {
   const admin = useSubscriptionAdmin();
   const [activeTab, setActiveTab] = useState<Tab>(showStatusAboveTabs ? 'tiers' : 'subscription');
+  const [preview, setPreview] = useState<TierChangePreviewModel | null>(null);
+  const [pendingArgs, setPendingArgs] = useState<TierSelectedEventArgs | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     if (appId) {
@@ -92,46 +89,92 @@ export function SubscriptionAdminComponent({
   }, [admin, appId, companyId, userId, handleRefresh]);
 
   const handleTierSelected = useCallback(
-    async (args: TierSelectedEventArgs, paymentTransactionId?: string) => {
-      const attempt = async (txnId?: string) => {
-        if (args.isChange) {
-          if (userId) {
-            await admin.changeUserTier(appId, userId, args.tierId, args.pricingId, true);
-          } else if (companyId) {
-            await admin.changeCompanyTier(appId, companyId, args.tierId, args.pricingId, true);
-          } else {
-            await admin.changeTier(appId, args.tierId, args.pricingId, true, txnId);
-          }
-        } else if (userId) {
-          await admin.subscribeUserToTier(appId, userId, args.tierId, args.pricingId);
-        } else if (companyId) {
-          await admin.subscribeCompanyToTier(appId, companyId, args.tierId, args.pricingId);
-        } else {
-          await admin.selfSubscribeTo(appId, args.tierId, args.pricingId, txnId);
+    async (args: TierSelectedEventArgs) => {
+      try {
+        const result = await admin.previewTierChange(appId, args.tierId, args.pricingId, userId);
+        if (!result.success) {
+          admin.clearError();
+          throw new Error(result.errorMessage ?? 'Failed to preview tier change');
         }
-      };
+        setPendingArgs(args);
+        setPreview(result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('Preview failed:', msg);
+      }
+    },
+    [admin, appId, userId],
+  );
+
+  const handleConfirmChange = useCallback(
+    async (options: { immediate: boolean; bypassPayment: boolean }) => {
+      if (!pendingArgs) return;
+      setConfirmLoading(true);
+      admin.clearError();
 
       try {
-        await attempt(paymentTransactionId);
-      } catch (err) {
-        if (isPaymentRequiredError(err) && onPaymentRequired) {
+        const doChange = async (txnId?: string) => {
+          if (pendingArgs.isChange) {
+            if (userId) {
+              await admin.changeUserTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate);
+            } else if (companyId) {
+              await admin.changeCompanyTier(
+                appId,
+                companyId,
+                pendingArgs.tierId,
+                pendingArgs.pricingId,
+                options.immediate,
+              );
+            } else {
+              await admin.changeTier(appId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate, txnId);
+            }
+          } else if (userId) {
+            await admin.subscribeUserToTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId);
+          } else if (companyId) {
+            await admin.subscribeCompanyToTier(appId, companyId, pendingArgs.tierId, pendingArgs.pricingId);
+          } else {
+            await admin.selfSubscribeTo(appId, pendingArgs.tierId, pendingArgs.pricingId, txnId);
+          }
+        };
+
+        if (preview?.paymentRequired && !options.bypassPayment) {
+          if (!onPaymentRequired) {
+            admin.clearError();
+            throw new Error(
+              'Payment is required for this tier change. Wire the onPaymentRequired callback to collect payment.',
+            );
+          }
           const txnId = await onPaymentRequired({
-            tierId: args.tierId,
-            tierName: args.tierName,
-            pricingId: args.pricingId,
-            price: args.price,
+            tierId: pendingArgs.tierId,
+            tierName: pendingArgs.tierName,
+            pricingId: pendingArgs.pricingId,
+            price: preview.proratedChargeToday ?? preview.newPrice ?? 0,
           });
-          if (!txnId) throw err;
-          admin.clearError();
-          await attempt(txnId);
+          if (!txnId) {
+            setConfirmLoading(false);
+            return;
+          }
+          await doChange(txnId);
         } else {
-          throw err;
+          await doChange();
         }
+
+        setPreview(null);
+        setPendingArgs(null);
+        await handleRefresh();
+      } catch {
+        // Error is surfaced via admin.error state
+      } finally {
+        setConfirmLoading(false);
       }
-      await handleRefresh();
     },
-    [admin, appId, companyId, userId, onPaymentRequired, handleRefresh],
+    [admin, appId, companyId, userId, pendingArgs, preview, onPaymentRequired, handleRefresh],
   );
+
+  const handleCancelConfirmation = useCallback(() => {
+    setPreview(null);
+    setPendingArgs(null);
+  }, []);
 
   const handleAddOnSubscribe = useCallback(
     async (addOnId: string, pricingId?: string) => {
@@ -253,7 +296,7 @@ export function SubscriptionAdminComponent({
 
   const usageLimitsPanel = (
     <UsageLimitsPanel
-      limitStatuses={admin.limitStatuses}
+      limitStatuses={(limitStatusesOverride as typeof admin.limitStatuses) ?? admin.limitStatuses}
       isAdmin={isAdmin}
       loading={admin.loading}
       onUpdateLimit={isAdmin ? handleUpdateLimit : undefined}
@@ -387,6 +430,15 @@ export function SubscriptionAdminComponent({
         {activeTab === 'usage' && usageLimitsPanel}
         {activeTab === 'overrides' && overridesPanel}
       </div>
+
+      {preview && (
+        <TierChangeConfirmationModal
+          preview={preview}
+          onConfirm={handleConfirmChange}
+          onCancel={handleCancelConfirmation}
+          loading={confirmLoading}
+        />
+      )}
     </div>
   );
 }

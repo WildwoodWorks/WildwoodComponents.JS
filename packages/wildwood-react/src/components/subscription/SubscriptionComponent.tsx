@@ -525,7 +525,7 @@ export function SubscriptionComponent({
 
                 <div className="ww-plan-footer">
                   {isCurrentPlan ? (
-                    <span className="ww-badge ww-badge-success">Current Plan</span>
+                    <span className="ww-btn ww-btn-success ww-btn-block">Current Plan</span>
                   ) : (
                     <button
                       type="button"

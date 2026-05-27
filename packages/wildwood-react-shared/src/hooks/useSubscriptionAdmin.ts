@@ -12,6 +12,7 @@ import type {
   AppTierChangeResultModel,
   AppFeatureDefinitionModel,
   AppFeatureOverrideModel,
+  TierChangePreviewModel,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -35,6 +36,12 @@ export interface UseSubscriptionAdminReturn {
   getTiers: (appId: string) => Promise<AppTierModel[]>;
   getAvailableAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
   getAllAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
+  previewTierChange: (
+    appId: string,
+    tierId: string,
+    pricingId?: string,
+    userId?: string,
+  ) => Promise<TierChangePreviewModel>;
 
   // User-scoped (self)
   getMySubscription: (appId: string) => Promise<UserTierSubscriptionModel | null>;
@@ -466,6 +473,13 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     return clientRef.current.appTier.getTrackingMode(appId);
   }, []);
 
+  const previewTierChange = useCallback(async (appId: string, tierId: string, pricingId?: string, userId?: string) => {
+    if (userId) {
+      return clientRef.current.appTier.previewTierChangeAdmin(appId, userId, tierId, pricingId);
+    }
+    return clientRef.current.appTier.previewTierChange(appId, tierId, pricingId);
+  }, []);
+
   // Refresh all data
   const refreshAll = useCallback(
     async (appId: string, companyId?: string, userId?: string) => {
@@ -557,6 +571,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getTiers,
     getAvailableAddOns,
     getAllAddOns,
+    previewTierChange,
     getMySubscription,
     getMyAddOns,
     getCompanySubscription,

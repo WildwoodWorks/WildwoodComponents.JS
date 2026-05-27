@@ -4389,3 +4389,274 @@ img.ww-avatar {
     border-top: 1px solid var(--ww-border-color, #dee2e6);
     line-height: 1.4;
 }
+
+/* ========================================
+   MODAL OVERLAY + TIER CHANGE CONFIRMATION
+   ======================================== */
+
+.ww-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
+.ww-modal {
+    background: var(--ww-bg-primary, #fff);
+    border-radius: var(--ww-border-radius, 0.75rem);
+    box-shadow: var(--ww-shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.15));
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.ww-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem 0.75rem;
+    border-bottom: 1px solid var(--ww-border-color, #e5e7eb);
+}
+
+.ww-modal-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--ww-text-muted, #6b7280);
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.ww-modal-close:hover {
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-modal-body {
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ww-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem 1.25rem;
+    border-top: 1px solid var(--ww-border-color, #e5e7eb);
+}
+
+/* Plan comparison row */
+.ww-tier-change-comparison {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.75rem;
+    background: var(--ww-bg-secondary, #f9fafb);
+    border-radius: var(--ww-border-radius-sm, 0.5rem);
+}
+
+.ww-tier-change-plan {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.ww-tier-change-plan-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ww-text-muted, #6b7280);
+}
+
+.ww-tier-change-plan-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-tier-change-plan-price {
+    font-size: 0.85rem;
+    color: var(--ww-text-secondary, #374151);
+}
+
+.ww-tier-change-arrow {
+    font-size: 1.25rem;
+    color: var(--ww-text-muted, #9ca3af);
+}
+
+/* Savings callout */
+.ww-tier-change-savings {
+    background: var(--ww-success-bg, #ecfdf5);
+    color: var(--ww-success, #059669);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ww-border-radius-sm, 0.375rem);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Charge breakdown */
+.ww-tier-change-charge {
+    border: 1px solid var(--ww-border-color, #e5e7eb);
+    border-radius: var(--ww-border-radius-sm, 0.5rem);
+    padding: 0.75rem 1rem;
+}
+
+.ww-tier-change-charge-header {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ww-text-muted, #6b7280);
+    margin-bottom: 0.5rem;
+}
+
+.ww-tier-change-line-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--ww-text-secondary, #374151);
+    padding: 0.2rem 0;
+}
+
+.ww-tier-change-credit {
+    color: var(--ww-success, #059669);
+}
+
+.ww-tier-change-total {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ww-text-primary, #111827);
+    border-top: 1px solid var(--ww-border-color, #e5e7eb);
+    padding-top: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.ww-tier-change-next-billing {
+    font-size: 0.8rem;
+    color: var(--ww-text-muted, #6b7280);
+    margin-top: 0.5rem;
+}
+
+.ww-tier-change-credit-info {
+    background: var(--ww-info-bg, #eff6ff);
+    color: var(--ww-info, #2563eb);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ww-border-radius-sm, 0.375rem);
+    font-size: 0.85rem;
+}
+
+/* Feature diff */
+.ww-tier-change-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ww-tier-change-features-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ww-text-secondary, #374151);
+}
+
+.ww-tier-change-features-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-tier-change-feature-gained,
+.ww-tier-change-feature-lost {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.ww-tier-change-feature-gained {
+    color: var(--ww-success, #059669);
+}
+
+.ww-tier-change-feature-lost {
+    color: var(--ww-danger, #dc2626);
+}
+
+/* Downgrade timing options */
+.ww-tier-change-timing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ww-tier-change-timing-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ww-text-secondary, #374151);
+}
+
+.ww-tier-change-timing-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--ww-border-color, #e5e7eb);
+    border-radius: var(--ww-border-radius-sm, 0.375rem);
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.ww-tier-change-timing-option:hover {
+    border-color: var(--ww-primary, #3b82f6);
+}
+
+.ww-tier-change-timing-option input[type="radio"] {
+    margin-top: 0.25rem;
+}
+
+.ww-tier-change-timing-option strong {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-tier-change-timing-desc {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--ww-text-muted, #6b7280);
+    margin-top: 0.15rem;
+}
+
+/* Admin bypass toggle */
+.ww-tier-change-bypass {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--ww-text-secondary, #374151);
+    padding: 0.5rem 0.75rem;
+    background: var(--ww-warning-bg, #fffbeb);
+    border: 1px solid var(--ww-warning, #f59e0b);
+    border-radius: var(--ww-border-radius-sm, 0.375rem);
+    cursor: pointer;
+}

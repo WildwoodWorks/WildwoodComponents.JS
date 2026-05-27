@@ -26,7 +26,7 @@ export function TierCardFooter({
   if (isCurrent) {
     return (
       <div className="ww-tier-footer">
-        <span className="ww-badge ww-badge-success">Current Plan</span>
+        <span className="ww-btn ww-btn-success ww-btn-block">Current Plan</span>
       </div>
     );
   }

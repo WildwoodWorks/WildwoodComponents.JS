@@ -206,3 +206,33 @@ export interface AppFeatureOverrideModel {
   createdBy?: string;
   updatedBy?: string;
 }
+
+export interface TierChangePreviewModel {
+  success: boolean;
+  errorMessage?: string;
+  isUpgrade: boolean;
+  isDowngrade: boolean;
+  isBillingFrequencyChange: boolean;
+  paymentRequired: boolean;
+  paymentBypassAllowed: boolean;
+  paymentProviderAvailable: boolean;
+  currentTierName?: string;
+  currentPrice?: number;
+  currentBillingFrequency?: string;
+  newTierName?: string;
+  newPrice?: number;
+  newBillingFrequency?: string;
+  monthlyEquivalentCurrent?: number;
+  monthlyEquivalentNew?: number;
+  proratedChargeToday?: number;
+  creditAmount?: number;
+  nextBillingAmount?: number;
+  nextBillingDate?: string;
+  effectiveDate?: string;
+  featuresGained: string[];
+  featuresLost: string[];
+  currency: string;
+  daysRemainingInPeriod: number;
+  allowImmediateChange: boolean;
+  allowScheduledChange: boolean;
+}

@@ -86,6 +86,8 @@ export { SubscriptionStatusPanel } from './components/subscription/admin/Subscri
 export type { SubscriptionStatusPanelProps } from './components/subscription/admin/SubscriptionStatusPanel.js';
 export { TierPlansPanel } from './components/subscription/admin/TierPlansPanel.js';
 export type { TierPlansPanelProps, TierSelectedEventArgs } from './components/subscription/admin/TierPlansPanel.js';
+export { TierChangeConfirmationModal } from './components/subscription/TierChangeConfirmationModal.js';
+export type { TierChangeConfirmationModalProps } from './components/subscription/TierChangeConfirmationModal.js';
 export { FeaturesPanel } from './components/subscription/admin/FeaturesPanel.js';
 export type { FeaturesPanelProps } from './components/subscription/admin/FeaturesPanel.js';
 export { AddOnsPanel } from './components/subscription/admin/AddOnsPanel.js';

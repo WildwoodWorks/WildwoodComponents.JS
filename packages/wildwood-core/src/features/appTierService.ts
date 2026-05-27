@@ -11,6 +11,7 @@ import type {
   AppFeatureOverrideModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
+  TierChangePreviewModel,
 } from './types.js';
 
 export class AppTierService {
@@ -164,6 +165,33 @@ export class AppTierService {
       AppTierPricingId: appTierPricingId,
       PaymentTransactionId: paymentTransactionId,
     });
+    return data;
+  }
+
+  async previewTierChange(appId: string, newTierId: string, newPricingId?: string): Promise<TierChangePreviewModel> {
+    const { data } = await this.http.post<TierChangePreviewModel>(
+      `api/app-tiers/${appId}/my-subscription/preview-change`,
+      {
+        NewAppTierId: newTierId,
+        NewAppTierPricingId: newPricingId,
+      },
+    );
+    return data;
+  }
+
+  async previewTierChangeAdmin(
+    appId: string,
+    userId: string,
+    newTierId: string,
+    newPricingId?: string,
+  ): Promise<TierChangePreviewModel> {
+    const { data } = await this.http.post<TierChangePreviewModel>(
+      `api/app-tiers/${appId}/admin/preview-change/${userId}`,
+      {
+        NewAppTierId: newTierId,
+        NewAppTierPricingId: newPricingId,
+      },
+    );
     return data;
   }
 
