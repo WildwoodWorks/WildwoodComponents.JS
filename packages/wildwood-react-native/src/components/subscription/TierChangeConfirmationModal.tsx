@@ -24,7 +24,7 @@ export function TierChangeConfirmationModal({
   onCancel,
   loading,
 }: TierChangeConfirmationModalProps) {
-  const [immediate, setImmediate] = useState(true);
+  const [immediate, setImmediate] = useState(!preview.isDowngrade);
   const [bypassPayment, setBypassPayment] = useState(false);
 
   const showPaymentBypass = preview.paymentBypassAllowed && preview.paymentRequired;

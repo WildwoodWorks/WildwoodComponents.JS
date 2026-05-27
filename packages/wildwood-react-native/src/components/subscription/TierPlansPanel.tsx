@@ -51,7 +51,7 @@ export function TierPlansPanel({
           pricingId: pricing?.id,
           price: pricing?.price,
           isFreeTier: tier.isFreeTier,
-          isChange: !!currentTierId && currentTierId !== tier.id,
+          isChange: !!currentTierId && currentTierId.toLowerCase() !== tier.id.toLowerCase(),
         });
       } catch {
         // Consumer's error surfaces via useSubscriptionAdmin's `error` state.
@@ -100,7 +100,7 @@ export function TierPlansPanel({
 
       <View style={styles.grid}>
         {tiers.map((tier) => {
-          const isCurrent = currentTierId === tier.id;
+          const isCurrent = currentTierId?.toLowerCase() === tier.id?.toLowerCase();
           const pricing = getSelectedPricing(tier, billingAnnual);
 
           return (

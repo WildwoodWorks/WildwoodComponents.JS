@@ -511,15 +511,13 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
             getFeatureOverrides(appId),
           );
         } else {
-          // Self / current user context
+          // Self / current user context — skip admin-only endpoints
           promises.push(
             getMySubscription(appId),
             getMyAddOns(appId),
             getLimitStatuses(appId),
-            getFeatureDefinitions(appId),
             getUserFeatures(appId),
             getAvailableAddOns(appId),
-            getFeatureOverrides(appId),
           );
         }
 

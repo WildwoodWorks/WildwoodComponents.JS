@@ -85,7 +85,7 @@ export function TierCardFooter({
         ? 'Continue with This Plan'
         : tier.isFreeTier
           ? hasSubscription
-            ? 'Get Started Free'
+            ? `Switch to ${tier.name}`
             : 'Get Started'
           : hasSubscription
             ? `Switch to ${tier.name}`
