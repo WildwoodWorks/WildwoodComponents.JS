@@ -1,16 +1,7 @@
 // AI service - ported from WildwoodComponents.Blazor/Services/AIService.cs
 
 import type { HttpClient } from '../client/httpClient.js';
-import type {
-  AIChatRequest,
-  AIChatResponse,
-  AIConfiguration,
-  AISession,
-  AISessionSummary,
-  FlowDefinition,
-  FlowExecution,
-  FlowExecuteRequest,
-} from './types.js';
+import type { AIChatRequest, AIChatResponse, AIConfiguration, AISession, AISessionSummary } from './types.js';
 
 export interface TTSVoice {
   id: string;
@@ -268,50 +259,6 @@ export class AIService {
       return data ?? null;
     } catch {
       return null;
-    }
-  }
-
-  // Flow
-  async getFlowDefinitions(): Promise<FlowDefinition[]> {
-    const { data } = await this.http.get<FlowDefinition[]>('api/ai/flows');
-    return data ?? [];
-  }
-
-  async getFlowDefinition(flowId: string): Promise<FlowDefinition | null> {
-    try {
-      const { data } = await this.http.get<FlowDefinition>(`api/ai/flows/${flowId}`);
-      return data ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  async executeFlow(request: FlowExecuteRequest): Promise<FlowExecution> {
-    const { data } = await this.http.post<FlowExecution>('api/ai/flows/execute', request);
-    return data;
-  }
-
-  async getFlowExecution(executionId: string): Promise<FlowExecution | null> {
-    try {
-      const { data } = await this.http.get<FlowExecution>(`api/ai/flows/executions/${executionId}`);
-      return data ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  async getFlowExecutions(flowId?: string): Promise<FlowExecution[]> {
-    const params = flowId ? `?flowDefinitionId=${encodeURIComponent(flowId)}` : '';
-    const { data } = await this.http.get<FlowExecution[]>(`api/ai/flows/executions${params}`);
-    return data ?? [];
-  }
-
-  async cancelFlowExecution(executionId: string): Promise<boolean> {
-    try {
-      await this.http.post(`api/ai/flows/executions/${executionId}/cancel`);
-      return true;
-    } catch {
-      return false;
     }
   }
 }

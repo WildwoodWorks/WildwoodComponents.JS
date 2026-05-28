@@ -1,1 +1,14 @@
 npx lint-staged
+
+# --- Wildwood cross-stack parity guard (localStorage keys) ---
+# Runs only when the sibling .NET repo and the Sync script are present (i.e. the
+# full multi-repo workspace). Skips silently otherwise (CI, partial clone).
+PARITY="../../WildwoodComponents.Sync/scripts/parity-check.mjs"
+NET="../../WildwoodComponents.Net/Dev"
+if command -v node >/dev/null 2>&1 && [ -f "$PARITY" ] && [ -d "$NET" ]; then
+  node "$PARITY" "$NET" . --quiet || {
+    echo "✗ parity-check failed — resolve storage-key drift before committing."
+    echo "  Details: node $PARITY $NET ."
+    exit 1
+  }
+fi

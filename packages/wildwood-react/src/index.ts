@@ -17,8 +17,6 @@ export { useTheme } from './hooks/useTheme.js';
 export type { UseThemeReturn } from './hooks/useTheme.js';
 export { useAI } from './hooks/useAI.js';
 export type { UseAIReturn } from './hooks/useAI.js';
-export { useAIFlow } from './hooks/useAIFlow.js';
-export type { UseAIFlowReturn } from './hooks/useAIFlow.js';
 export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';
@@ -65,8 +63,6 @@ export { AIChatComponent } from './components/ai/AIChatComponent.js';
 export type { AIChatComponentProps } from './components/ai/AIChatComponent.js';
 export { AIProxyComponent } from './components/ai/AIProxyComponent.js';
 export type { AIProxyComponentProps } from './components/ai/AIProxyComponent.js';
-export { AIFlowComponent } from './components/ai/AIFlowComponent.js';
-export type { AIFlowComponentProps } from './components/ai/AIFlowComponent.js';
 export { SecureMessagingComponent } from './components/messaging/SecureMessagingComponent.js';
 export type { SecureMessagingComponentProps } from './components/messaging/SecureMessagingComponent.js';
 export { PaymentComponent } from './components/payment/PaymentComponent.js';
@@ -160,7 +156,5 @@ export type {
   UserAddOnSubscriptionModel,
   AppTierLimitStatusModel,
   AppFeatureDefinitionModel,
-  FlowDefinition,
-  FlowExecution,
   PaymentCompletionResult,
 } from '@wildwood/core';

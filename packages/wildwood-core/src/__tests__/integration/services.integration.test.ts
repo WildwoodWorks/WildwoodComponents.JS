@@ -48,14 +48,6 @@ describe('AI service integration (msw)', () => {
 
     expect(response.message).toBe('Proxy echo: Hello proxy');
   });
-
-  it('getFlowDefinitions returns flows', async () => {
-    const client = await createAuthenticatedClient();
-    const flows = await client.ai.getFlowDefinitions();
-
-    expect(flows).toHaveLength(1);
-    expect(flows[0].name).toBe('Test Flow');
-  });
 });
 
 describe('Disclaimer service integration (msw)', () => {

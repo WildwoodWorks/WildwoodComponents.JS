@@ -48,7 +48,7 @@ function MyApp() {
 
 ## Hooks
 
-Same API as `@wildwood/react` — 15 hooks including `useAuth`, `useAI`, `useAIFlow`, `useMessaging`, `usePayment`, `useSubscription`, `useNotifications`, `useTheme`, `useTwoFactor`, `useDisclaimer`, `useAppTier`, and more.
+Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessaging`, `usePayment`, `useSubscription`, `useNotifications`, `useTheme`, `useTwoFactor`, `useDisclaimer`, `useAppTier`, and more.
 
 ## Components
 
