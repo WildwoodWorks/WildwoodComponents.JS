@@ -360,7 +360,7 @@ export function SubscriptionManagerComponent({
               <View style={styles.planChangeSection}>
                 <Text style={styles.planChangeTitle}>Change Plan</Text>
                 {plans
-                  .filter((p) => p.id !== selectedSubscription.planId)
+                  .filter((p) => p.id?.toLowerCase() !== selectedSubscription.planId?.toLowerCase())
                   .map((plan) => (
                     <View key={plan.id} style={styles.planOption}>
                       <Text style={styles.planOptionText}>

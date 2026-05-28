@@ -277,7 +277,7 @@ export function AppTierComponent({
                             ? 'Continue with This Plan'
                             : tier.isFreeTier
                               ? userSubscription
-                                ? 'Get Started Free'
+                                ? `Switch to ${tier.name}`
                                 : 'Get Started'
                               : userSubscription
                                 ? `Switch to ${tier.name}`

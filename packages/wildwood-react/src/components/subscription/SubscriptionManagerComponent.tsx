@@ -309,7 +309,7 @@ export function SubscriptionManagerComponent({
               <h5>Change Plan</h5>
               <div className="ww-plan-options">
                 {plans
-                  .filter((p) => p.id !== selectedSubscription.planId)
+                  .filter((p) => p.id?.toLowerCase() !== selectedSubscription.planId?.toLowerCase())
                   .map((plan) => (
                     <div key={plan.id} className="ww-plan-option">
                       <span>

@@ -450,7 +450,7 @@ export function SubscriptionComponent({
       ) : (
         <div className="ww-plan-grid">
           {plans.map((plan) => {
-            const isCurrentPlan = activeSubscription?.planId === plan.id;
+            const isCurrentPlan = activeSubscription?.planId?.toLowerCase() === plan.id?.toLowerCase();
             const { price, interval } = getDisplayPrice(plan);
             const savings = billingAnnual ? getAnnualSavings(plan) : null;
 

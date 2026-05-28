@@ -159,7 +159,7 @@ export function SubscriptionComponent({ autoLoad = true, onSubscriptionChange, s
       ) : (
         <View style={styles.planGrid}>
           {plans.map((plan) => {
-            const isCurrentPlan = activeSubscription?.planId === plan.id;
+            const isCurrentPlan = activeSubscription?.planId?.toLowerCase() === plan.id?.toLowerCase();
             return (
               <View key={plan.id} style={[styles.card, isCurrentPlan && styles.cardCurrent]}>
                 {/* Plan Header */}
