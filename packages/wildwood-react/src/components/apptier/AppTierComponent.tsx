@@ -469,8 +469,8 @@ export function AppTierComponent({
       ) : (
         <div className="ww-tier-grid">
           {tiers.map((tier) => {
-            const isCurrent = userSubscription?.appTierId === tier.id;
-            const isPreSelected = preSelectedTierId === tier.id;
+            const isCurrent = userSubscription?.appTierId?.toLowerCase() === tier.id?.toLowerCase();
+            const isPreSelected = preSelectedTierId?.toLowerCase() === tier.id?.toLowerCase();
             const pricing = getPricing(tier);
             const discount = billingAnnual ? getAnnualDiscount(tier) : null;
 

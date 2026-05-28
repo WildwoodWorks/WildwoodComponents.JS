@@ -135,7 +135,7 @@ export function PricingDisplayComponent({
             const pricing = getSelectedPricing(tier, billingAnnual);
             const discount = billingAnnual ? computeAnnualDiscount(tier) : null;
             const enterprise = isEnterpriseTier(tier);
-            const isPreSelected = preSelectedTierId === tier.id;
+            const isPreSelected = preSelectedTierId?.toLowerCase() === tier.id?.toLowerCase();
 
             return (
               <View key={tier.id} style={[styles.tierCard, isPreSelected && styles.tierCardPreSelected]}>

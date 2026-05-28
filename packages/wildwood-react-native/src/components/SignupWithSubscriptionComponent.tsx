@@ -86,7 +86,7 @@ export function SignupWithSubscriptionComponent({
     client.appTier
       .getPublicTiers(resolvedAppId)
       .then((tiers) => {
-        const tier = tiers.find((t) => t.id === preSelectedTierId);
+        const tier = tiers.find((t) => t.id?.toLowerCase() === preSelectedTierId?.toLowerCase());
         if (tier) {
           setPreSelectedTier(tier);
           const pricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0] ?? null;

@@ -151,8 +151,8 @@ export function AppTierComponent({
         /* Tier cards */
         <View style={styles.tierGrid}>
           {tiers.map((tier) => {
-            const isCurrent = userSubscription?.appTierId === tier.id;
-            const isPreSelected = preSelectedTierId === tier.id && !isCurrent;
+            const isCurrent = userSubscription?.appTierId?.toLowerCase() === tier.id?.toLowerCase();
+            const isPreSelected = preSelectedTierId?.toLowerCase() === tier.id?.toLowerCase() && !isCurrent;
             const enterprise = isEnterpriseTier(tier);
             const pricing = getSelectedPricing(tier, billingAnnual);
             const discount = billingAnnual ? computeAnnualDiscount(tier) : null;

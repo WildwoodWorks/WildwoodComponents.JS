@@ -128,7 +128,7 @@ export function PricingDisplayComponent({
           {tiers.map((tier) => {
             const pricing = getSelectedPricing(tier, billingAnnual);
             const discount = billingAnnual ? computeAnnualDiscount(tier) : null;
-            const isPreSelected = preSelectedTierId === tier.id;
+            const isPreSelected = preSelectedTierId?.toLowerCase() === tier.id?.toLowerCase();
 
             return (
               <TierCard
