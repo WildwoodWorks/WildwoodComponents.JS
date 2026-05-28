@@ -17,8 +17,6 @@ export { useTheme } from './hooks/useTheme';
 export type { UseThemeReturn } from './hooks/useTheme';
 export { useAI } from './hooks/useAI';
 export type { UseAIReturn } from './hooks/useAI';
-export { useAIFlow } from './hooks/useAIFlow';
-export type { UseAIFlowReturn } from './hooks/useAIFlow';
 export { useMessaging } from './hooks/useMessaging';
 export type { UseMessagingReturn } from './hooks/useMessaging';
 export { usePayment } from './hooks/usePayment';
@@ -77,8 +75,6 @@ export { ErrorBoundary } from './components/ErrorBoundary';
 export type { ErrorBoundaryProps } from './components/ErrorBoundary';
 export { LoadingSpinner } from './components/LoadingSpinner';
 export type { LoadingSpinnerProps } from './components/LoadingSpinner';
-export { AIFlowComponent } from './components/AIFlowComponent';
-export type { AIFlowComponentProps } from './components/AIFlowComponent';
 export { PricingDisplayComponent } from './components/PricingDisplayComponent';
 export type { PricingDisplayComponentProps } from './components/PricingDisplayComponent';
 export { UsageDashboardComponent } from './components/UsageDashboardComponent';
@@ -155,8 +151,6 @@ export type {
   UserAddOnSubscriptionModel,
   AppTierLimitStatusModel,
   AppFeatureDefinitionModel,
-  FlowDefinition,
-  FlowExecution,
   RegistrationFormData,
   PaymentCompletionResult,
 } from '@wildwood/core';

@@ -10,7 +10,6 @@ import { TokenRegistrationTest } from './pages/TokenRegistrationTest';
 import { DisclaimerTest } from './pages/DisclaimerTest';
 import { AppTierTest } from './pages/AppTierTest';
 import { AIChatTest } from './pages/AIChatTest';
-import { AIFlowTest } from './pages/AIFlowTest';
 import { MessagingTest } from './pages/MessagingTest';
 import { PaymentTest } from './pages/PaymentTest';
 import { SubscriptionTest } from './pages/SubscriptionTest';
@@ -43,7 +42,6 @@ export function App() {
           <Route path="disclaimer" element={<DisclaimerTest />} />
           <Route path="app-tier" element={<AppTierTest />} />
           <Route path="ai-chat" element={<AIChatTest />} />
-          <Route path="ai-flow" element={<AIFlowTest />} />
           <Route path="messaging" element={<MessagingTest />} />
           <Route path="payment" element={<PaymentTest />} />
           <Route path="subscription" element={<SubscriptionTest />} />

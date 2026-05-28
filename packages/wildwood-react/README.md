@@ -54,7 +54,6 @@ function MyApp() {
 | `useAuth()` | Authentication state, login, register, logout |
 | `useSession()` | Token state, auto-refresh lifecycle |
 | `useAI()` | AI chat sessions, messages, TTS/STT |
-| `useAIFlow()` | AI flow definitions and execution |
 | `useMessaging()` | Threads, messages, reactions, SignalR |
 | `usePayment()` | Payment processing, saved methods |
 | `useSubscription()` | Subscription plans and lifecycle |

@@ -73,11 +73,6 @@ export type {
   AIChatResponse,
   AIChatSettings,
   ChatTypingIndicator,
-  FlowDefinition,
-  FlowInputField,
-  FlowExecution,
-  FlowStepExecution,
-  FlowExecuteRequest,
 } from './ai/types.js';
 
 // Messaging

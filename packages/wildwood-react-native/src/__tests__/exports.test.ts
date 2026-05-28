@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 
 // Can't import full index (react-native not available in vitest).
 // Test individual hooks that only depend on react + @wildwood/core.
-import { useAIFlow } from '../hooks/useAIFlow';
 import { usePlatformDetection } from '../hooks/usePlatformDetection';
 import { useWildwoodComponent } from '../hooks/useWildwoodComponent';
 
@@ -10,10 +9,6 @@ import { useWildwoodComponent } from '../hooks/useWildwoodComponent';
 import { defaultTheme, themes } from '../styles/theme';
 
 describe('@wildwood/react-native hooks', () => {
-  it('useAIFlow is a function', () => {
-    expect(typeof useAIFlow).toBe('function');
-  });
-
   it('usePlatformDetection is a function', () => {
     expect(typeof usePlatformDetection).toBe('function');
   });

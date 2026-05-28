@@ -51,11 +51,6 @@ export function NavMenu() {
           </NavLink>
         </li>
         <li>
-          <NavLink to="/ai-flow" className={({ isActive }) => (isActive ? 'active' : '')}>
-            AI Flow
-          </NavLink>
-        </li>
-        <li>
           <NavLink to="/messaging" className={({ isActive }) => (isActive ? 'active' : '')}>
             Secure Messaging
           </NavLink>
