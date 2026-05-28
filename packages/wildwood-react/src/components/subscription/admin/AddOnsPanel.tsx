@@ -39,12 +39,13 @@ export function AddOnsPanel({
   }
 
   const isSubscribed = (addOnId: string) =>
-    subscriptions.some((s) => s.appTierAddOnId === addOnId && s.status === 'Active');
+    subscriptions.some((s) => s.appTierAddOnId?.toLowerCase() === addOnId?.toLowerCase() && s.status === 'Active');
 
   const isBundled = (addOn: AppTierAddOnModel) =>
-    currentTierId ? addOn.bundledInTierIds?.includes(currentTierId) : false;
+    currentTierId ? addOn.bundledInTierIds?.some((id) => id?.toLowerCase() === currentTierId?.toLowerCase()) : false;
 
-  const getSubscription = (addOnId: string) => subscriptions.find((s) => s.appTierAddOnId === addOnId);
+  const getSubscription = (addOnId: string) =>
+    subscriptions.find((s) => s.appTierAddOnId?.toLowerCase() === addOnId?.toLowerCase());
 
   const handleSubscribe = async (addOnId: string, pricingId?: string) => {
     setProcessingId(addOnId);
