@@ -25,6 +25,7 @@ export type { JwksKey, JwksResponse, JwksClientOptions } from './utils/jwksClien
 
 // Admin
 export { AdminClient, createAdminClient } from './admin/adminClient.js';
+export type { TierChangePreviewModel } from '@wildwood/core';
 export type {
   AdminClientOptions,
   PagedResult,

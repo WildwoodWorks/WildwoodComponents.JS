@@ -393,7 +393,12 @@ export interface EncryptionMigrationResult {
 }
 
 // Re-export core types used by AdminClient
-import type { AppTierChangeResultModel, AppFeatureOverrideModel, UserTierSubscriptionModel } from '@wildwood/core';
+import type {
+  AppTierChangeResultModel,
+  AppFeatureOverrideModel,
+  UserTierSubscriptionModel,
+  TierChangePreviewModel,
+} from '@wildwood/core';
 
 export class AdminClient {
   private baseUrl: string;
@@ -655,7 +660,14 @@ export class AdminClient {
     });
   }
 
-  async changeUserTier(appId: string, userId: string, newTierId: string, pricingId?: string, immediate = false) {
+  async changeUserTier(
+    appId: string,
+    userId: string,
+    newTierId: string,
+    pricingId?: string,
+    immediate = false,
+    paymentTransactionId?: string,
+  ) {
     if (!appId) throw new Error('appId is required');
     if (!userId) throw new Error('userId is required');
     if (!newTierId) throw new Error('newTierId is required');
@@ -665,7 +677,26 @@ export class AdminClient {
       NewAppTierId: newTierId,
       NewAppTierPricingId: pricingId,
       Immediate: immediate,
+      PaymentTransactionId: paymentTransactionId,
     });
+  }
+
+  /**
+   * Preview the effect of changing a user's tier (admin scope) without committing it.
+   * Mirrors the client SDK's AppTierService.previewTierChangeAdmin.
+   */
+  async previewTierChangeAdmin(appId: string, userId: string, newTierId: string, newPricingId?: string) {
+    if (!appId) throw new Error('appId is required');
+    if (!userId) throw new Error('userId is required');
+    if (!newTierId) throw new Error('newTierId is required');
+    return this.request<TierChangePreviewModel>(
+      'POST',
+      `/api/app-tiers/${encodeURIComponent(appId)}/admin/preview-change/${encodeURIComponent(userId)}`,
+      {
+        NewAppTierId: newTierId,
+        NewAppTierPricingId: newPricingId,
+      },
+    );
   }
 
   async cancelUserSubscription(appId: string, userId: string) {
