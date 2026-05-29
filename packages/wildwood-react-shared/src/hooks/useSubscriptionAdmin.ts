@@ -61,6 +61,7 @@ export interface UseSubscriptionAdminReturn {
 
   // Feature definitions
   getFeatureDefinitions: (appId: string) => Promise<AppFeatureDefinitionModel[]>;
+  getActiveFeatureDefinitions: (appId: string) => Promise<AppFeatureDefinitionModel[]>;
   getUserFeatures: (appId: string) => Promise<Record<string, boolean>>;
 
   // Limit statuses
@@ -268,6 +269,13 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   // Feature definitions
   const getFeatureDefinitions = useCallback(async (appId: string) => {
     const result = await clientRef.current.appTier.getFeatureDefinitions(appId);
+    setFeatureDefinitions(result);
+    return result;
+  }, []);
+
+  // User-facing (no admin role) — use in self-service contexts
+  const getActiveFeatureDefinitions = useCallback(async (appId: string) => {
+    const result = await clientRef.current.appTier.getActiveFeatureDefinitions(appId);
     setFeatureDefinitions(result);
     return result;
   }, []);
@@ -511,11 +519,15 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
             getFeatureOverrides(appId),
           );
         } else {
-          // Self / current user context — skip admin-only endpoints
+          // Self / current user context — skip admin-only endpoints.
+          // Use the role-free /active feature-definitions endpoint so the
+          // Features panel has definitions to render (getFeatureDefinitions
+          // hits an Admin/CompanyAdmin-only endpoint).
           promises.push(
             getMySubscription(appId),
             getMyAddOns(appId),
             getLimitStatuses(appId),
+            getActiveFeatureDefinitions(appId),
             getUserFeatures(appId),
             getAvailableAddOns(appId),
           );
@@ -539,6 +551,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
       getMyAddOns,
       getLimitStatuses,
       getFeatureDefinitions,
+      getActiveFeatureDefinitions,
       getUserFeatures,
       getAvailableAddOns,
       getCompanySubscription,
@@ -581,6 +594,7 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getUserLimitStatuses,
     getUserAddOnsAdmin,
     getFeatureDefinitions,
+    getActiveFeatureDefinitions,
     getUserFeatures,
     getLimitStatuses,
     getFeatureOverrides,

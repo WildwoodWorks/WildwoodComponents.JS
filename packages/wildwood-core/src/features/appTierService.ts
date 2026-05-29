@@ -293,6 +293,19 @@ export class AppTierService {
     }
   }
 
+  /**
+   * Get active feature definitions for the current user (no admin role required).
+   * Use this for self-service contexts; `getFeatureDefinitions` hits an admin-only endpoint.
+   */
+  async getActiveFeatureDefinitions(appId: string): Promise<AppFeatureDefinitionModel[]> {
+    try {
+      const { data } = await this.http.get<AppFeatureDefinitionModel[]>(`api/app-feature-definitions/${appId}/active`);
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Company-Scoped Subscription (Admin)
   // ---------------------------------------------------------------------------
@@ -330,9 +343,11 @@ export class AppTierService {
     }
   }
 
-  async getCompanyFeatures(_appId: string, companyId: string): Promise<Record<string, boolean>> {
+  async getCompanyFeatures(appId: string, companyId: string): Promise<Record<string, boolean>> {
     try {
-      const { data } = await this.http.get<Record<string, boolean>>(`api/companies/${companyId}/features`);
+      const { data } = await this.http.get<Record<string, boolean>>(
+        `api/app-tiers/${appId}/admin/company-features/${companyId}`,
+      );
       return data ?? {};
     } catch {
       return {};

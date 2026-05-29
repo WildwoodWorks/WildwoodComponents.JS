@@ -39,7 +39,11 @@ export function AddOnsPanel({
   }
 
   const isSubscribed = (addOnId: string) =>
-    subscriptions.some((s) => s.appTierAddOnId?.toLowerCase() === addOnId?.toLowerCase() && s.status === 'Active');
+    subscriptions.some(
+      (s) =>
+        s.appTierAddOnId?.toLowerCase() === addOnId?.toLowerCase() &&
+        (s.status === 'Active' || s.status === 'Trialing'),
+    );
 
   const isBundled = (addOn: AppTierAddOnModel) =>
     currentTierId ? addOn.bundledInTierIds?.some((id) => id?.toLowerCase() === currentTierId?.toLowerCase()) : false;

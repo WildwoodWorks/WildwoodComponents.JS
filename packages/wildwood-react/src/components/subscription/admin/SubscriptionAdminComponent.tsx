@@ -2,7 +2,12 @@
 // Tabbed admin interface for subscription management with panels for status, tiers, features, add-ons, usage, and overrides.
 
 import { useState, useEffect, useCallback } from 'react';
-import type { TierChangePreviewModel, AppFeatureDefinitionModel } from '@wildwood/core';
+import type {
+  TierChangePreviewModel,
+  AppFeatureDefinitionModel,
+  AppTierLimitStatusModel,
+  UserTierSubscriptionModel,
+} from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel.js';
 import { TierPlansPanel } from './TierPlansPanel.js';
@@ -40,6 +45,16 @@ export interface SubscriptionAdminComponentProps {
   onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
   /** Override the internally-fetched limit statuses (e.g. with locally-merged real-time usage data) */
   limitStatusesOverride?: unknown[];
+  /**
+   * Transform/merge the internally-fetched limit statuses before they are displayed
+   * (e.g. overlay local real-time usage). Applied to the component's own data after every
+   * refresh, so admin edits stay in sync. Prefer this over `limitStatusesOverride`.
+   * May be sync or async. Memoize the callback (e.g. useCallback) to avoid redundant re-runs.
+   */
+  onMergeUsage?: (
+    statuses: AppTierLimitStatusModel[],
+    subscription: UserTierSubscriptionModel | null,
+  ) => AppTierLimitStatusModel[] | Promise<AppTierLimitStatusModel[]>;
   onSubscriptionChanged?: () => void;
   className?: string;
 }
@@ -57,10 +72,12 @@ export function SubscriptionAdminComponent({
   showStatusAboveTabs = false,
   onPaymentRequired,
   limitStatusesOverride,
+  onMergeUsage,
   onSubscriptionChanged,
   className,
 }: SubscriptionAdminComponentProps) {
   const admin = useSubscriptionAdmin();
+  const [mergedLimitStatuses, setMergedLimitStatuses] = useState<AppTierLimitStatusModel[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(showStatusAboveTabs ? 'tiers' : 'subscription');
   const [preview, setPreview] = useState<TierChangePreviewModel | null>(null);
   const [pendingArgs, setPendingArgs] = useState<TierSelectedEventArgs | null>(null);
@@ -73,6 +90,27 @@ export function SubscriptionAdminComponent({
         .catch((e: unknown) => console.warn('Failed to load subscription data:', e));
     }
   }, [appId, companyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply the consumer's merge transform to the component's own limit statuses.
+  // Re-runs whenever the underlying data refreshes (e.g. after an admin edit) or the
+  // merge callback's inputs change, keeping the displayed usage in sync.
+  useEffect(() => {
+    if (!onMergeUsage) {
+      setMergedLimitStatuses(admin.limitStatuses);
+      return;
+    }
+    let cancelled = false;
+    Promise.resolve(onMergeUsage(admin.limitStatuses, admin.subscription))
+      .then((result) => {
+        if (!cancelled) setMergedLimitStatuses(result);
+      })
+      .catch(() => {
+        if (!cancelled) setMergedLimitStatuses(admin.limitStatuses);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [admin.limitStatuses, admin.subscription, onMergeUsage]);
 
   const handleRefresh = useCallback(async () => {
     await admin.refreshAll(appId, companyId, userId);
@@ -139,7 +177,11 @@ export function SubscriptionAdminComponent({
           }
         };
 
-        if (preview?.paymentRequired && !options.bypassPayment) {
+        // Admin-scoped changes (user/company) bypass payment server-side (IsAdminOverride)
+        // and the change methods don't carry a txn id, so only collect payment for self.
+        const isAdminScopedChange = !!userId || !!companyId;
+
+        if (preview?.paymentRequired && !options.bypassPayment && !isAdminScopedChange) {
           if (!onPaymentRequired) {
             admin.clearError();
             throw new Error(
@@ -296,9 +338,24 @@ export function SubscriptionAdminComponent({
     />
   );
 
+  // Resolve which limit statuses to display, in priority order:
+  //  1. An explicit non-empty `limitStatusesOverride` (legacy escape hatch).
+  //  2. The `onMergeUsage` result (falling back to raw data during the brief
+  //     window before the merge effect has produced output).
+  //  3. The raw internally-fetched statuses.
+  // An empty override/merge must never blank out the panel when raw data exists.
+  let effectiveLimitStatuses: typeof admin.limitStatuses;
+  if (limitStatusesOverride && limitStatusesOverride.length > 0) {
+    effectiveLimitStatuses = limitStatusesOverride as typeof admin.limitStatuses;
+  } else if (onMergeUsage) {
+    effectiveLimitStatuses = mergedLimitStatuses.length > 0 ? mergedLimitStatuses : admin.limitStatuses;
+  } else {
+    effectiveLimitStatuses = admin.limitStatuses;
+  }
+
   const usageLimitsPanel = (
     <UsageLimitsPanel
-      limitStatuses={(limitStatusesOverride as typeof admin.limitStatuses) ?? admin.limitStatuses}
+      limitStatuses={effectiveLimitStatuses}
       isAdmin={isAdmin}
       loading={admin.loading}
       onUpdateLimit={isAdmin ? handleUpdateLimit : undefined}
