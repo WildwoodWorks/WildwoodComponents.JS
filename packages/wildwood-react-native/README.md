@@ -52,13 +52,38 @@ Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessag
 
 ## Components
 
-All 13 components render using React Native primitives (`View`, `Text`, `TextInput`, `Pressable`, `FlatList`, `ScrollView`):
+All components render using React Native primitives (`View`, `Text`, `TextInput`, `Pressable`/`TouchableOpacity`, `FlatList`, `ScrollView`, `Modal`):
 
 - `AuthenticationComponent`, `AIChatComponent`, `SecureMessagingComponent`
 - `PaymentComponent`, `PaymentFormComponent`, `SubscriptionComponent`, `SubscriptionManagerComponent`
 - `NotificationComponent`, `NotificationToastComponent`
 - `TwoFactorSettingsComponent`, `TokenRegistrationComponent`
-- `AppTierComponent`, `DisclaimerComponent`
+- `AppTierComponent`, `DisclaimerComponent`, `FeedbackComponent`
+
+### Cross-platform parity
+
+These components have full core/react/react-native coverage (`node` is server-side only, no UI):
+
+| Component | core (service) | react | react-native | node |
+|-----------|----------------|-------|--------------|------|
+| Authentication | authService | ✓ | ✓ | tokenValidator |
+| AI Chat | aiService | ✓ | ✓ | -- |
+| Messaging | messagingService | ✓ | ✓ | -- |
+| Payments | paymentService | ✓ | ✓ | -- |
+| App Tiers | appTierService | ✓ | ✓ | AdminClient |
+| Notifications | notificationService | ✓ | ✓ | -- |
+| Two-Factor | twoFactorService | ✓ | ✓ | -- |
+| Disclaimers | disclaimerService | ✓ | ✓ | -- |
+| Feedback | feedbackService | ✓ | ✓ | -- |
+
+**`FeedbackComponent`** — a floating launcher button that opens a slide-up modal feedback form (type picker, title with duplicate detection, description, anonymous email/name when unauthenticated, submit). It reuses the core `feedbackService` and the `useFeedback` hook. Native differences from web: no screenshot capture (no DOM), no file attachments, and a minimal `Platform` + `Dimensions` diagnostic context instead of the web's `window`-based one. Pass `appId` explicitly or let it fall back to the `WildwoodProvider` config.
+
+```tsx
+import { FeedbackComponent } from '@wildwood/react-native';
+
+// Floating widget — sits over your app, opens a modal on tap
+<FeedbackComponent appId={APP_ID} position="bottom-right" />
+```
 
 ## Theme System
 

@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 // Test individual hooks that only depend on react + @wildwood/core.
 import { usePlatformDetection } from '../hooks/usePlatformDetection';
 import { useWildwoodComponent } from '../hooks/useWildwoodComponent';
+import { useFeedback } from '../hooks/useFeedback';
 
 // Test theme/styles (no react-native dependency)
 import { defaultTheme, themes } from '../styles/theme';
@@ -15,6 +16,10 @@ describe('@wildwood/react-native hooks', () => {
 
   it('useWildwoodComponent is a function', () => {
     expect(typeof useWildwoodComponent).toBe('function');
+  });
+
+  it('useFeedback is a function', () => {
+    expect(typeof useFeedback).toBe('function');
   });
 });
 

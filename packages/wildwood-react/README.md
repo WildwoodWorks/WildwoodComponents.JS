@@ -63,6 +63,7 @@ function MyApp() {
 | `useCaptcha()` | CAPTCHA script lifecycle |
 | `useDisclaimer()` | Disclaimer fetch and acceptance |
 | `useAppTier()` | Tier browsing, feature gating |
+| `useFeedback()` | Feedback widget config, submit, duplicate-check, vote |
 | `usePlatformDetection()` | Browser/OS/device detection |
 | `useWildwood()` | Direct access to WildwoodClient |
 | `useWildwoodComponent()` | Base loading/error state pattern |
@@ -83,6 +84,7 @@ function MyApp() {
 - `TokenRegistrationComponent` — Token-based registration
 - `AppTierComponent` — Tier comparison and selection
 - `DisclaimerComponent` — Disclaimer display and acceptance
+- `FeedbackComponent` — Floating feedback widget (screenshot, attachments, duplicate detection)
 
 ## CSS Themes
 

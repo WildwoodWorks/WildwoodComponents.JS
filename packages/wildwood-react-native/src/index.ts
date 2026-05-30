@@ -27,6 +27,8 @@ export { useTwoFactor } from './hooks/useTwoFactor';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor';
 export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
+export { useFeedback } from './hooks/useFeedback';
+export type { UseFeedbackReturn } from './hooks/useFeedback';
 export { useAppTier } from './hooks/useAppTier';
 export type { UseAppTierReturn } from './hooks/useAppTier';
 export { useCaptcha } from './hooks/useCaptcha';
@@ -53,6 +55,8 @@ export { TwoFactorSettingsComponent } from './components/TwoFactorSettingsCompon
 export type { TwoFactorSettingsComponentProps } from './components/TwoFactorSettingsComponent';
 export { DisclaimerComponent } from './components/DisclaimerComponent';
 export type { DisclaimerComponentProps } from './components/DisclaimerComponent';
+export { FeedbackComponent } from './components/feedback/FeedbackComponent';
+export type { FeedbackComponentProps } from './components/feedback/FeedbackComponent';
 export { AppTierComponent } from './components/AppTierComponent';
 export type { AppTierComponentProps } from './components/AppTierComponent';
 export { AIChatComponent } from './components/AIChatComponent';
@@ -153,4 +157,9 @@ export type {
   AppFeatureDefinitionModel,
   RegistrationFormData,
   PaymentCompletionResult,
+  FeedbackWidgetConfig,
+  SubmitFeedbackInput,
+  SystemFeedback,
+  FeedbackDuplicateCheck,
+  FeedbackVoteResult,
 } from '@wildwood/core';
