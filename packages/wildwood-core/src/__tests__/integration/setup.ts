@@ -148,6 +148,65 @@ export const handlers = [
   http.get('https://test-api.example.com/api/app-tiers/:appId/my-subscription', () => {
     return HttpResponse.json({ tierId: 'tier-free', tierName: 'Free' });
   }),
+
+  // Feedback - widget config
+  http.get('https://test-api.example.com/api/AppComponentConfigurations/:appId/feedback/widget', () => {
+    return HttpResponse.json({
+      isEnabled: true,
+      allowAnonymous: true,
+      feedbackTypes: ['Bug', 'FeatureRequest', 'Improvement', 'Other'],
+      widgetColor: '#4A90D9',
+      widgetPosition: 'bottom-right',
+      requireScreenshot: false,
+      screenshotMaxSizeKb: 500,
+      screenshotQuality: 80,
+      enableDuplicateDetection: true,
+      allowAttachments: false,
+      maxAttachmentSizeKb: 2048,
+      allowedAttachmentTypes: '.png,.jpg,.log',
+    });
+  }),
+
+  // Feedback - submit
+  http.post('https://test-api.example.com/api/SystemFeedback', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'feedback-1',
+        companyId: 'company-789',
+        appId: body.appId ?? null,
+        title: body.title,
+        description: body.description,
+        feedbackType: body.feedbackType,
+        status: 'New',
+        voteCount: 0,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      { status: 201 },
+    );
+  }),
+
+  // Feedback - duplicate check
+  http.get('https://test-api.example.com/api/SystemFeedback/duplicate-check', ({ request }) => {
+    const url = new URL(request.url);
+    const title = url.searchParams.get('title') ?? '';
+    if (title.toLowerCase().includes('duplicate')) {
+      return HttpResponse.json({
+        hasPotentialDuplicate: true,
+        duplicateTitle: 'Existing duplicate report',
+        duplicateId: 'feedback-existing',
+        duplicateVoteCount: 3,
+        duplicateCreatedAt: '2024-01-01T00:00:00Z',
+      });
+    }
+    return HttpResponse.json({ hasPotentialDuplicate: false, duplicateVoteCount: 0 });
+  }),
+
+  // Feedback - vote
+  http.post('https://test-api.example.com/api/SystemFeedback/:id/vote', () => {
+    return HttpResponse.json({ voteCount: 4 });
+  }),
 ];
 
 export const server = setupServer(...handlers);

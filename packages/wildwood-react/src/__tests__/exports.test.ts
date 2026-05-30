@@ -35,6 +35,9 @@ describe('@wildwood/react exports', () => {
   it('exports useDisclaimer', () => {
     expect(WildwoodReact.useDisclaimer).toBeDefined();
   });
+  it('exports useFeedback', () => {
+    expect(WildwoodReact.useFeedback).toBeDefined();
+  });
   it('exports useAppTier', () => {
     expect(WildwoodReact.useAppTier).toBeDefined();
   });
@@ -90,6 +93,9 @@ describe('@wildwood/react exports', () => {
   });
   it('exports DisclaimerComponent', () => {
     expect(WildwoodReact.DisclaimerComponent).toBeDefined();
+  });
+  it('exports FeedbackComponent', () => {
+    expect(WildwoodReact.FeedbackComponent).toBeDefined();
   });
   it('exports AppTierComponent', () => {
     expect(WildwoodReact.AppTierComponent).toBeDefined();

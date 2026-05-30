@@ -15,6 +15,7 @@ import { TwoFactorService } from '../security/twoFactorService.js';
 import { CaptchaService } from '../security/captchaService.js';
 import { DisclaimerService } from '../features/disclaimerService.js';
 import { AppTierService } from '../features/appTierService.js';
+import { FeedbackService } from '../feedback/feedbackService.js';
 import { ThemeService } from '../theme/themeService.js';
 
 export interface WildwoodClient {
@@ -31,6 +32,7 @@ export interface WildwoodClient {
   readonly captcha: CaptchaService;
   readonly disclaimer: DisclaimerService;
   readonly appTier: AppTierService;
+  readonly feedback: FeedbackService;
   readonly theme: ThemeService;
   readonly events: WildwoodEventEmitter;
   dispose(): void;
@@ -51,6 +53,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const captcha = new CaptchaService();
   const disclaimer = new DisclaimerService(http, config.appId ?? '');
   const appTier = new AppTierService(http);
+  const feedback = new FeedbackService(http, config.appId ?? '');
   const theme = new ThemeService(storage, events);
 
   return {
@@ -67,6 +70,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     captcha,
     disclaimer,
     appTier,
+    feedback,
     theme,
     events,
     dispose() {

@@ -85,6 +85,69 @@ describe('AppTier service integration (msw)', () => {
   });
 });
 
+describe('Feedback service integration (msw)', () => {
+  it('getWidgetConfig returns the app widget config', async () => {
+    const client = await createAuthenticatedClient();
+    const config = await client.feedback.getWidgetConfig('test-app-id');
+
+    expect(config.isEnabled).toBe(true);
+    expect(config.feedbackTypes).toContain('Bug');
+  });
+
+  it('submitFeedback returns the created record', async () => {
+    const client = await createAuthenticatedClient();
+    const created = await client.feedback.submitFeedback({
+      appId: 'test-app-id',
+      title: 'Something broke',
+      description: 'Steps to reproduce...',
+      feedbackType: 'Bug',
+    });
+
+    expect(created.id).toBe('feedback-1');
+    expect(created.title).toBe('Something broke');
+    expect(created.status).toBe('New');
+  });
+
+  it('submitFeedback works anonymously (no auth token)', async () => {
+    const client = createWildwoodClient({
+      baseUrl: 'https://test-api.example.com',
+      appId: 'test-app-id',
+      storage: 'memory',
+    });
+    const created = await client.feedback.submitFeedback({
+      title: 'Anonymous report',
+      description: 'No account here',
+      feedbackType: 'Other',
+      submitterEmail: 'anon@example.com',
+    });
+
+    expect(created.id).toBe('feedback-1');
+  });
+
+  it('checkDuplicate detects a potential duplicate', async () => {
+    const client = await createAuthenticatedClient();
+    const result = await client.feedback.checkDuplicate('This is a duplicate title', 'test-app-id');
+
+    expect(result.hasPotentialDuplicate).toBe(true);
+    expect(result.duplicateId).toBe('feedback-existing');
+    expect(result.duplicateVoteCount).toBe(3);
+  });
+
+  it('checkDuplicate returns none for a unique title', async () => {
+    const client = await createAuthenticatedClient();
+    const result = await client.feedback.checkDuplicate('A totally unique title', 'test-app-id');
+
+    expect(result.hasPotentialDuplicate).toBe(false);
+  });
+
+  it('voteFeedback returns the updated vote count', async () => {
+    const client = await createAuthenticatedClient();
+    const result = await client.feedback.voteFeedback('feedback-existing');
+
+    expect(result.voteCount).toBe(4);
+  });
+});
+
 describe('Cross-service integration (msw)', () => {
   it('login then access authenticated endpoints', async () => {
     const client = await createAuthenticatedClient();

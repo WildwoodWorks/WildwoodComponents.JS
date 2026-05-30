@@ -108,6 +108,11 @@ export function NavMenu() {
           </NavLink>
         </li>
         <li>
+          <NavLink to="/feedback" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Feedback
+          </NavLink>
+        </li>
+        <li>
           <NavLink to="/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
             Notifications
           </NavLink>

@@ -189,6 +189,19 @@ export type {
   TierChangePreviewModel,
 } from './features/types.js';
 
+// Feedback
+export { FeedbackService } from './feedback/feedbackService.js';
+export type {
+  FeedbackWidgetConfig,
+  FeedbackAttachment,
+  FeedbackConsoleEntry,
+  FeedbackBrowserContext,
+  SubmitFeedbackInput,
+  SystemFeedback,
+  FeedbackDuplicateCheck,
+  FeedbackVoteResult,
+} from './feedback/types.js';
+
 // Theme
 export { ThemeService } from './theme/themeService.js';
 export type { ComponentTheme, ThemeName } from './theme/types.js';
