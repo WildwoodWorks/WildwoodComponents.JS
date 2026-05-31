@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   createAuthMiddleware,
   createProxyMiddleware,
+  createFeedbackProxyMiddleware,
   createRateLimitMiddleware,
   createAdminClient,
   AdminClient,
+  FeedbackService,
   decodeToken,
   decodeTokenHeader,
   isTokenExpired,
@@ -23,6 +25,14 @@ describe('public exports', () => {
 
   it('exports createProxyMiddleware as a function', () => {
     expect(typeof createProxyMiddleware).toBe('function');
+  });
+
+  it('exports createFeedbackProxyMiddleware as a function', () => {
+    expect(typeof createFeedbackProxyMiddleware).toBe('function');
+  });
+
+  it('exports FeedbackService (from core) as a class', () => {
+    expect(typeof FeedbackService).toBe('function');
   });
 
   it('exports createRateLimitMiddleware as a function', () => {

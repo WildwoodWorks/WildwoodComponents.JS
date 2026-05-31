@@ -5,6 +5,9 @@ export type { AuthMiddlewareOptions, WildwoodUser } from './middleware/authMiddl
 export { createProxyMiddleware } from './middleware/proxyMiddleware.js';
 export type { ProxyMiddlewareOptions } from './middleware/proxyMiddleware.js';
 
+export { createFeedbackProxyMiddleware } from './middleware/feedbackProxyMiddleware.js';
+export type { FeedbackProxyMiddlewareOptions } from './middleware/feedbackProxyMiddleware.js';
+
 export { createRateLimitMiddleware } from './middleware/rateLimitMiddleware.js';
 export type { RateLimitOptions } from './middleware/rateLimitMiddleware.js';
 
@@ -62,3 +65,20 @@ export type {
   FieldMigrationResult,
   EncryptionMigrationResult,
 } from './admin/adminClient.js';
+
+// Feedback (re-exported from @wildwood/core for direct server-side use).
+// The browser-facing widget should go through createFeedbackProxyMiddleware so
+// credentials stay server-side; use FeedbackService directly when a server
+// process needs to submit/check/vote feedback itself (with a token provider
+// configured on the underlying HttpClient).
+export { FeedbackService } from '@wildwood/core';
+export type {
+  FeedbackWidgetConfig,
+  FeedbackAttachment,
+  FeedbackConsoleEntry,
+  FeedbackBrowserContext,
+  SubmitFeedbackInput,
+  SystemFeedback,
+  FeedbackDuplicateCheck,
+  FeedbackVoteResult,
+} from '@wildwood/core';
