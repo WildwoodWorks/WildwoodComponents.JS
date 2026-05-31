@@ -7,6 +7,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Image,
   StyleSheet,
 } from 'react-native';
 import type { ViewStyle } from 'react-native';
@@ -32,6 +33,18 @@ export interface FeedbackComponentProps {
   onSubmitted?: (feedbackId: string) => void;
   /** Optional style applied to the floating launcher button container. */
   style?: ViewStyle;
+  /**
+   * Optional screenshot capture hook. React Native has no DOM/html2canvas, so the screenshot
+   * UI is only shown when the consumer wires this — typically with `react-native-view-shot`:
+   *
+   *   import { captureScreen } from 'react-native-view-shot';
+   *   <FeedbackComponent captureScreenshot={() => captureScreen({ format: 'jpg', quality: 0.8, result: 'data-uri' })} />
+   *
+   * Should resolve to a base64 data URL (or null if the capture is cancelled/unavailable).
+   * Keeping it an injected callback avoids a hard native dependency (mirrors the StorageAdapter
+   * pattern), while still giving feature parity with the web widget's screenshot capture.
+   */
+  captureScreenshot?: () => Promise<string | null>;
 }
 
 type StatusKind = 'success' | 'error';
@@ -56,10 +69,14 @@ function humanizeType(t: string): string {
  * duplicate, and 429/error handling — but renders with React Native primitives.
  *
  * Native differences from the web component (expected, per platform):
- *  - No screenshot capture (no DOM / html2canvas). The form submits fine without one.
+ *  - Screenshot capture is opt-in via the `captureScreenshot` prop (e.g. react-native-view-shot)
+ *    instead of DOM/html2canvas; the screenshot UI only appears when that prop is wired. When the
+ *    app config sets RequireScreenshot, submission is blocked until one is captured (parity with web).
  *  - No file attachments picker (requires a platform-specific document picker, not a
  *    `react-native` primitive). Kept out to stay dependency-free.
  *  - browserContext is a minimal native snapshot (Platform + Dimensions), never `window`.
+ *  - AllowAnonymous: when the viewer is unauthenticated and the app forbids anonymous feedback,
+ *    the widget renders nothing (parity with the web/Razor widgets).
  */
 export function FeedbackComponent({
   appId,
@@ -70,6 +87,7 @@ export function FeedbackComponent({
   onOpenChange,
   onSubmitted,
   style,
+  captureScreenshot,
 }: FeedbackComponentProps) {
   const { config, submitting, loadConfig, submitFeedback, checkDuplicate, voteFeedback } = useFeedback();
   const { isAuthenticated } = useAuth();
@@ -85,6 +103,8 @@ export function FeedbackComponent({
   const [name, setName] = useState('');
   const [duplicate, setDuplicate] = useState<FeedbackDuplicateCheck | null>(null);
   const [status, setStatus] = useState<StatusMessage | null>(null);
+  const [screenshotData, setScreenshotData] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
 
   const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,6 +139,21 @@ export function FeedbackComponent({
   const resolvedPosition = position ?? (config?.widgetPosition === 'bottom-left' ? 'bottom-left' : 'bottom-right');
   const resolvedColor = color ?? config?.widgetColor ?? DEFAULT_COLOR;
   const enableDuplicate = config?.enableDuplicateDetection !== false;
+  const requireScreenshot = config?.requireScreenshot === true;
+  // Anonymous users cannot submit when the app forbids anonymous feedback.
+  const anonymousBlocked = !isAuthenticated && config?.allowAnonymous === false;
+
+  // Warn the developer if the app requires a screenshot but no capture is wired — the requirement
+  // can't be met on native without it, so submission proceeds without one rather than dead-ending.
+  useEffect(() => {
+    if (requireScreenshot && !captureScreenshot) {
+      console.warn(
+        '[Wildwood] FeedbackComponent: this app config sets RequireScreenshot, but no `captureScreenshot` ' +
+          'prop was provided. Submissions will proceed without a screenshot. Wire react-native-view-shot ' +
+          '(captureScreenshot) to enable capture.',
+      );
+    }
+  }, [requireScreenshot, captureScreenshot]);
 
   const feedbackTypes = useMemo(() => (config?.feedbackTypes?.length ? config.feedbackTypes : DEFAULT_TYPES), [config]);
 
@@ -147,8 +182,24 @@ export function FeedbackComponent({
     setEmail('');
     setName('');
     setDuplicate(null);
+    setScreenshotData(null);
     setFeedbackType(feedbackTypes[0] ?? '');
   }, [feedbackTypes]);
+
+  const handleCaptureScreenshot = useCallback(async () => {
+    if (!captureScreenshot) return;
+    setStatus(null);
+    setCapturing(true);
+    try {
+      const data = await captureScreenshot();
+      if (data) setScreenshotData(data);
+      else setStatus({ kind: 'error', text: 'Could not capture a screenshot.' });
+    } catch {
+      setStatus({ kind: 'error', text: 'Failed to capture screenshot.' });
+    } finally {
+      setCapturing(false);
+    }
+  }, [captureScreenshot]);
 
   const handleVote = useCallback(
     async (id: string) => {
@@ -174,6 +225,12 @@ export function FeedbackComponent({
       setStatus({ kind: 'error', text: 'Please enter a description.' });
       return;
     }
+    // Only enforce the screenshot requirement when capture is actually wired; otherwise there is
+    // no way to satisfy it on native and we'd trap the user (a dev warning is logged on mount).
+    if (requireScreenshot && captureScreenshot && !screenshotData) {
+      setStatus({ kind: 'error', text: 'Please attach a screenshot before submitting.' });
+      return;
+    }
 
     try {
       const created = await submitFeedback({
@@ -184,8 +241,8 @@ export function FeedbackComponent({
         feedbackType: feedbackType || feedbackTypes[0],
         // No URL on native; keep null so the server records it as absent.
         pageUrl: null,
-        // No DOM screenshot on native — always omitted.
-        screenshotData: null,
+        // Screenshot is opt-in via the captureScreenshot prop; null when not captured.
+        screenshotData,
         // No file attachments on native.
         attachments: null,
         browserContext: collectNativeContext(),
@@ -214,14 +271,19 @@ export function FeedbackComponent({
     isAuthenticated,
     email,
     name,
+    requireScreenshot,
+    screenshotData,
+    captureScreenshot,
     submitFeedback,
     onSubmitted,
     resetForm,
     setOpen,
   ]);
 
-  // Don't render anything if the app has explicitly disabled the widget.
+  // Don't render anything if the app has explicitly disabled the widget, or if the viewer is
+  // anonymous and the app forbids anonymous feedback (parity with the web/Razor widgets).
   if (config && !config.isEnabled) return null;
+  if (anonymousBlocked) return null;
 
   const positionStyle = resolvedPosition === 'bottom-left' ? styles.launcherLeft : styles.launcherRight;
 
@@ -358,10 +420,48 @@ export function FeedbackComponent({
                 </>
               )}
 
+              {captureScreenshot && (
+                <>
+                  <Text style={styles.label}>
+                    Screenshot {requireScreenshot && <Text style={styles.required}>*</Text>}
+                  </Text>
+                  {screenshotData ? (
+                    <View style={styles.screenshotPreviewWrap}>
+                      <Image source={{ uri: screenshotData }} style={styles.screenshotPreview} resizeMode="contain" />
+                      <TouchableOpacity
+                        style={styles.screenshotRemove}
+                        onPress={() => setScreenshotData(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove screenshot"
+                      >
+                        <Text style={styles.screenshotRemoveText}>{'×'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.secondaryButton, capturing && styles.submitDisabled]}
+                      onPress={handleCaptureScreenshot}
+                      disabled={capturing}
+                      accessibilityRole="button"
+                    >
+                      {capturing ? (
+                        <ActivityIndicator color={resolvedColor} size="small" />
+                      ) : (
+                        <Text style={styles.secondaryButtonText}>{'\u{1F4F7}'} Capture screenshot</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+
               <TouchableOpacity
-                style={[styles.submit, { backgroundColor: resolvedColor }, submitting && styles.submitDisabled]}
+                style={[
+                  styles.submit,
+                  { backgroundColor: resolvedColor },
+                  (submitting || capturing) && styles.submitDisabled,
+                ]}
                 onPress={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || capturing}
                 accessibilityRole="button"
               >
                 {submitting ? (
@@ -529,6 +629,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#92400E',
     fontWeight: '500',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+    minHeight: 40,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  screenshotPreviewWrap: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  screenshotPreview: {
+    width: 160,
+    height: 110,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#f1f1f1',
+  },
+  screenshotRemove: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#dc3545',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  screenshotRemoveText: {
+    color: '#fff',
+    fontSize: 14,
+    lineHeight: 16,
   },
   submit: {
     borderRadius: 8,

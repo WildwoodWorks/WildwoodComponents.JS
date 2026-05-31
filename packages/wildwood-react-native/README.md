@@ -76,13 +76,24 @@ These components have full core/react/react-native coverage (`node` is server-si
 | Disclaimers | disclaimerService | ✓ | ✓ | -- |
 | Feedback | feedbackService | ✓ | ✓ | -- |
 
-**`FeedbackComponent`** — a floating launcher button that opens a slide-up modal feedback form (type picker, title with duplicate detection, description, anonymous email/name when unauthenticated, submit). It reuses the core `feedbackService` and the `useFeedback` hook. Native differences from web: no screenshot capture (no DOM), no file attachments, and a minimal `Platform` + `Dimensions` diagnostic context instead of the web's `window`-based one. Pass `appId` explicitly or let it fall back to the `WildwoodProvider` config.
+**`FeedbackComponent`** — a floating launcher button that opens a slide-up modal feedback form (type picker, title with duplicate detection, description, anonymous email/name when unauthenticated, submit). It reuses the core `feedbackService` and the `useFeedback` hook, hides itself when the viewer is anonymous and the app forbids anonymous feedback, and enforces the app's `RequireScreenshot` setting. Native differences from web: no file attachments, and a minimal `Platform` + `Dimensions` diagnostic context instead of the web's `window`-based one. Pass `appId` explicitly or let it fall back to the `WildwoodProvider` config.
 
 ```tsx
 import { FeedbackComponent } from '@wildwood/react-native';
 
 // Floating widget — sits over your app, opens a modal on tap
 <FeedbackComponent appId={APP_ID} position="bottom-right" />
+```
+
+Screenshot capture is opt-in (RN has no DOM/html2canvas). Wire the `captureScreenshot` prop — e.g. with [`react-native-view-shot`](https://github.com/gre/react-native-view-shot) — to enable the screenshot UI:
+
+```tsx
+import { captureScreen } from 'react-native-view-shot';
+
+<FeedbackComponent
+  appId={APP_ID}
+  captureScreenshot={() => captureScreen({ format: 'jpg', quality: 0.8, result: 'data-uri' })}
+/>
 ```
 
 ## Theme System
