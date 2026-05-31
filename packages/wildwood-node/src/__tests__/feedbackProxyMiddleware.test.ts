@@ -155,6 +155,35 @@ describe('createFeedbackProxyMiddleware', () => {
     expect(calls[0].url).toBe(`${BASE}/api/AppComponentConfigurations/app-42/feedback/widget`);
   });
 
+  it('does not turn an encoded-slash id into a path-traversal (forwards %2F literally)', async () => {
+    const { calls } = mockFetchJson({ voteCount: 1 });
+    const mw = createFeedbackProxyMiddleware({ baseUrl: BASE, apiKey: API_KEY });
+    // Express leaves req.path percent-encoded; an attacker-supplied ..%2F..%2Fadmin
+    // must stay a single encoded path segment, never decoded into separators.
+    const req = makeReq({ path: '/..%2F..%2Fadmin/vote', method: 'POST' });
+    const res = makeRes();
+
+    await mw(req, res, vi.fn() as NextFunction);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/api/SystemFeedback/..%2F..%2Fadmin/vote`);
+  });
+
+  it('does not throw/500 on a malformed percent sequence in the id', async () => {
+    const { calls } = mockFetchJson({ voteCount: 0 });
+    const mw = createFeedbackProxyMiddleware({ baseUrl: BASE, apiKey: API_KEY });
+    // A lone '%' is not a valid escape; the proxy must not call decodeURIComponent
+    // on the raw segment (which would throw URIError) and 500.
+    const req = makeReq({ path: '/100%done/vote', method: 'POST' });
+    const res = makeRes();
+
+    await mw(req, res, vi.fn() as NextFunction);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/api/SystemFeedback/100%done/vote`);
+    expect(res.statusCode).toBe(200);
+  });
+
   it('falls through (next) for unrecognized routes', async () => {
     const { calls } = mockFetchJson({});
     const mw = createFeedbackProxyMiddleware({ baseUrl: BASE, apiKey: API_KEY });

@@ -68,7 +68,12 @@ function resolveRoute(req: Request): FeedbackRoute | null {
   // POST {id}/vote
   const voteMatch = method === 'POST' ? /^([^/]+)\/vote$/.exec(rawPath) : null;
   if (voteMatch) {
-    const id = encodeURIComponent(decodeURIComponent(voteMatch[1]));
+    // Express leaves req.path percent-encoded, so the captured segment is
+    // already in wire form; the `[^/]+` capture guarantees no literal path
+    // separator. Forward it as-is. (Re-decoding here would throw URIError on a
+    // malformed percent sequence and double-decode legitimate content; any
+    // encoded %2F stays a literal to the API, so path traversal can't occur.)
+    const id = voteMatch[1];
     return { method: 'POST', targetPath: `api/SystemFeedback/${id}/vote` };
   }
 
@@ -83,7 +88,9 @@ function resolveRoute(req: Request): FeedbackRoute | null {
     }
     const widgetMatch = /^([^/]+)\/widget$/.exec(rawPath);
     if (widgetMatch) {
-      const appId = encodeURIComponent(decodeURIComponent(widgetMatch[1]));
+      // Already-encoded path segment from req.path with no literal separator
+      // (see the vote route above); forward as-is to avoid a double-decode.
+      const appId = widgetMatch[1];
       return { method: 'GET', targetPath: `api/AppComponentConfigurations/${appId}/feedback/widget` };
     }
   }
