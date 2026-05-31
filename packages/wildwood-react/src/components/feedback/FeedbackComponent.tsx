@@ -113,6 +113,9 @@ export function FeedbackComponent({
   const resolvedColor = color ?? config?.widgetColor;
   const enableDuplicate = config?.enableDuplicateDetection !== false;
   const allowAttachments = config?.allowAttachments === true;
+  const requireScreenshot = config?.requireScreenshot === true;
+  // Anonymous users cannot submit when the app forbids anonymous feedback.
+  const anonymousBlocked = !isAuthenticated && config?.allowAnonymous === false;
 
   const feedbackTypes = useMemo(
     () => (config?.feedbackTypes?.length ? config.feedbackTypes : ['Bug', 'FeatureRequest', 'Improvement', 'Other']),
@@ -230,6 +233,21 @@ export function FeedbackComponent({
       setStatus({ kind: 'error', text: 'Please enter a description.' });
       return;
     }
+    if (requireScreenshot && !screenshot) {
+      setStatus({ kind: 'error', text: 'Please attach a screenshot before submitting.' });
+      return;
+    }
+    if (!isAuthenticated) {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setStatus({ kind: 'error', text: 'Please enter your email address.' });
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        setStatus({ kind: 'error', text: 'Please enter a valid email address.' });
+        return;
+      }
+    }
 
     try {
       const created = await submitFeedback({
@@ -268,6 +286,7 @@ export function FeedbackComponent({
     isAuthenticated,
     email,
     name,
+    requireScreenshot,
     submitFeedback,
     onSubmitted,
     resetForm,
@@ -283,7 +302,7 @@ export function FeedbackComponent({
 
   return (
     <div className={`ww-feedback ${className ?? ''}`} style={cssVars}>
-      {showLauncher && !panelOpen && (
+      {showLauncher && !panelOpen && !anonymousBlocked && (
         <button
           type="button"
           className={`ww-feedback-launcher ww-feedback-${resolvedPosition}`}
@@ -315,175 +334,185 @@ export function FeedbackComponent({
           </div>
 
           <div className="ww-feedback-body">
-            {status && (
-              <div
-                className={`ww-feedback-status ww-feedback-status-${status.kind}`}
-                role={status.kind === 'error' ? 'alert' : 'status'}
-              >
-                {status.text}
+            {anonymousBlocked ? (
+              <div className="ww-feedback-status ww-feedback-status-error" role="alert">
+                Please sign in to send feedback.
               </div>
-            )}
-
-            <label htmlFor="ww-feedback-type">Type</label>
-            <select
-              id="ww-feedback-type"
-              className="ww-feedback-select"
-              value={feedbackType}
-              onChange={(e) => setFeedbackType(e.target.value)}
-            >
-              {feedbackTypes.map((t) => (
-                <option key={t} value={t}>
-                  {humanizeType(t)}
-                </option>
-              ))}
-            </select>
-
-            <label htmlFor="ww-feedback-title">
-              Title <span className="ww-feedback-required">*</span>
-            </label>
-            <input
-              id="ww-feedback-title"
-              className="ww-feedback-input"
-              type="text"
-              placeholder="Brief summary"
-              maxLength={200}
-              value={title}
-              onChange={(e) => onTitleChange(e.target.value)}
-            />
-
-            {duplicate && (
-              <div className="ww-feedback-duplicate" role="status">
-                <span>
-                  ⚠ Similar feedback exists: <strong>{duplicate.duplicateTitle}</strong>
-                  {duplicate.duplicateVoteCount > 0 ? ` (${duplicate.duplicateVoteCount} votes)` : ''}
-                </span>
-                {duplicate.duplicateId && (
-                  <button
-                    type="button"
-                    className="ww-feedback-vote-btn"
-                    onClick={() => handleVote(duplicate.duplicateId as string)}
-                  >
-                    👍 Me too! Upvote instead
-                  </button>
-                )}
-              </div>
-            )}
-
-            <label htmlFor="ww-feedback-desc">
-              Description <span className="ww-feedback-required">*</span>
-            </label>
-            <textarea
-              id="ww-feedback-desc"
-              className="ww-feedback-textarea"
-              placeholder="Tell us more..."
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-
-            {!isAuthenticated && (
+            ) : (
               <>
-                <label htmlFor="ww-feedback-email">Email</label>
+                {status && (
+                  <div
+                    className={`ww-feedback-status ww-feedback-status-${status.kind}`}
+                    role={status.kind === 'error' ? 'alert' : 'status'}
+                  >
+                    {status.text}
+                  </div>
+                )}
+
+                <label htmlFor="ww-feedback-type">Type</label>
+                <select
+                  id="ww-feedback-type"
+                  className="ww-feedback-select"
+                  value={feedbackType}
+                  onChange={(e) => setFeedbackType(e.target.value)}
+                >
+                  {feedbackTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {humanizeType(t)}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="ww-feedback-title">
+                  Title <span className="ww-feedback-required">*</span>
+                </label>
                 <input
-                  id="ww-feedback-email"
-                  className="ww-feedback-input"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <label htmlFor="ww-feedback-name">Name (optional)</label>
-                <input
-                  id="ww-feedback-name"
+                  id="ww-feedback-title"
                   className="ww-feedback-input"
                   type="text"
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Brief summary"
+                  maxLength={200}
+                  value={title}
+                  onChange={(e) => onTitleChange(e.target.value)}
                 />
+
+                {duplicate && (
+                  <div className="ww-feedback-duplicate" role="status">
+                    <span>
+                      ⚠ Similar feedback exists: <strong>{duplicate.duplicateTitle}</strong>
+                      {duplicate.duplicateVoteCount > 0 ? ` (${duplicate.duplicateVoteCount} votes)` : ''}
+                    </span>
+                    {duplicate.duplicateId && (
+                      <button
+                        type="button"
+                        className="ww-feedback-vote-btn"
+                        onClick={() => handleVote(duplicate.duplicateId as string)}
+                      >
+                        👍 Me too! Upvote instead
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <label htmlFor="ww-feedback-desc">
+                  Description <span className="ww-feedback-required">*</span>
+                </label>
+                <textarea
+                  id="ww-feedback-desc"
+                  className="ww-feedback-textarea"
+                  placeholder="Tell us more..."
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+
+                {!isAuthenticated && (
+                  <>
+                    <label htmlFor="ww-feedback-email">
+                      Email <span className="ww-feedback-required">*</span>
+                    </label>
+                    <input
+                      id="ww-feedback-email"
+                      className="ww-feedback-input"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <label htmlFor="ww-feedback-name">Name (optional)</label>
+                    <input
+                      id="ww-feedback-name"
+                      className="ww-feedback-input"
+                      type="text"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </>
+                )}
+
+                <div className="ww-feedback-screenshot">
+                  <label>Screenshot {requireScreenshot && <span className="ww-feedback-required">*</span>}</label>
+                  {screenshot ? (
+                    <div className="ww-feedback-screenshot-preview">
+                      <img src={screenshot} alt="Screenshot preview" />
+                      <button
+                        type="button"
+                        className="ww-feedback-screenshot-remove"
+                        onClick={() => setScreenshot(null)}
+                        aria-label="Remove screenshot"
+                        title="Remove"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ww-feedback-btn-secondary"
+                      onClick={handleCaptureScreenshot}
+                      disabled={capturing}
+                    >
+                      {capturing ? 'Capturing…' : '📷 Capture screenshot'}
+                    </button>
+                  )}
+                </div>
+
+                {allowAttachments && (
+                  <div className="ww-feedback-attachments">
+                    <label>Attachments</label>
+                    <button
+                      type="button"
+                      className="ww-feedback-btn-secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Add files
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      style={{ display: 'none' }}
+                      accept={config?.allowedAttachmentTypes ?? ''}
+                      onChange={(e) => {
+                        handleFiles(e.target.files);
+                        e.target.value = '';
+                      }}
+                    />
+                    {attachments.length > 0 && (
+                      <ul className="ww-feedback-attachment-list">
+                        {attachments.map((att, idx) => (
+                          <li key={`${att.name}-${idx}`} className="ww-feedback-attachment-item">
+                            <span>
+                              {att.name}{' '}
+                              <small>({att.size < 1024 ? `${att.size}B` : `${Math.round(att.size / 1024)}KB`})</small>
+                            </span>
+                            <button
+                              type="button"
+                              className="ww-feedback-attachment-remove"
+                              onClick={() => removeAttachment(idx)}
+                              aria-label={`Remove ${att.name}`}
+                              title="Remove"
+                            >
+                              &times;
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="ww-feedback-submit"
+                  onClick={handleSubmit}
+                  disabled={submitting || capturing}
+                >
+                  {submitting ? 'Submitting…' : 'Submit Feedback'}
+                </button>
               </>
             )}
-
-            <div className="ww-feedback-screenshot">
-              <label>Screenshot</label>
-              {screenshot ? (
-                <div className="ww-feedback-screenshot-preview">
-                  <img src={screenshot} alt="Screenshot preview" />
-                  <button
-                    type="button"
-                    className="ww-feedback-screenshot-remove"
-                    onClick={() => setScreenshot(null)}
-                    aria-label="Remove screenshot"
-                    title="Remove"
-                  >
-                    &times;
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="ww-feedback-btn-secondary"
-                  onClick={handleCaptureScreenshot}
-                  disabled={capturing}
-                >
-                  {capturing ? 'Capturing…' : '📷 Capture screenshot'}
-                </button>
-              )}
-            </div>
-
-            {allowAttachments && (
-              <div className="ww-feedback-attachments">
-                <label>Attachments</label>
-                <button
-                  type="button"
-                  className="ww-feedback-btn-secondary"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Add files
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  style={{ display: 'none' }}
-                  accept={config?.allowedAttachmentTypes ?? ''}
-                  onChange={(e) => {
-                    handleFiles(e.target.files);
-                    e.target.value = '';
-                  }}
-                />
-                {attachments.length > 0 && (
-                  <ul className="ww-feedback-attachment-list">
-                    {attachments.map((att, idx) => (
-                      <li key={`${att.name}-${idx}`} className="ww-feedback-attachment-item">
-                        <span>
-                          {att.name}{' '}
-                          <small>({att.size < 1024 ? `${att.size}B` : `${Math.round(att.size / 1024)}KB`})</small>
-                        </span>
-                        <button
-                          type="button"
-                          className="ww-feedback-attachment-remove"
-                          onClick={() => removeAttachment(idx)}
-                          aria-label={`Remove ${att.name}`}
-                          title="Remove"
-                        >
-                          &times;
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              className="ww-feedback-submit"
-              onClick={handleSubmit}
-              disabled={submitting || capturing}
-            >
-              {submitting ? 'Submitting…' : 'Submit Feedback'}
-            </button>
           </div>
         </div>
       )}
