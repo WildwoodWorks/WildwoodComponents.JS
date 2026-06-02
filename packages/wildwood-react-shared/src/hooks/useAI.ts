@@ -164,8 +164,13 @@ export function useAI(): UseAIReturn {
   );
 
   const getConfiguration = useCallback(
-    async (name: string) => {
-      return client.ai.getConfiguration(name);
+    async (name: string): Promise<AIConfiguration | null> => {
+      // Resolve by configuration NAME. The core client.ai.getConfiguration() targets the by-id
+      // route (configurations/{id}); passing a name there 404s and yields null. The list endpoint
+      // is the only name-addressable source, so fetch and match by name (trimmed, case-insensitive).
+      const target = name.trim().toLowerCase();
+      const configs = await client.ai.getConfigurations();
+      return configs.find((c) => c.name?.trim().toLowerCase() === target) ?? null;
     },
     [client],
   );
