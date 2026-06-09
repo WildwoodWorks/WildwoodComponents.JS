@@ -8,6 +8,7 @@ import type {
   AISessionSummary,
   AIConfiguration,
   TTSVoice,
+  RequestOptions,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -15,10 +16,20 @@ export interface UseAIReturn {
   sessions: AISessionSummary[];
   loading: boolean;
   error: string | null;
-  sendMessage: (request: AIChatRequest) => Promise<AIChatResponse>;
-  sendMessageWithFile: (request: AIChatRequest, file: File | Blob, fileName?: string) => Promise<AIChatResponse>;
-  sendProxyMessage: (request: AIChatRequest) => Promise<AIChatResponse>;
-  sendProxyMessageWithFile: (request: AIChatRequest, file: File | Blob, fileName?: string) => Promise<AIChatResponse>;
+  sendMessage: (request: AIChatRequest, options?: RequestOptions) => Promise<AIChatResponse>;
+  sendMessageWithFile: (
+    request: AIChatRequest,
+    file: File | Blob,
+    fileName?: string,
+    options?: RequestOptions,
+  ) => Promise<AIChatResponse>;
+  sendProxyMessage: (request: AIChatRequest, options?: RequestOptions) => Promise<AIChatResponse>;
+  sendProxyMessageWithFile: (
+    request: AIChatRequest,
+    file: File | Blob,
+    fileName?: string,
+    options?: RequestOptions,
+  ) => Promise<AIChatResponse>;
   getSessions: () => Promise<AISessionSummary[]>;
   getSession: (sessionId: string) => Promise<AISession | null>;
   createSession: (configName: string, title?: string) => Promise<AISession | null>;
@@ -44,11 +55,11 @@ export function useAI(): UseAIReturn {
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = useCallback(
-    async (request: AIChatRequest) => {
+    async (request: AIChatRequest, options?: RequestOptions) => {
       setLoading(true);
       setError(null);
       try {
-        return await client.ai.sendMessage(request);
+        return await client.ai.sendMessage(request, options);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);
@@ -61,11 +72,11 @@ export function useAI(): UseAIReturn {
   );
 
   const sendMessageWithFile = useCallback(
-    async (request: AIChatRequest, file: File | Blob, fileName?: string) => {
+    async (request: AIChatRequest, file: File | Blob, fileName?: string, options?: RequestOptions) => {
       setLoading(true);
       setError(null);
       try {
-        return await client.ai.sendMessageWithFile(request, file, fileName);
+        return await client.ai.sendMessageWithFile(request, file, fileName, options);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);
@@ -78,11 +89,11 @@ export function useAI(): UseAIReturn {
   );
 
   const sendProxyMessage = useCallback(
-    async (request: AIChatRequest) => {
+    async (request: AIChatRequest, options?: RequestOptions) => {
       setLoading(true);
       setError(null);
       try {
-        return await client.ai.sendProxyMessage(request);
+        return await client.ai.sendProxyMessage(request, options);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);
@@ -95,11 +106,11 @@ export function useAI(): UseAIReturn {
   );
 
   const sendProxyMessageWithFile = useCallback(
-    async (request: AIChatRequest, file: File | Blob, fileName?: string) => {
+    async (request: AIChatRequest, file: File | Blob, fileName?: string, options?: RequestOptions) => {
       setLoading(true);
       setError(null);
       try {
-        return await client.ai.sendProxyMessageWithFile(request, file, fileName);
+        return await client.ai.sendProxyMessageWithFile(request, file, fileName, options);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);

@@ -1,6 +1,7 @@
 // AI service - ported from WildwoodComponents.Blazor/Services/AIService.cs
 
 import type { HttpClient } from '../client/httpClient.js';
+import type { RequestOptions } from '../client/types.js';
 import type { AIChatRequest, AIChatResponse, AIConfiguration, AISession, AISessionSummary } from './types.js';
 
 export interface TTSVoice {
@@ -15,22 +16,26 @@ export class AIService {
     private appId?: string,
   ) {}
 
-  async sendMessage(request: AIChatRequest): Promise<AIChatResponse> {
-    return this.postChat('api/ai/chat', request);
+  async sendMessage(request: AIChatRequest, options?: RequestOptions): Promise<AIChatResponse> {
+    return this.postChat('api/ai/chat', request, options);
   }
 
   /**
    * Send a message via the AI proxy endpoint.
    * Routes to POST /api/ai/proxy; the backing handler is identical to /api/ai/chat,
    * but the proxy alias is the canonical endpoint for AIProxyComponent usage.
+   *
+   * Pass `options.timeout` (seconds) to override the default 30s request timeout for
+   * long-running generations (e.g. spec/document synthesis) that would otherwise be
+   * aborted and retried mid-flight.
    */
-  async sendProxyMessage(request: AIChatRequest): Promise<AIChatResponse> {
-    return this.postChat('api/ai/proxy', request);
+  async sendProxyMessage(request: AIChatRequest, options?: RequestOptions): Promise<AIChatResponse> {
+    return this.postChat('api/ai/proxy', request, options);
   }
 
-  private async postChat(endpoint: string, request: AIChatRequest): Promise<AIChatResponse> {
+  private async postChat(endpoint: string, request: AIChatRequest, options?: RequestOptions): Promise<AIChatResponse> {
     try {
-      const { data } = await this.http.post<AIChatResponse>(endpoint, request);
+      const { data } = await this.http.post<AIChatResponse>(endpoint, request, options);
       return data;
     } catch (err: unknown) {
       return this.parseErrorResponse(err);
@@ -42,8 +47,13 @@ export class AIService {
    * Converts the file to Base64 and includes it in the request body.
    * Mirrors Blazor's SendMessageWithFileAsync.
    */
-  async sendMessageWithFile(request: AIChatRequest, file: File | Blob, fileName?: string): Promise<AIChatResponse> {
-    return this.sendFileRequest(request, file, fileName, false);
+  async sendMessageWithFile(
+    request: AIChatRequest,
+    file: File | Blob,
+    fileName?: string,
+    options?: RequestOptions,
+  ): Promise<AIChatResponse> {
+    return this.sendFileRequest(request, file, fileName, false, options);
   }
 
   /**
@@ -53,8 +63,9 @@ export class AIService {
     request: AIChatRequest,
     file: File | Blob,
     fileName?: string,
+    options?: RequestOptions,
   ): Promise<AIChatResponse> {
-    return this.sendFileRequest(request, file, fileName, true);
+    return this.sendFileRequest(request, file, fileName, true, options);
   }
 
   private async sendFileRequest(
@@ -62,6 +73,7 @@ export class AIService {
     file: File | Blob,
     fileName: string | undefined,
     viaProxy: boolean,
+    options?: RequestOptions,
   ): Promise<AIChatResponse> {
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
@@ -83,7 +95,7 @@ export class AIService {
       fileMediaType,
       fileName: resolvedName,
     };
-    return viaProxy ? this.sendProxyMessage(withFile) : this.sendMessage(withFile);
+    return viaProxy ? this.sendProxyMessage(withFile, options) : this.sendMessage(withFile, options);
   }
 
   /**
