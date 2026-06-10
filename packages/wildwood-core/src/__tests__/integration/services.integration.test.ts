@@ -102,6 +102,97 @@ describe('AppTier service integration (msw)', () => {
   });
 });
 
+describe('Messaging service integration (msw)', () => {
+  it('getThreads returns the thread list', async () => {
+    const client = await createAuthenticatedClient();
+    const threads = await client.messaging.getThreads('test-app-id');
+
+    expect(threads).toHaveLength(2);
+    expect(threads[0].name).toBe('General');
+  });
+
+  it('drafts round-trip through storage and clear on send', async () => {
+    const client = await createAuthenticatedClient();
+
+    await client.messaging.saveDraft('thread-1', 'unsent text', 'msg-0');
+    const draft = await client.messaging.getDraft('thread-1');
+    expect(draft?.content).toBe('unsent text');
+    expect(draft?.replyToMessageId).toBe('msg-0');
+
+    // Sending the message clears the per-thread draft
+    const sent = await client.messaging.sendMessage('thread-1', 'unsent text');
+    expect(sent.id).toBe('msg-1');
+    expect(await client.messaging.getDraft('thread-1')).toBeNull();
+  });
+
+  it('clearDraft removes a saved draft', async () => {
+    const client = await createAuthenticatedClient();
+
+    await client.messaging.saveDraft('thread-2', 'scratch');
+    await client.messaging.clearDraft('thread-2');
+
+    expect(await client.messaging.getDraft('thread-2')).toBeNull();
+  });
+});
+
+describe('Payment service integration (msw)', () => {
+  it('getAppPaymentConfiguration returns the app config', async () => {
+    const client = await createAuthenticatedClient();
+    const config = await client.payment.getAppPaymentConfiguration('test-app-id');
+
+    expect(config?.isPaymentEnabled).toBe(true);
+    expect(config?.providers).toHaveLength(1);
+    expect(config?.providers[0].name).toBe('Stripe');
+  });
+
+  it('initiatePayment returns the payment intent', async () => {
+    const client = await createAuthenticatedClient();
+    const result = await client.payment.initiatePayment({
+      providerId: 'p-stripe',
+      amount: 19.99,
+      currency: 'USD',
+    } as Parameters<typeof client.payment.initiatePayment>[0]);
+
+    expect(result.success).toBe(true);
+    expect(result.paymentIntentId).toBe('pi_test_123');
+  });
+
+  it('linkTransactionToUser posts to link-by-external-id and returns true', async () => {
+    const client = await createAuthenticatedClient();
+    const ok = await client.payment.linkTransactionToUser('pi_ext_9', 'user-123');
+
+    expect(ok).toBe(true);
+  });
+
+  it('linkTransactionToUser returns false when the API rejects', async () => {
+    const client = await createAuthenticatedClient();
+    // Handler 400s when userId is missing
+    const ok = await client.payment.linkTransactionToUser('pi_ext_9', '');
+
+    expect(ok).toBe(false);
+  });
+});
+
+describe('TwoFactor service integration (msw)', () => {
+  it('getStatus returns the user 2FA status', async () => {
+    const client = await createAuthenticatedClient();
+    const status = await client.twoFactor.getStatus();
+
+    expect(status.isEnabled).toBe(true);
+    expect(status.recoveryCodesRemaining).toBe(8);
+    expect(status.availableMethods).toContain('Email');
+  });
+
+  it('enrollEmail returns the enrollment challenge', async () => {
+    const client = await createAuthenticatedClient();
+    const result = await client.twoFactor.enrollEmail('me@example.com');
+
+    expect(result.success).toBe(true);
+    expect(result.credentialId).toBe('cred-1');
+    expect(result.maskedEmail).toContain('***@example.com');
+  });
+});
+
 describe('Feedback service integration (msw)', () => {
   it('getWidgetConfig returns the app widget config', async () => {
     const client = await createAuthenticatedClient();

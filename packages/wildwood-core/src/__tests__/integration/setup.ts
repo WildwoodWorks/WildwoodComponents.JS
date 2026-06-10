@@ -175,6 +175,80 @@ export const handlers = [
     });
   }),
 
+  // Messaging - threads
+  http.get('https://test-api.example.com/api/messaging/threads', () => {
+    return HttpResponse.json([
+      { id: 'thread-1', name: 'General', threadType: 'Group' },
+      { id: 'thread-2', name: 'Direct', threadType: 'Direct' },
+    ]);
+  }),
+
+  // Messaging - send message
+  http.post('https://test-api.example.com/api/messaging/messages', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: 'msg-1',
+      threadId: body.threadId,
+      content: body.content,
+      messageType: 'Text',
+      sentAt: '2024-01-01T00:00:00Z',
+    });
+  }),
+
+  // Payment - configuration
+  http.get('https://test-api.example.com/api/payment/configuration/:appId', ({ params }) => {
+    return HttpResponse.json({
+      appId: params.appId,
+      isPaymentEnabled: true,
+      defaultCurrency: 'USD',
+      providers: [{ id: 'p-stripe', name: 'Stripe', providerType: 1, isEnabled: true, displayOrder: 0 }],
+    });
+  }),
+
+  // Payment - initiate
+  http.post('https://test-api.example.com/api/payment/initiate', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      success: true,
+      paymentIntentId: 'pi_test_123',
+      clientSecret: 'secret_abc',
+      amount: body.amount,
+    });
+  }),
+
+  // Payment transactions - link by external id
+  http.post('https://test-api.example.com/api/paymenttransactions/link-by-external-id', async ({ request }) => {
+    const body = (await request.json()) as Record<string, string>;
+    if (!body.externalTransactionId || !body.userId) {
+      return HttpResponse.json({ error: 'missing fields' }, { status: 400 });
+    }
+    return HttpResponse.json({ success: true });
+  }),
+
+  // Two-factor - user status
+  http.get('https://test-api.example.com/api/twofactor/status', () => {
+    return HttpResponse.json({
+      isEnabled: true,
+      methodCount: 1,
+      availableMethods: ['Email'],
+      primaryMethod: 'Email',
+      recoveryCodesRemaining: 8,
+      trustedDevicesCount: 2,
+      isRequired: false,
+    });
+  }),
+
+  // Two-factor - email enrollment
+  http.post('https://test-api.example.com/api/twofactor/enroll/email', async ({ request }) => {
+    const body = (await request.json()) as Record<string, string>;
+    return HttpResponse.json({
+      success: true,
+      credentialId: 'cred-1',
+      maskedEmail: `${(body.email ?? 'x').slice(0, 1)}***@example.com`,
+      expiresIn: 300,
+    });
+  }),
+
   // Disclaimers - pending
   http.get('https://test-api.example.com/api/disclaimeracceptance/pending/:appId', () => {
     return HttpResponse.json({
