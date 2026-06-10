@@ -83,6 +83,23 @@ describe('AppTier service integration (msw)', () => {
     expect(sub).toBeDefined();
     expect(sub?.tierName).toBe('Free');
   });
+
+  it('getTier returns a single tier by id', async () => {
+    const client = await createAuthenticatedClient();
+    const tier = await client.appTier.getTier('tier-pro');
+
+    expect(tier).not.toBeNull();
+    expect(tier?.id).toBe('tier-pro');
+    expect(tier?.name).toBe('Pro');
+  });
+
+  it('getAllTiers returns the full (non-public-only) tier list', async () => {
+    const client = await createAuthenticatedClient();
+    const tiers = await client.appTier.getAllTiers('test-app-id');
+
+    expect(tiers).toHaveLength(3);
+    expect(tiers[2].name).toBe('Internal');
+  });
 });
 
 describe('Feedback service integration (msw)', () => {

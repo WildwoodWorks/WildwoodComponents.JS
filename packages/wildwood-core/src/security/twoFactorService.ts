@@ -2,6 +2,7 @@
 
 import type { HttpClient } from '../client/httpClient.js';
 import type {
+  TwoFactorConfiguration,
   TwoFactorUserStatus,
   TwoFactorCredential,
   EmailEnrollmentResult,
@@ -13,6 +14,20 @@ import type {
 
 export class TwoFactorService {
   constructor(private http: HttpClient) {}
+
+  // Configuration
+  /** Get the app-level 2FA configuration (anonymous endpoint). */
+  async getConfiguration(appId: string): Promise<TwoFactorConfiguration | null> {
+    try {
+      const { data } = await this.http.get<TwoFactorConfiguration>(
+        `api/twofactor/configuration/${encodeURIComponent(appId)}`,
+        { skipAuth: true },
+      );
+      return data ?? null;
+    } catch {
+      return null;
+    }
+  }
 
   // Status
   async getStatus(): Promise<TwoFactorUserStatus> {

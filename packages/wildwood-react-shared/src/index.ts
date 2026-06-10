@@ -17,8 +17,6 @@ export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';
 export type { UsePaymentReturn } from './hooks/usePayment.js';
-export { useSubscription } from './hooks/useSubscription.js';
-export type { UseSubscriptionReturn } from './hooks/useSubscription.js';
 export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';

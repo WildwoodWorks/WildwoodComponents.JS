@@ -5,6 +5,7 @@ import type {
   AuthenticationResponse,
   LoginRequest,
   RegistrationRequest,
+  OpenRegistrationResult,
   AuthProvider,
   AuthenticationConfiguration,
   CaptchaConfiguration,
@@ -21,6 +22,7 @@ export interface UseAuthReturn {
   login: (request: LoginRequest) => Promise<AuthenticationResponse>;
   register: (request: RegistrationRequest) => Promise<AuthenticationResponse>;
   registerWithToken: (request: RegistrationRequest) => Promise<AuthenticationResponse>;
+  registerOpen: (request: RegistrationRequest, pricingModelId?: string) => Promise<OpenRegistrationResult>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
   getAvailableProviders: (appId?: string) => Promise<AuthProvider[]>;
@@ -94,6 +96,13 @@ export function useAuth(): UseAuthReturn {
   const registerWithToken = useCallback(
     async (request: RegistrationRequest) => {
       return client.auth.registerWithToken(request);
+    },
+    [client],
+  );
+
+  const registerOpen = useCallback(
+    async (request: RegistrationRequest, pricingModelId?: string) => {
+      return client.auth.registerOpen(request, pricingModelId);
     },
     [client],
   );
@@ -246,6 +255,7 @@ export function useAuth(): UseAuthReturn {
     login,
     register,
     registerWithToken,
+    registerOpen,
     logout,
     refreshToken,
     getAvailableProviders,

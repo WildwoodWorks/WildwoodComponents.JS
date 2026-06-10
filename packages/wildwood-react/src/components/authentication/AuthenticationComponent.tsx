@@ -253,11 +253,7 @@ export function AuthenticationComponent({
                         clearMessages();
                         setIsLoading(true);
                         try {
-                          const authUrl = await client.auth.getProviderAuthorizationUrl(
-                            provider.name,
-                            appId ?? '',
-                            provider.redirectUri,
-                          );
+                          const authUrl = await client.auth.getProviderAuthorizationUrl(provider.name, appId ?? '');
                           if (!authUrl) {
                             setErrorMessage(`Unable to get authorization URL for ${provider.displayName}.`);
                             return;

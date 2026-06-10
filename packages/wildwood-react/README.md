@@ -56,7 +56,6 @@ function MyApp() {
 | `useAI()` | AI chat sessions, messages, TTS/STT |
 | `useMessaging()` | Threads, messages, reactions, SignalR |
 | `usePayment()` | Payment processing, saved methods |
-| `useSubscription()` | Subscription plans and lifecycle |
 | `useNotifications()` | Toast notification queue |
 | `useTheme()` | Theme switching and persistence |
 | `useTwoFactor()` | 2FA settings and credentials |
@@ -76,8 +75,6 @@ function MyApp() {
 - `SecureMessagingComponent` — Threads, messages, reactions, typing
 - `PaymentComponent` — Payment method selection and processing
 - `PaymentFormComponent` — Payment form with validation
-- `SubscriptionComponent` — Plan browsing and selection
-- `SubscriptionManagerComponent` — Subscription lifecycle management
 - `NotificationComponent` — Notification list
 - `NotificationToastComponent` — Animated toast popups
 - `TwoFactorSettingsComponent` — 2FA setup wizard

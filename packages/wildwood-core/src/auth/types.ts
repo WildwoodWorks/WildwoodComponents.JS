@@ -213,6 +213,21 @@ export interface ValidateRegistrationResponse {
   passwordErrors: string[];
 }
 
+/**
+ * Result of open (no-token) registration via api/userregistration/register.
+ * Mirrors the backend RegistrationResponseDto — no tokens are returned;
+ * authenticate with login() afterwards.
+ */
+export interface OpenRegistrationResult {
+  success: boolean;
+  message: string;
+  userId?: string;
+  companyClientId?: string;
+  errorCode?: string;
+  requiresStripeSetup?: boolean;
+  requiresPaymentSetup?: boolean;
+}
+
 export interface PendingDisclaimerModel {
   disclaimerId: string;
   versionId: string;

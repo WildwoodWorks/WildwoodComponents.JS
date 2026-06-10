@@ -134,9 +134,8 @@ export function SignupWithSubscriptionComponent({
 
         if (!registeredRef.current) {
           setProcessingStatus('Creating your account...');
-          let response;
           if (requireToken && token) {
-            response = await client.auth.registerWithToken({
+            const response = await client.auth.registerWithToken({
               registrationToken: token,
               firstName,
               lastName,
@@ -147,8 +146,16 @@ export function SignupWithSubscriptionComponent({
               platform: 'mobile',
               deviceInfo: 'React Native',
             });
+            registeredRef.current = true;
+            // Some token registrations return tokens directly — use them if present
+            if (response.jwtToken) {
+              await client.session.login(response);
+              loggedInRef.current = true;
+            }
           } else {
-            response = await client.auth.register({
+            // Open registration (api/userregistration/register) — enforces the app's
+            // AllowOpenRegistration setting and grants app access; returns no tokens.
+            const result = await client.auth.registerOpen({
               firstName,
               lastName,
               username: email,
@@ -158,18 +165,19 @@ export function SignupWithSubscriptionComponent({
               platform: 'mobile',
               deviceInfo: 'React Native',
             });
+            if (!result.success) {
+              throw new Error(result.message || 'Registration failed. Please try again.');
+            }
+            registeredRef.current = true;
           }
-          registeredRef.current = true;
+        }
 
-          if (response.jwtToken) {
-            setProcessingStatus('Signing you in...');
-            await client.session.login(response);
-            loggedInRef.current = true;
-          }
-        } else if (!loggedInRef.current) {
+        // Login with credentials (registration does not authenticate the session)
+        if (!loggedInRef.current) {
           setProcessingStatus('Signing you in...');
           const loginResponse = await client.auth.login({
             username: email,
+            email,
             password,
             appId: appIdForRequest,
             platform: 'mobile',

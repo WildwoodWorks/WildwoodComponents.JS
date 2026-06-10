@@ -26,9 +26,6 @@ describe('@wildwood/react exports', () => {
   it('exports usePayment', () => {
     expect(WildwoodReact.usePayment).toBeDefined();
   });
-  it('exports useSubscription', () => {
-    expect(WildwoodReact.useSubscription).toBeDefined();
-  });
   it('exports useTwoFactor', () => {
     expect(WildwoodReact.useTwoFactor).toBeDefined();
   });
@@ -76,11 +73,8 @@ describe('@wildwood/react exports', () => {
   it('exports PaymentFormComponent', () => {
     expect(WildwoodReact.PaymentFormComponent).toBeDefined();
   });
-  it('exports SubscriptionComponent', () => {
-    expect(WildwoodReact.SubscriptionComponent).toBeDefined();
-  });
-  it('exports SubscriptionManagerComponent', () => {
-    expect(WildwoodReact.SubscriptionManagerComponent).toBeDefined();
+  it('exports SubscriptionAdminComponent', () => {
+    expect(WildwoodReact.SubscriptionAdminComponent).toBeDefined();
   });
   it('exports NotificationComponent', () => {
     expect(WildwoodReact.NotificationComponent).toBeDefined();

@@ -1,5 +1,25 @@
 // Two-factor and security types - ported from WildwoodComponents.Shared/Models/TwoFactorSettingsModels.cs
 
+/** App-level 2FA configuration (api/twofactor/configuration/{appId}). Mirrors the backend TwoFactorConfigurationDto. */
+export interface TwoFactorConfiguration {
+  isEnabled: boolean;
+  isRequired: boolean;
+  availableMethods: TwoFactorConfigurationMethod[];
+  codeValiditySeconds: number;
+  maxAttempts: number;
+  lockoutMinutes: number;
+  allowRememberDevice: boolean;
+  rememberDeviceDays: number;
+}
+
+export interface TwoFactorConfigurationMethod {
+  providerType: string;
+  name: string;
+  description: string;
+  icon: string;
+  isEnabled: boolean;
+}
+
 export interface TwoFactorUserStatus {
   isEnabled: boolean;
   methodCount: number;

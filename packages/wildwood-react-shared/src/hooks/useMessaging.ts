@@ -93,6 +93,13 @@ export function useMessaging(): UseMessagingReturn {
     await signalRRef.current?.disconnect();
   }, []);
 
+  // NOTE on the on* subscribe functions below: they read signalRRef.current at CALL time,
+  // so they bind to whichever manager exists when the consumer subscribes. Two contracts:
+  // (1) subscribe after `connectionState` indicates a manager exists (subscribing before the
+  //     effect creates it returns a no-op unsubscribe and receives nothing), and
+  // (2) subscriptions do NOT transfer if the manager is recreated (the effect only recreates
+  //     it when `client` changes, which remounts consumers in practice). If manager
+  //     replacement is ever added, these must be reworked to re-attach handlers.
   const onMessage = useCallback((handler: (message: SecureMessage) => void) => {
     const mgr = signalRRef.current;
     if (!mgr) return () => {};

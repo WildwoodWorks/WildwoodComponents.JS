@@ -9,7 +9,7 @@ import { AuthService } from '../auth/authService.js';
 import { SessionManager } from '../auth/sessionManager.js';
 import { AIService } from '../ai/aiService.js';
 import { MessagingService } from '../messaging/messagingService.js';
-import { PaymentService, SubscriptionService } from '../payment/paymentService.js';
+import { PaymentService } from '../payment/paymentService.js';
 import { NotificationService } from '../notifications/notificationService.js';
 import { TwoFactorService } from '../security/twoFactorService.js';
 import { CaptchaService } from '../security/captchaService.js';
@@ -26,7 +26,6 @@ export interface WildwoodClient {
   readonly ai: AIService;
   readonly messaging: MessagingService;
   readonly payment: PaymentService;
-  readonly subscription: SubscriptionService;
   readonly notifications: NotificationService;
   readonly twoFactor: TwoFactorService;
   readonly captcha: CaptchaService;
@@ -47,7 +46,6 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const ai = new AIService(http, config.appId);
   const messaging = new MessagingService(http, storage);
   const payment = new PaymentService(http);
-  const subscription = new SubscriptionService(http);
   const notifications = new NotificationService();
   const twoFactor = new TwoFactorService(http);
   const captcha = new CaptchaService();
@@ -64,7 +62,6 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     ai,
     messaging,
     payment,
-    subscription,
     notifications,
     twoFactor,
     captcha,

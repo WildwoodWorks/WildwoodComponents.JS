@@ -323,13 +323,29 @@ export function TokenRegistrationComponent({
       setRegistrationResponse(response);
       onRegistrationSuccess?.(response);
 
-      // Auto-login
-      if (autoLogin && response.jwtToken) {
+      // Auto-login. Registration endpoints may not return tokens (register-with-token
+      // returns a RegistrationResponseDto) — fall back to a credential login, matching Blazor.
+      if (autoLogin) {
         setIsAutoLoggingIn(true);
         try {
-          await client.session.login(response);
-          setAutoLoginComplete(true);
-          onAutoLoginSuccess?.(response);
+          let authResponse = response;
+          if (!authResponse.jwtToken) {
+            authResponse = await client.auth.login({
+              username: username || email,
+              email,
+              password,
+              appId: appId ?? '',
+              platform: Platform.OS,
+              deviceInfo: `${Platform.OS} ${Platform.Version}`,
+            });
+          }
+          if (authResponse.jwtToken) {
+            await client.session.login(authResponse);
+            setAutoLoginComplete(true);
+            onAutoLoginSuccess?.(authResponse);
+          } else {
+            setAutoLoginError('Account created but auto-login failed. Please log in manually.');
+          }
         } catch {
           setAutoLoginError('Account created but auto-login failed. Please log in manually.');
         } finally {

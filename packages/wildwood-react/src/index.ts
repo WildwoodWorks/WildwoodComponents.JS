@@ -21,8 +21,6 @@ export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';
 export type { UsePaymentReturn } from './hooks/usePayment.js';
-export { useSubscription } from './hooks/useSubscription.js';
-export type { UseSubscriptionReturn } from './hooks/useSubscription.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useDisclaimer } from './hooks/useDisclaimer.js';
@@ -73,10 +71,6 @@ export { PaymentComponent } from './components/payment/PaymentComponent.js';
 export type { PaymentComponentProps } from './components/payment/PaymentComponent.js';
 export { PaymentFormComponent } from './components/payment/PaymentFormComponent.js';
 export type { PaymentFormComponentProps } from './components/payment/PaymentFormComponent.js';
-export { SubscriptionComponent } from './components/subscription/SubscriptionComponent.js';
-export type { SubscriptionComponentProps } from './components/subscription/SubscriptionComponent.js';
-export { SubscriptionManagerComponent } from './components/subscription/SubscriptionManagerComponent.js';
-export type { SubscriptionManagerComponentProps } from './components/subscription/SubscriptionManagerComponent.js';
 export { SubscriptionAdminComponent } from './components/subscription/admin/SubscriptionAdminComponent.js';
 export type {
   SubscriptionAdminComponentProps,
@@ -151,9 +145,6 @@ export type {
   AIConfiguration,
   MessageThread,
   SecureMessage,
-  SubscriptionPlan,
-  Subscription,
-  SubscriptionResult,
   PlatformInfo,
   AppTierPricingModel,
   AppTierAddOnModel,

@@ -2,6 +2,7 @@
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
 // State management and handlers delegated to useAuthenticationLogic from @wildwood/react-shared
 
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +14,12 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { sanitizeHtml, type AuthenticationResponse, type PendingDisclaimerModel } from '@wildwood/core';
+import {
+  sanitizeHtml,
+  type AuthenticationResponse,
+  type AuthProvider,
+  type PendingDisclaimerModel,
+} from '@wildwood/core';
 import { useAuthenticationLogic } from '@wildwood/react-shared';
 
 export interface AuthenticationComponentProps {
@@ -23,6 +29,15 @@ export interface AuthenticationComponentProps {
   showDetailedErrors?: boolean;
   onAuthenticationSuccess?: (response: AuthenticationResponse) => void;
   onAuthenticationError?: (error: string) => void;
+  /**
+   * Enables OAuth provider buttons. React Native has no popup window, so the consumer
+   * supplies the browser/auth-session step (e.g. expo-auth-session or expo-web-browser):
+   * open `authorizationUrl` and resolve with the provider token/authorization code from
+   * the callback, or null if the user cancelled. The component then completes the login
+   * via loginWithProvider. Provider buttons are hidden when this prop is not supplied.
+   * Mirrors the injection pattern used by FeedbackComponent's captureScreenshot.
+   */
+  onProviderSignIn?: (provider: AuthProvider, authorizationUrl: string | null) => Promise<string | null>;
 }
 
 export function AuthenticationComponent({
@@ -32,14 +47,15 @@ export function AuthenticationComponent({
   showDetailedErrors = true,
   onAuthenticationSuccess,
   onAuthenticationError,
+  onProviderSignIn,
 }: AuthenticationComponentProps) {
+  const [oauthLoading, setOauthLoading] = useState(false);
   const {
     // State
     view,
     setView,
     isLoading: loading,
     errorMessage: error,
-    setErrorMessage: setError,
     successMessage,
 
     // Config
@@ -88,6 +104,8 @@ export function AuthenticationComponent({
 
     // Handlers
     clearMessages,
+    handleError,
+    processAuthResponse,
     handleLogin,
     handleTwoFactorSubmit,
     handleRecoverySubmit,
@@ -249,8 +267,8 @@ export function AuthenticationComponent({
 
       {renderSubmitButton('Sign In', 'Signing in...', handleLogin)}
 
-      {/* Social/OAuth providers */}
-      {providers.length > 0 && (
+      {/* Social/OAuth providers — rendered only when the consumer wires the browser step */}
+      {providers.length > 0 && onProviderSignIn && (
         <View style={styles.socialSection}>
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -260,10 +278,24 @@ export function AuthenticationComponent({
           {providers.map((provider) => (
             <Pressable
               key={provider.name}
-              style={[styles.socialButton, loading && styles.buttonDisabled]}
-              disabled={loading}
-              onPress={() => {
-                setError(`OAuth login with ${provider.displayName} is not yet available.`);
+              style={[styles.socialButton, (loading || oauthLoading) && styles.buttonDisabled]}
+              disabled={loading || oauthLoading}
+              onPress={async () => {
+                clearMessages();
+                setOauthLoading(true);
+                try {
+                  const authUrl = await client.auth.getProviderAuthorizationUrl(provider.name, appId ?? '');
+                  const tokenOrCode = await onProviderSignIn(provider, authUrl);
+                  if (!tokenOrCode) {
+                    return; // user cancelled the browser/auth session
+                  }
+                  const response = await client.auth.loginWithProvider(provider.name, tokenOrCode, appId ?? '');
+                  await processAuthResponse(response);
+                } catch (err) {
+                  handleError(err);
+                } finally {
+                  setOauthLoading(false);
+                }
               }}
             >
               <View style={styles.socialButtonContent}>

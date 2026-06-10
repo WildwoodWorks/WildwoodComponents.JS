@@ -48,14 +48,14 @@ function MyApp() {
 
 ## Hooks
 
-Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessaging`, `usePayment`, `useSubscription`, `useNotifications`, `useTheme`, `useTwoFactor`, `useDisclaimer`, `useAppTier`, and more.
+Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessaging`, `usePayment`, `useNotifications`, `useTheme`, `useTwoFactor`, `useDisclaimer`, `useAppTier`, and more.
 
 ## Components
 
 All components render using React Native primitives (`View`, `Text`, `TextInput`, `Pressable`/`TouchableOpacity`, `FlatList`, `ScrollView`, `Modal`):
 
 - `AuthenticationComponent`, `AIChatComponent`, `SecureMessagingComponent`
-- `PaymentComponent`, `PaymentFormComponent`, `SubscriptionComponent`, `SubscriptionManagerComponent`
+- `PaymentComponent`, `PaymentFormComponent`
 - `NotificationComponent`, `NotificationToastComponent`
 - `TwoFactorSettingsComponent`, `TokenRegistrationComponent`
 - `AppTierComponent`, `DisclaimerComponent`, `FeedbackComponent`
@@ -75,6 +75,20 @@ These components have full core/react/react-native coverage (`node` is server-si
 | Two-Factor | twoFactorService | ✓ | ✓ | -- |
 | Disclaimers | disclaimerService | ✓ | ✓ | -- |
 | Feedback | feedbackService | ✓ | ✓ | -- |
+
+**OAuth in `AuthenticationComponent`** — React Native has no popup window, so the browser step is injected: pass `onProviderSignIn={(provider, authorizationUrl) => Promise<string | null>}`, open the URL with `expo-auth-session`/`expo-web-browser`, and resolve with the provider token/authorization code from the callback (or `null` if cancelled). The component completes the login via `loginWithProvider`. Provider buttons are hidden when the prop is omitted — same injection pattern as `FeedbackComponent`'s `captureScreenshot`, so there is no hard Expo dependency.
+
+```tsx
+import * as WebBrowser from 'expo-web-browser';
+
+<AuthenticationComponent
+  onProviderSignIn={async (provider, authUrl) => {
+    if (!authUrl) return null;
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, 'myapp://oauth');
+    return result.type === 'success' ? new URL(result.url).searchParams.get('code') : null;
+  }}
+/>
+```
 
 **`FeedbackComponent`** — a floating launcher button that opens a slide-up modal feedback form (type picker, title with duplicate detection, description, anonymous email/name when unauthenticated, submit). It reuses the core `feedbackService` and the `useFeedback` hook, hides itself when the viewer is anonymous and the app forbids anonymous feedback, and enforces the app's `RequireScreenshot` setting. Native differences from web: no file attachments, and a minimal `Platform` + `Dimensions` diagnostic context instead of the web's `window`-based one. Pass `appId` explicitly or let it fall back to the `WildwoodProvider` config.
 

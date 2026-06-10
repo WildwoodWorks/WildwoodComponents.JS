@@ -9,9 +9,6 @@ import type {
   InitiatePaymentResponse,
   PaymentCompletionResult,
   SavedPaymentMethodDto,
-  SubscriptionPlan,
-  Subscription,
-  SubscriptionResult,
 } from './types.js';
 
 export class PaymentService {
@@ -122,60 +119,5 @@ export class PaymentService {
     } catch {
       return false;
     }
-  }
-}
-
-export class SubscriptionService {
-  constructor(private http: HttpClient) {}
-
-  async getPlans(appId: string): Promise<SubscriptionPlan[]> {
-    const { data } = await this.http.get<SubscriptionPlan[]>(
-      `api/subscription/plans?appId=${encodeURIComponent(appId)}`,
-    );
-    return data ?? [];
-  }
-
-  async getSubscription(subscriptionId: string): Promise<Subscription | null> {
-    try {
-      const { data } = await this.http.get<Subscription>(`api/subscription/current/${subscriptionId}`);
-      return data ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  async getUserSubscriptions(): Promise<Subscription[]> {
-    const { data } = await this.http.get<Subscription[]>('api/subscription/my');
-    return data ?? [];
-  }
-
-  async subscribe(planId: string, paymentMethodId?: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>('api/subscription/subscribe', {
-      planId,
-      paymentMethodId,
-    });
-    return data;
-  }
-
-  async cancelSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/cancel/${subscriptionId}`);
-    return data;
-  }
-
-  async changePlan(subscriptionId: string, newPlanId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/upgrade/${subscriptionId}`, {
-      newPlanId,
-    });
-    return data;
-  }
-
-  async pauseSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/pause/${subscriptionId}`);
-    return data;
-  }
-
-  async resumeSubscription(subscriptionId: string): Promise<SubscriptionResult> {
-    const { data } = await this.http.post<SubscriptionResult>(`api/subscription/resume/${subscriptionId}`);
-    return data;
   }
 }

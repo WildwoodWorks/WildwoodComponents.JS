@@ -59,6 +59,7 @@ export type {
   PendingDisclaimerModel,
   ValidateRegistrationRequest,
   ValidateRegistrationResponse,
+  OpenRegistrationResult,
 } from './auth/types.js';
 
 // AI
@@ -99,15 +100,8 @@ export type {
 } from './messaging/types.js';
 
 // Payment
-export { PaymentService, SubscriptionService } from './payment/paymentService.js';
-export {
-  PaymentProviderType,
-  PaymentProviderCategory,
-  PaymentMethod,
-  PaymentStatus,
-  BillingInterval,
-  SubscriptionStatus,
-} from './payment/types.js';
+export { PaymentService } from './payment/paymentService.js';
+export { PaymentProviderType, PaymentProviderCategory, PaymentMethod, PaymentStatus } from './payment/types.js';
 export type {
   PaymentProviderDto,
   AppPaymentConfigurationDto,
@@ -121,9 +115,6 @@ export type {
   PaymentRequest,
   BillingAddress,
   PaymentResult,
-  SubscriptionPlan,
-  Subscription,
-  SubscriptionResult,
 } from './payment/types.js';
 
 // Payment Script Loader
@@ -146,6 +137,8 @@ export type { ToastNotification, NotificationAction, NotificationActionArgs } fr
 export { TwoFactorService } from './security/twoFactorService.js';
 export { CaptchaService } from './security/captchaService.js';
 export type {
+  TwoFactorConfiguration,
+  TwoFactorConfigurationMethod,
   TwoFactorUserStatus,
   TwoFactorCredential,
   EmailEnrollmentResult,

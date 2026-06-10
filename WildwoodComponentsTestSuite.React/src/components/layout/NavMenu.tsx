@@ -62,11 +62,6 @@ export function NavMenu() {
           </NavLink>
         </li>
         <li>
-          <NavLink to="/subscription" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Subscription
-          </NavLink>
-        </li>
-        <li>
           <NavLink to="/app-tier" className={({ isActive }) => (isActive ? 'active' : '')}>
             App Tier
           </NavLink>
@@ -84,11 +79,6 @@ export function NavMenu() {
         <li>
           <NavLink to="/payment-form" className={({ isActive }) => (isActive ? 'active' : '')}>
             Payment Form
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/subscription-manager" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Subscription Manager
           </NavLink>
         </li>
         <li>

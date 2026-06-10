@@ -30,6 +30,20 @@ export class AppTierService {
     return data ?? [];
   }
 
+  /**
+   * Get ALL tiers for an app, including non-public ones (authenticated endpoint).
+   * Matches the .NET GetAvailableTiersAsync; use getTiers()/getPublicTiers() for
+   * public-facing pages.
+   */
+  async getAllTiers(appId: string): Promise<AppTierModel[]> {
+    try {
+      const { data } = await this.http.get<AppTierModel[]>(`api/app-tiers/${appId}`);
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   async getTier(tierId: string): Promise<AppTierModel | null> {
     try {
       const { data } = await this.http.get<AppTierModel>(`api/app-tiers/tier/${tierId}`);

@@ -21,8 +21,6 @@ export { useMessaging } from './hooks/useMessaging';
 export type { UseMessagingReturn } from './hooks/useMessaging';
 export { usePayment } from './hooks/usePayment';
 export type { UsePaymentReturn } from './hooks/usePayment';
-export { useSubscription } from './hooks/useSubscription';
-export type { UseSubscriptionReturn } from './hooks/useSubscription';
 export { useTwoFactor } from './hooks/useTwoFactor';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor';
 export { useDisclaimer } from './hooks/useDisclaimer';
@@ -67,10 +65,6 @@ export { PaymentComponent } from './components/PaymentComponent';
 export type { PaymentComponentProps } from './components/PaymentComponent';
 export { PaymentFormComponent } from './components/PaymentFormComponent';
 export type { PaymentFormComponentProps } from './components/PaymentFormComponent';
-export { SubscriptionComponent } from './components/SubscriptionComponent';
-export type { SubscriptionComponentProps } from './components/SubscriptionComponent';
-export { SubscriptionManagerComponent } from './components/SubscriptionManagerComponent';
-export type { SubscriptionManagerComponentProps } from './components/SubscriptionManagerComponent';
 export { TokenRegistrationComponent } from './components/TokenRegistrationComponent';
 export type { TokenRegistrationComponentProps } from './components/TokenRegistrationComponent';
 export { AIProxyComponent } from './components/AIProxyComponent';
@@ -146,9 +140,6 @@ export type {
   AIConfiguration,
   MessageThread,
   SecureMessage,
-  SubscriptionPlan,
-  Subscription,
-  SubscriptionResult,
   PlatformInfo,
   AppTierPricingModel,
   AppTierAddOnModel,

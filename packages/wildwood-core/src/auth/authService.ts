@@ -17,6 +17,7 @@ import type {
   TwoFactorVerifyResponse,
   ValidateRegistrationRequest,
   ValidateRegistrationResponse,
+  OpenRegistrationResult,
 } from './types.js';
 
 const STORAGE_KEYS = {
@@ -96,6 +97,16 @@ export class AuthService {
     return data;
   }
 
+  /**
+   * Register a new user with a registration token (api/userregistration/register-with-token).
+   *
+   * The backend may return either an AuthenticationResponse (with tokens) or a
+   * RegistrationResponseDto ({ success, message, userId, ... } — no tokens). Mirroring
+   * the Blazor dual-parse: a token response is stored as the session; a token-less
+   * success is normalized into an AuthenticationResponse with an empty jwtToken —
+   * callers must log in with credentials afterwards (check `jwtToken` before assuming
+   * a session exists). A token-less failure throws with the server's message.
+   */
   async registerWithToken(request: RegistrationRequest): Promise<AuthenticationResponse> {
     const tokenRegistrationDto = {
       Token: request.registrationToken,
@@ -109,7 +120,7 @@ export class AuthService {
       DeviceInfo: request.deviceInfo,
     };
 
-    const { data } = await this.http.post<AuthenticationResponse>(
+    const { data } = await this.http.post<AuthenticationResponse & Partial<OpenRegistrationResult>>(
       'api/userregistration/register-with-token',
       tokenRegistrationDto,
       { skipAuth: true },
@@ -119,7 +130,52 @@ export class AuthService {
       await this.storeAuthentication(data);
       this.onAuthChanged?.(data);
       this.events.emit('authChanged', data);
+      return data;
     }
+
+    // RegistrationResponseDto shape — no tokens
+    if (data.success === false) {
+      throw new Error(data.message || 'Registration failed.');
+    }
+
+    return {
+      id: data.userId ?? '',
+      userId: data.userId ?? '',
+      firstName: request.firstName,
+      lastName: request.lastName,
+      email: request.email,
+      jwtToken: '',
+      refreshToken: '',
+      requiresTwoFactor: false,
+      requiresPasswordReset: false,
+      roles: [],
+      permissions: [],
+      requiresDisclaimerAcceptance: false,
+    };
+  }
+
+  /**
+   * Register a new user via open registration (api/userregistration/register).
+   * Unlike register(), this goes through the app's open-registration flow
+   * (AllowOpenRegistration check, app access grant) and does NOT return tokens —
+   * call login() with the same credentials afterwards to authenticate.
+   */
+  async registerOpen(request: RegistrationRequest, pricingModelId?: string): Promise<OpenRegistrationResult> {
+    const { data } = await this.http.post<OpenRegistrationResult>(
+      'api/userregistration/register',
+      {
+        Username: request.username ?? request.email,
+        Email: request.email,
+        Password: request.password,
+        FirstName: request.firstName,
+        LastName: request.lastName,
+        AppId: request.appId,
+        Platform: request.platform,
+        DeviceInfo: request.deviceInfo,
+        ...(pricingModelId ? { PricingModelId: pricingModelId } : {}),
+      },
+      { skipAuth: true },
+    );
     return data;
   }
 
@@ -205,13 +261,14 @@ export class AuthService {
   /**
    * Get the authorization URL for a given OAuth provider.
    * The URL should be opened in a popup or redirect flow.
+   * The OAuth callback URL is fixed server-side (api/auth/oauth/callback).
    */
-  async getProviderAuthorizationUrl(providerName: string, appId: string, redirectUri?: string): Promise<string | null> {
+  async getProviderAuthorizationUrl(providerName: string, appId: string, state?: string): Promise<string | null> {
     try {
-      const params = new URLSearchParams({ providerName, appId });
-      if (redirectUri) params.set('redirectUri', redirectUri);
+      const params = new URLSearchParams({ provider: providerName });
+      if (state) params.set('state', state);
       const { data } = await this.http.get<{ authorizationUrl: string }>(
-        `api/auth/provider-auth-url?${params.toString()}`,
+        `api/auth/oauth/${encodeURIComponent(appId)}/authorize?${params.toString()}`,
         { skipAuth: true },
       );
       return data?.authorizationUrl ?? null;

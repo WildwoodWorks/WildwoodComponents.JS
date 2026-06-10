@@ -137,9 +137,8 @@ export function SignupWithSubscriptionComponent({
         if (!registeredRef.current) {
           setProcessingStatus('Creating your account...');
 
-          let response;
           if (data.useToken && data.registrationToken) {
-            response = await client.auth.registerWithToken({
+            const response = await client.auth.registerWithToken({
               registrationToken: data.registrationToken,
               firstName: data.firstName,
               lastName: data.lastName,
@@ -150,8 +149,16 @@ export function SignupWithSubscriptionComponent({
               platform: 'web',
               deviceInfo: navigator.userAgent,
             });
+            registeredRef.current = true;
+            // Some token registrations return tokens directly — use them if present
+            if (response.jwtToken) {
+              await client.session.login(response);
+              loggedInRef.current = true;
+            }
           } else {
-            response = await client.auth.register({
+            // Open registration (api/userregistration/register) — enforces the app's
+            // AllowOpenRegistration setting and grants app access; returns no tokens.
+            const result = await client.auth.registerOpen({
               firstName: data.firstName,
               lastName: data.lastName,
               username: data.username,
@@ -161,20 +168,19 @@ export function SignupWithSubscriptionComponent({
               platform: 'web',
               deviceInfo: navigator.userAgent,
             });
+            if (!result.success) {
+              throw new Error(result.message || 'Registration failed. Please try again.');
+            }
+            registeredRef.current = true;
           }
-          registeredRef.current = true;
+        }
 
-          // 2. Auto-login
-          if (response.jwtToken) {
-            setProcessingStatus('Signing you in...');
-            await client.session.login(response);
-            loggedInRef.current = true;
-          }
-        } else if (!loggedInRef.current) {
-          // Registered but login failed last time — login with credentials
+        // 2. Login with credentials (registration does not authenticate the session)
+        if (!loggedInRef.current) {
           setProcessingStatus('Signing you in...');
           const loginResponse = await client.auth.login({
-            username: data.email,
+            username: data.username || data.email,
+            email: data.email,
             password: data.password ?? '',
             appId: appIdForRequest,
             platform: 'web',

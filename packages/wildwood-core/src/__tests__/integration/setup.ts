@@ -57,6 +57,74 @@ export const handlers = [
     return HttpResponse.json(makeAuthResponse(body.email, body.firstName, body.lastName));
   }),
 
+  // Auth - OAuth authorization URL (backend builds the provider URL; callback is fixed server-side)
+  http.get('https://test-api.example.com/api/auth/oauth/:appId/authorize', ({ request, params }) => {
+    const url = new URL(request.url);
+    const provider = url.searchParams.get('provider');
+    if (!provider) {
+      return HttpResponse.json({ error: 'Provider is required' }, { status: 400 });
+    }
+    return HttpResponse.json({
+      authorizationUrl: `https://accounts.example.com/${provider.toLowerCase()}/authorize?app=${params.appId as string}`,
+    });
+  }),
+
+  // Open registration (PascalCase DTO; returns RegistrationResponseDto — NO tokens)
+  http.post('https://test-api.example.com/api/userregistration/register', async ({ request }) => {
+    const body = (await request.json()) as Record<string, string>;
+    if (body.Email === 'taken@example.com') {
+      return HttpResponse.json(
+        { success: false, message: 'A user with this email already exists.', errorCode: 'USER_EXISTS' },
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({
+      success: true,
+      message: 'Registration successful',
+      userId: 'user-open-1',
+      companyClientId: 'client-1',
+    });
+  }),
+
+  // Token registration (returns RegistrationResponseDto by default — NO tokens;
+  // 'token-with-jwt' simulates a backend variant that returns an AuthenticationResponse)
+  http.post('https://test-api.example.com/api/userregistration/register-with-token', async ({ request }) => {
+    const body = (await request.json()) as Record<string, string>;
+    if (body.Token === 'bad-token') {
+      return HttpResponse.json(
+        { success: false, message: 'Invalid or expired registration token.', errorCode: 'INVALID_TOKEN' },
+        { status: 400 },
+      );
+    }
+    if (body.Token === 'rejected-token') {
+      return HttpResponse.json({ success: false, message: 'Token already used.', errorCode: 'TOKEN_USED' });
+    }
+    if (body.Token === 'token-with-jwt') {
+      return HttpResponse.json(makeAuthResponse(body.Email, body.FirstName, body.LastName));
+    }
+    return HttpResponse.json({
+      success: true,
+      message: 'Registration successful',
+      userId: 'user-token-1',
+    });
+  }),
+
+  // Two-factor - app-level configuration (anonymous)
+  http.get('https://test-api.example.com/api/twofactor/configuration/:appId', () => {
+    return HttpResponse.json({
+      isEnabled: true,
+      isRequired: false,
+      availableMethods: [
+        { providerType: 'Email', name: 'Email', description: 'Code by email', icon: 'mail', isEnabled: true },
+      ],
+      codeValiditySeconds: 300,
+      maxAttempts: 5,
+      lockoutMinutes: 15,
+      allowRememberDevice: true,
+      rememberDeviceDays: 30,
+    });
+  }),
+
   // Auth - providers via app config
   http.get('https://test-api.example.com/api/AppComponentConfigurations/:appId/auth-providers', () => {
     return HttpResponse.json({
@@ -107,21 +175,6 @@ export const handlers = [
     });
   }),
 
-  // AI - flows
-  http.get('https://test-api.example.com/api/ai/flows', () => {
-    return HttpResponse.json([
-      {
-        id: 'flow-1',
-        name: 'Test Flow',
-        description: 'A test flow',
-        version: 1,
-        isActive: true,
-        inputFields: [],
-        createdAt: '2024-01-01T00:00:00Z',
-      },
-    ]);
-  }),
-
   // Disclaimers - pending
   http.get('https://test-api.example.com/api/disclaimeracceptance/pending/:appId', () => {
     return HttpResponse.json({
@@ -136,11 +189,25 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
+  // App tiers - single tier by id (must precede the generic :appId handlers)
+  http.get('https://test-api.example.com/api/app-tiers/tier/:tierId', ({ params }) => {
+    return HttpResponse.json({ id: params.tierId as string, name: 'Pro', features: ['basic', 'advanced'] });
+  }),
+
   // App tiers - public endpoint
   http.get('https://test-api.example.com/api/app-tiers/:appId/public', () => {
     return HttpResponse.json([
       { id: 'tier-free', name: 'Free', features: ['basic'] },
       { id: 'tier-pro', name: 'Pro', features: ['basic', 'advanced'] },
+    ]);
+  }),
+
+  // App tiers - full (authenticated) tier list for an app
+  http.get('https://test-api.example.com/api/app-tiers/:appId', () => {
+    return HttpResponse.json([
+      { id: 'tier-free', name: 'Free', features: ['basic'] },
+      { id: 'tier-pro', name: 'Pro', features: ['basic', 'advanced'] },
+      { id: 'tier-hidden', name: 'Internal', features: ['basic'], isPublic: false },
     ]);
   }),
 
