@@ -104,6 +104,8 @@ export interface AppTierAddOnPricingModel {
   pricingModelName: string;
   price: number;
   billingFrequency: string;
+  /** Trial length (days) from the underlying PricingModel; drives the processor's native trial. */
+  trialDays?: number;
   isDefault: boolean;
 }
 
