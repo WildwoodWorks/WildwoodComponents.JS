@@ -82,7 +82,12 @@ export interface UseSubscriptionAdminReturn {
     paymentTransactionId?: string,
   ) => Promise<AppTierChangeResultModel>;
   cancelSubscription: (appId: string) => Promise<boolean>;
-  subscribeToAddOn: (appId: string, addOnId: string, pricingId?: string) => Promise<boolean>;
+  subscribeToAddOn: (
+    appId: string,
+    addOnId: string,
+    pricingId?: string,
+    paymentTransactionId?: string,
+  ) => Promise<boolean>;
   cancelAddOn: (subscriptionId: string) => Promise<boolean>;
 
   // Company-scoped actions
@@ -348,8 +353,8 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   );
 
   const subscribeToAddOn = useCallback(
-    async (appId: string, addOnId: string, pricingId?: string) => {
-      return wrap(() => clientRef.current.appTier.subscribeToAddOn(appId, addOnId, pricingId));
+    async (appId: string, addOnId: string, pricingId?: string, paymentTransactionId?: string) => {
+      return wrap(() => clientRef.current.appTier.subscribeToAddOn(appId, addOnId, pricingId, paymentTransactionId));
     },
     [wrap],
   );
