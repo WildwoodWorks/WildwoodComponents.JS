@@ -31,6 +31,13 @@ describe('createSseParser', () => {
     const parser = createSseParser();
     expect(parser.push(': keep-alive\n\n')).toEqual([]);
   });
+
+  it('flush() emits a residual frame that lacked a trailing blank line', () => {
+    const parser = createSseParser();
+    expect(parser.push('event: done\ndata: {"status":"done"}')).toEqual([]); // no \n\n yet
+    expect(parser.flush()).toEqual([{ event: 'done', data: '{"status":"done"}' }]);
+    expect(parser.flush()).toEqual([]); // buffer now empty
+  });
 });
 
 describe('dispatchSseFrame', () => {
@@ -59,6 +66,15 @@ describe('dispatchSseFrame', () => {
     dispatchSseFrame({ event: 'error', data: '{"error":"boom"}' }, handlers);
 
     expect(calls).toEqual(['started:search', 'result:search', 'context', 'confirm:1', 'done:hi', 'error:boom']);
+  });
+
+  it('routes a done frame carrying status:error to onError, not onDone', () => {
+    const calls: string[] = [];
+    dispatchSseFrame(
+      { event: 'done', data: '{"status":"error","error":"nope"}' },
+      { onDone: () => calls.push('done'), onError: (m) => calls.push(`error:${m}`) },
+    );
+    expect(calls).toEqual(['error:nope']);
   });
 });
 
@@ -100,9 +116,13 @@ describe('streamOrchestratedChat', () => {
     expect(String(captured!.init.body)).toContain('c1');
   });
 
-  it('reports HTTP errors via onError without throwing', async () => {
+  it('reports HTTP errors via onError without throwing, surfacing the server body', async () => {
     let err = '';
-    const fetchImpl = (async () => sseResponse('nope', 502)) as unknown as typeof fetch;
+    const fetchImpl = (async () => ({
+      ok: false,
+      status: 502,
+      text: async () => 'upstream boom',
+    })) as unknown as typeof fetch;
     await streamOrchestratedChat({
       endpoint: 'x',
       request: { configurationId: 'c', messages: [] },
@@ -114,5 +134,118 @@ describe('streamOrchestratedChat', () => {
       fetchImpl,
     });
     expect(err).toContain('502');
+    expect(err).toContain('upstream boom');
+  });
+
+  it('falls back to a buffered read when response.body is null (React Native)', async () => {
+    const seen: string[] = [];
+    const fetchImpl = (async () => ({
+      ok: true,
+      status: 200,
+      body: null,
+      text: async () =>
+        'event: tool.started\ndata: {"tool":"search"}\n\nevent: done\ndata: {"status":"done","reply":"ok"}\n\n',
+    })) as unknown as typeof fetch;
+
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onToolStarted: (e) => seen.push(`started:${e.tool}`),
+        onDone: (r) => seen.push(`done:${r.reply}`),
+      },
+      fetchImpl,
+    });
+
+    expect(seen).toEqual(['started:search', 'done:ok']);
+  });
+
+  it('dispatches a final frame that lacks a trailing blank line', async () => {
+    let reply = '';
+    const fetchImpl = (async () =>
+      sseResponse('event: done\ndata: {"status":"done","reply":"tail"}')) as unknown as typeof fetch; // no trailing \n\n
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onDone: (r) => {
+          reply = r.reply ?? '';
+        },
+      },
+      fetchImpl,
+    });
+    expect(reply).toBe('tail');
+  });
+
+  it('calls onError when the stream ends with no terminal event', async () => {
+    let err = '';
+    const fetchImpl = (async () =>
+      sseResponse('event: tool.started\ndata: {"tool":"x"}\n\n')) as unknown as typeof fetch; // no done/error
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onError: (m) => {
+          err = m;
+        },
+      },
+      fetchImpl,
+    });
+    expect(err).toContain('unexpectedly');
+  });
+
+  it('reports a network throw via onError', async () => {
+    let err = '';
+    const fetchImpl = (async () => {
+      throw new Error('boom');
+    }) as unknown as typeof fetch;
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onError: (m) => {
+          err = m;
+        },
+      },
+      fetchImpl,
+    });
+    expect(err).toBe('boom');
+  });
+
+  it('is silent on abort (no onError)', async () => {
+    let errCalled = false;
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = (async () => {
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    }) as unknown as typeof fetch;
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onError: () => {
+          errCalled = true;
+        },
+      },
+      signal: controller.signal,
+      fetchImpl,
+    });
+    expect(errCalled).toBe(false);
+  });
+
+  it('omits the Authorization header when no token is provided and sets the SSE Accept header', async () => {
+    let headers: Record<string, string> = {};
+    const fetchImpl = (async (_url: unknown, init: RequestInit) => {
+      headers = init.headers as Record<string, string>;
+      return sseResponse('event: done\ndata: {"status":"done"}\n\n');
+    }) as unknown as typeof fetch;
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {},
+      fetchImpl,
+    });
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers.Accept).toBe('text/event-stream');
   });
 });

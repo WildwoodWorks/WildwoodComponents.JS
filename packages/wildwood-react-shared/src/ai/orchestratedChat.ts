@@ -73,7 +73,10 @@ export interface SseFrame {
  * Stateful SSE frame parser: push raw text chunks (which may split a frame mid-way), get back the
  * complete frames so far. Frames are blank-line separated; only `event:` and `data:` fields are read.
  */
-export function createSseParser(): { push: (chunk: string) => SseFrame[] } {
+export function createSseParser(): {
+  push: (chunk: string) => SseFrame[];
+  flush: () => SseFrame[];
+} {
   let buffer = '';
   return {
     push(chunk: string): SseFrame[] {
@@ -87,6 +90,14 @@ export function createSseParser(): { push: (chunk: string) => SseFrame[] } {
         if (frame) frames.push(frame);
       }
       return frames;
+    },
+    // Emit any residual frame the stream ended on without a trailing blank line.
+    flush(): SseFrame[] {
+      const raw = buffer.trim();
+      buffer = '';
+      if (!raw) return [];
+      const frame = parseFrame(raw);
+      return frame ? [frame] : [];
     },
   };
 }
@@ -137,9 +148,13 @@ export function dispatchSseFrame(frame: SseFrame, handlers: OrchestratedChatHand
         safeParse<OrchestratedChatResult>(frame.data) ?? { status: 'confirmation_required' },
       );
       break;
-    case 'done':
-      handlers.onDone?.(safeParse<OrchestratedChatResult>(frame.data) ?? { status: 'done' });
+    case 'done': {
+      const result = safeParse<OrchestratedChatResult>(frame.data) ?? { status: 'done' };
+      // A terminal result that carries an error status is a failure, not a successful reply.
+      if (result.status === 'error') handlers.onError?.(result.error ?? 'Chat error.');
+      else handlers.onDone?.(result);
       break;
+    }
     case 'error': {
       const d = safeParse<{ error?: string }>(frame.data);
       handlers.onError?.(d?.error ?? 'Chat error.');
@@ -156,6 +171,17 @@ export function dispatchSseFrame(frame: SseFrame, handlers: OrchestratedChatHand
 export async function streamOrchestratedChat(opts: StreamOrchestratedChatOptions): Promise<void> {
   const { endpoint, request, handlers, token, signal } = opts;
   const fetchFn = opts.fetchImpl ?? globalThis.fetch;
+
+  const parser = createSseParser();
+  let terminalSeen = false;
+  const emit = (frames: SseFrame[]): void => {
+    for (const frame of frames) {
+      if (frame.event === 'done' || frame.event === 'confirm.required' || frame.event === 'error') {
+        terminalSeen = true;
+      }
+      dispatchSseFrame(frame, handlers);
+    }
+  };
 
   let response: Response;
   try {
@@ -175,26 +201,50 @@ export async function streamOrchestratedChat(opts: StreamOrchestratedChatOptions
   }
 
   if (!response.ok) {
-    handlers.onError?.(`Chat request failed (HTTP ${response.status}).`);
+    let detail = '';
+    try {
+      detail = (await response.text()).trim().slice(0, 300);
+    } catch {
+      /* best-effort: keep the status-only message */
+    }
+    handlers.onError?.(`Chat request failed (HTTP ${response.status})${detail ? `: ${detail}` : ''}.`);
     return;
   }
+
+  // No streaming body (e.g. React Native's fetch leaves response.body null) — read the whole response
+  // and parse it at once. Live progress is lost, but the terminal done/confirm/error still arrives.
   if (!response.body) {
-    handlers.onError?.('Chat response did not include a stream.');
+    try {
+      const text = await response.text();
+      emit(parser.push(text));
+      emit(parser.flush());
+    } catch (err) {
+      if (!isAbort(err, signal)) handlers.onError?.(err instanceof Error ? err.message : 'Chat read failed.');
+      return;
+    }
+    if (!terminalSeen && !signal?.aborted) handlers.onError?.('The chat stream ended unexpectedly.');
     return;
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  const parser = createSseParser();
   try {
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
-        dispatchSseFrame(frame, handlers);
-      }
+      emit(parser.push(decoder.decode(value, { stream: true })));
     }
+    emit(parser.push(decoder.decode())); // flush any buffered multi-byte tail
+    emit(parser.flush()); // dispatch a final frame not terminated by a blank line
   } catch (err) {
     if (!isAbort(err, signal)) handlers.onError?.(err instanceof Error ? err.message : 'Chat stream failed.');
+    return;
+  } finally {
+    // Release the lock / cancel the body (no-op once fully read; tears down the request on abort/error).
+    void reader.cancel().catch(() => {
+      /* reader already done or cancelled */
+    });
   }
+
+  if (!terminalSeen && !signal?.aborted) handlers.onError?.('The chat stream ended unexpectedly.');
 }

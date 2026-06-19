@@ -140,19 +140,34 @@ export function useAI(): UseAIReturn {
   );
 
   const streamChat = useCallback(
-    (
+    async (
       endpoint: string,
       request: OrchestratedChatRequest,
       handlers: OrchestratedChatHandlers,
       options?: { signal?: AbortSignal },
-    ) =>
-      streamOrchestratedChat({
-        endpoint,
-        request,
-        handlers,
-        token: client.session.accessToken,
-        signal: options?.signal,
-      }),
+    ) => {
+      // Mirror the sibling methods' loading/error handling so useAI().loading/error stay accurate,
+      // while still forwarding every event to the caller's handlers.
+      setLoading(true);
+      setError(null);
+      try {
+        await streamOrchestratedChat({
+          endpoint,
+          request,
+          handlers: {
+            ...handlers,
+            onError: (message) => {
+              setError(message);
+              handlers.onError?.(message);
+            },
+          },
+          token: client.session.accessToken,
+          signal: options?.signal,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
     [client],
   );
 
