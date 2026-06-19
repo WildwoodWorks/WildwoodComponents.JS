@@ -127,39 +127,45 @@ function isAbort(err: unknown, signal?: AbortSignal): boolean {
   return err instanceof Error && err.name === 'AbortError';
 }
 
-/** Maps the JSON of one SSE frame to the matching handler. Exported for unit testing. */
-export function dispatchSseFrame(frame: SseFrame, handlers: OrchestratedChatHandlers): void {
+/**
+ * Maps the JSON of one SSE frame to the matching handler. Returns true if the frame was a TERMINAL
+ * event (done / confirm.required / error) — the single source of truth the transport uses to stop the
+ * stream, so the terminal-event set is never duplicated. Exported for unit testing.
+ */
+export function dispatchSseFrame(frame: SseFrame, handlers: OrchestratedChatHandlers): boolean {
   switch (frame.event) {
     case 'tool.started': {
       const d = safeParse<{ tool?: string; input?: string }>(frame.data);
       handlers.onToolStarted?.({ tool: d?.tool ?? '', input: d?.input });
-      break;
+      return false;
     }
     case 'tool.result': {
       const d = safeParse<{ tool?: string }>(frame.data);
       handlers.onToolResult?.({ tool: d?.tool ?? '' });
-      break;
+      return false;
     }
     case 'context.changed':
       handlers.onContextChanged?.(safeParse<unknown>(frame.data));
-      break;
+      return false;
     case 'confirm.required':
       handlers.onConfirmRequired?.(
         safeParse<OrchestratedChatResult>(frame.data) ?? { status: 'confirmation_required' },
       );
-      break;
+      return true;
     case 'done': {
       const result = safeParse<OrchestratedChatResult>(frame.data) ?? { status: 'done' };
       // A terminal result that carries an error status is a failure, not a successful reply.
       if (result.status === 'error') handlers.onError?.(result.error ?? 'Chat error.');
       else handlers.onDone?.(result);
-      break;
+      return true;
     }
     case 'error': {
       const d = safeParse<{ error?: string }>(frame.data);
       handlers.onError?.(d?.error ?? 'Chat error.');
-      break;
+      return true;
     }
+    default:
+      return false;
   }
 }
 
@@ -174,12 +180,12 @@ export async function streamOrchestratedChat(opts: StreamOrchestratedChatOptions
 
   const parser = createSseParser();
   let terminalSeen = false;
+  // Dispatch frames, stopping at the FIRST terminal event so a stream can't deliver two terminal
+  // callbacks (e.g. an `error` then `done`, or anything after `confirm.required`).
   const emit = (frames: SseFrame[]): void => {
     for (const frame of frames) {
-      if (frame.event === 'done' || frame.event === 'confirm.required' || frame.event === 'error') {
-        terminalSeen = true;
-      }
-      dispatchSseFrame(frame, handlers);
+      if (terminalSeen) return;
+      if (dispatchSseFrame(frame, handlers)) terminalSeen = true;
     }
   };
 
@@ -233,6 +239,8 @@ export async function streamOrchestratedChat(opts: StreamOrchestratedChatOptions
       const { value, done } = await reader.read();
       if (done) break;
       emit(parser.push(decoder.decode(value, { stream: true })));
+      // Got the terminal event — stop reading instead of waiting for the server to close the socket.
+      if (terminalSeen) break;
     }
     emit(parser.push(decoder.decode())); // flush any buffered multi-byte tail
     emit(parser.flush()); // dispatch a final frame not terminated by a blank line

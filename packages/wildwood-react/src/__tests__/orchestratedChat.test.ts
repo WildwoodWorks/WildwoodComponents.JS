@@ -248,4 +248,24 @@ describe('streamOrchestratedChat', () => {
     expect(headers.Authorization).toBeUndefined();
     expect(headers.Accept).toBe('text/event-stream');
   });
+
+  it('stops at the first terminal event — frames after it are ignored (no double callback)', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async () =>
+      sseResponse(
+        'event: done\ndata: {"status":"done","reply":"a"}\n\nevent: error\ndata: {"error":"late"}\n\n',
+      )) as unknown as typeof fetch;
+    await streamOrchestratedChat({
+      endpoint: 'x',
+      request: { configurationId: 'c', messages: [] },
+      handlers: {
+        onDone: (r) => calls.push(`done:${r.reply}`),
+        onError: (m) => calls.push(`error:${m}`),
+      },
+      fetchImpl,
+    });
+    // Only the first terminal (done) fires; the trailing error frame AND the "ended unexpectedly"
+    // guarantee are both suppressed.
+    expect(calls).toEqual(['done:a']);
+  });
 });
