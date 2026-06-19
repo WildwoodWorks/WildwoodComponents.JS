@@ -11,6 +11,18 @@ export { useSession } from './hooks/useSession.js';
 export type { UseSessionReturn } from './hooks/useSession.js';
 export { useAI } from './hooks/useAI.js';
 export type { UseAIReturn } from './hooks/useAI.js';
+// Backend-orchestrated SSE chat transport (WS6C)
+export { streamOrchestratedChat, createSseParser, dispatchSseFrame } from './ai/orchestratedChat.js';
+export type {
+  OrchestratedChatMessage,
+  OrchestratedChatRequest,
+  OrchestratedChatResult,
+  OrchestratedChatHandlers,
+  OrchestratedPendingToolCall,
+  OrchestratedToolActivity,
+  StreamOrchestratedChatOptions,
+  SseFrame,
+} from './ai/orchestratedChat.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
 export { useMessaging } from './hooks/useMessaging.js';

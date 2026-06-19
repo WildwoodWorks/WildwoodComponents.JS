@@ -11,6 +11,11 @@ import type {
   RequestOptions,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
+import {
+  streamOrchestratedChat,
+  type OrchestratedChatRequest,
+  type OrchestratedChatHandlers,
+} from '../ai/orchestratedChat.js';
 
 export interface UseAIReturn {
   sessions: AISessionSummary[];
@@ -30,6 +35,18 @@ export interface UseAIReturn {
     fileName?: string,
     options?: RequestOptions,
   ) => Promise<AIChatResponse>;
+  /**
+   * Drive a backend-orchestrated, tool-using chat turn over SSE against a caller-owned endpoint
+   * (WS6C). Streams tool.started/tool.result/context.changed and a terminal done/confirm.required/error
+   * to `handlers`. Authenticates with the current Wildwood session token. Resolves when the stream ends;
+   * transport/HTTP errors are reported via `handlers.onError` (never thrown).
+   */
+  streamChat: (
+    endpoint: string,
+    request: OrchestratedChatRequest,
+    handlers: OrchestratedChatHandlers,
+    options?: { signal?: AbortSignal },
+  ) => Promise<void>;
   getSessions: () => Promise<AISessionSummary[]>;
   getSession: (sessionId: string) => Promise<AISession | null>;
   createSession: (configName: string, title?: string) => Promise<AISession | null>;
@@ -119,6 +136,23 @@ export function useAI(): UseAIReturn {
         setLoading(false);
       }
     },
+    [client],
+  );
+
+  const streamChat = useCallback(
+    (
+      endpoint: string,
+      request: OrchestratedChatRequest,
+      handlers: OrchestratedChatHandlers,
+      options?: { signal?: AbortSignal },
+    ) =>
+      streamOrchestratedChat({
+        endpoint,
+        request,
+        handlers,
+        token: client.session.accessToken,
+        signal: options?.signal,
+      }),
     [client],
   );
 
@@ -212,6 +246,7 @@ export function useAI(): UseAIReturn {
     sendMessageWithFile,
     sendProxyMessage,
     sendProxyMessageWithFile,
+    streamChat,
     getSessions,
     getSession,
     createSession,
