@@ -98,6 +98,11 @@ export function NavMenu() {
           </NavLink>
         </li>
         <li>
+          <NavLink to="/consent" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Consent
+          </NavLink>
+        </li>
+        <li>
           <NavLink to="/feedback" className={({ isActive }) => (isActive ? 'active' : '')}>
             Feedback
           </NavLink>
