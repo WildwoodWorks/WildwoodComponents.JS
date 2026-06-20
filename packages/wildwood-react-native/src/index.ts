@@ -25,6 +25,8 @@ export { useTwoFactor } from './hooks/useTwoFactor';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor';
 export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
+export { useConsent } from './hooks/useConsent';
+export type { UseConsentReturn } from './hooks/useConsent';
 export { useFeedback } from './hooks/useFeedback';
 export type { UseFeedbackReturn } from './hooks/useFeedback';
 export { useAppTier } from './hooks/useAppTier';
@@ -53,6 +55,8 @@ export { TwoFactorSettingsComponent } from './components/TwoFactorSettingsCompon
 export type { TwoFactorSettingsComponentProps } from './components/TwoFactorSettingsComponent';
 export { DisclaimerComponent } from './components/DisclaimerComponent';
 export type { DisclaimerComponentProps } from './components/DisclaimerComponent';
+export { ConsentComponent } from './components/ConsentComponent';
+export type { ConsentComponentProps } from './components/ConsentComponent';
 export { FeedbackComponent } from './components/feedback/FeedbackComponent';
 export type { FeedbackComponentProps } from './components/feedback/FeedbackComponent';
 export { AppTierComponent } from './components/AppTierComponent';

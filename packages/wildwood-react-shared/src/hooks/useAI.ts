@@ -11,6 +11,11 @@ import type {
   RequestOptions,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
+import {
+  streamOrchestratedChat,
+  type OrchestratedChatRequest,
+  type OrchestratedChatHandlers,
+} from '../ai/orchestratedChat.js';
 
 export interface UseAIReturn {
   sessions: AISessionSummary[];
@@ -30,6 +35,18 @@ export interface UseAIReturn {
     fileName?: string,
     options?: RequestOptions,
   ) => Promise<AIChatResponse>;
+  /**
+   * Drive a backend-orchestrated, tool-using chat turn over SSE against a caller-owned endpoint
+   * (WS6C). Streams tool.started/tool.result/context.changed and a terminal done/confirm.required/error
+   * to `handlers`. Authenticates with the current Wildwood session token. Resolves when the stream ends;
+   * transport/HTTP errors are reported via `handlers.onError` (never thrown).
+   */
+  streamChat: (
+    endpoint: string,
+    request: OrchestratedChatRequest,
+    handlers: OrchestratedChatHandlers,
+    options?: { signal?: AbortSignal },
+  ) => Promise<void>;
   getSessions: () => Promise<AISessionSummary[]>;
   getSession: (sessionId: string) => Promise<AISession | null>;
   createSession: (configName: string, title?: string) => Promise<AISession | null>;
@@ -115,6 +132,38 @@ export function useAI(): UseAIReturn {
         const msg = err instanceof Error ? err.message : 'AI request failed';
         setError(msg);
         throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client],
+  );
+
+  const streamChat = useCallback(
+    async (
+      endpoint: string,
+      request: OrchestratedChatRequest,
+      handlers: OrchestratedChatHandlers,
+      options?: { signal?: AbortSignal },
+    ) => {
+      // Mirror the sibling methods' loading/error handling so useAI().loading/error stay accurate,
+      // while still forwarding every event to the caller's handlers.
+      setLoading(true);
+      setError(null);
+      try {
+        await streamOrchestratedChat({
+          endpoint,
+          request,
+          handlers: {
+            ...handlers,
+            onError: (message) => {
+              setError(message);
+              handlers.onError?.(message);
+            },
+          },
+          token: client.session.accessToken,
+          signal: options?.signal,
+        });
       } finally {
         setLoading(false);
       }
@@ -212,6 +261,7 @@ export function useAI(): UseAIReturn {
     sendMessageWithFile,
     sendProxyMessage,
     sendProxyMessageWithFile,
+    streamChat,
     getSessions,
     getSession,
     createSession,

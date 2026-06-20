@@ -151,6 +151,26 @@ export type {
 // Features
 export { DisclaimerService } from './features/disclaimerService.js';
 export { AppTierService } from './features/appTierService.js';
+
+// Consent Management
+export { ConsentService } from './consent/consentService.js';
+export { NON_NECESSARY_CATEGORIES, GPC_FORCED_OFF } from './consent/types.js';
+export type {
+  ConsentCategory,
+  ScriptInjectionMode,
+  ScriptLoadPosition,
+  ScriptLoadStrategy,
+  NonTargetDefault,
+  ConsentMethod,
+  ConsentScript,
+  GeoDecision,
+  PublicConsentConfig,
+  ConsentRecordRequest,
+  ConsentState,
+  ConsentInitResult,
+  ConsentChangeListener,
+  ConsentServiceOptions,
+} from './consent/types.js';
 export {
   CURRENCY_SYMBOLS,
   getCurrencySymbol,

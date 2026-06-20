@@ -1,6 +1,7 @@
 // Client configuration types
 
 import type { StorageAdapter } from '../platform/types.js';
+import type { ConsentServiceOptions } from '../consent/types.js';
 
 export interface WildwoodConfig {
   /** Base URL for the WildwoodAPI server (e.g. https://localhost:5291) */
@@ -33,6 +34,12 @@ export interface WildwoodConfig {
   persistentSession?: boolean;
   /** Storage adapter - 'localStorage', 'memory', or custom StorageAdapter (default: 'localStorage') */
   storage?: 'localStorage' | 'memory' | StorageAdapter;
+  /**
+   * Consent engine options (cookie name/lifetime, and a synchronous persistence adapter). Pass a
+   * `storage` adapter to persist consent on non-DOM hosts such as React Native; on the web the
+   * first-party cookie is used by default.
+   */
+  consent?: ConsentServiceOptions;
 }
 
 export interface RequestOptions {

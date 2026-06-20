@@ -439,3 +439,31 @@ code {
 .component-test-page .component-container {
   margin-bottom: 0;
 }
+
+/* Consent banner + preferences (mirrors the Blazor ConsentBanner.razor.css). Production React
+   apps should ship equivalent styles; included here so the test page renders. */
+.ww-consent-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483000;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1rem 1.25rem; background: var(--ww-bg-primary, #fff); color: var(--ww-text-primary, #212529);
+  border-top: 1px solid var(--ww-border-color, #dee2e6); box-shadow: 0 -4px 16px rgba(0,0,0,.15);
+}
+.ww-consent-banner-text { flex: 1 1 320px; min-width: 260px; }
+.ww-consent-title { display: block; font-size: 1rem; margin-bottom: .25rem; }
+.ww-consent-body { margin: 0; font-size: .9rem; color: var(--ww-text-secondary, #495057); }
+.ww-consent-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ww-consent-btn { cursor: pointer; font-size: .9rem; padding: .5rem 1rem; border-radius: .375rem; border: 1px solid var(--ww-border-color, #ced4da); }
+.ww-consent-btn-primary { background: var(--ww-primary, #0d6efd); border-color: var(--ww-primary, #0d6efd); color: #fff; }
+.ww-consent-btn-secondary { background: var(--ww-bg-secondary, #f8f9fa); color: var(--ww-text-primary, #212529); }
+.ww-consent-link { color: var(--ww-primary, #0d6efd); text-decoration: underline; margin-left: .25rem; }
+.ww-consent-modal-overlay { position: fixed; inset: 0; z-index: 2147483001; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.ww-consent-modal { background: var(--ww-bg-primary, #fff); color: var(--ww-text-primary, #212529); width: 100%; max-width: 560px; max-height: 85vh; overflow: auto; border-radius: .5rem; }
+.ww-consent-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--ww-border-color, #dee2e6); }
+.ww-consent-modal-header h2 { margin: 0; font-size: 1.15rem; }
+.ww-consent-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+.ww-consent-modal-body { padding: 1rem 1.25rem; }
+.ww-consent-modal-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--ww-border-color, #dee2e6); }
+.ww-consent-category { display: flex; align-items: center; justify-content: space-between; padding: .6rem 0; border-bottom: 1px solid var(--ww-border-color, #eee); }
+.ww-consent-rights { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+.ww-consent-footer-links { position: fixed; left: 1rem; bottom: 1rem; z-index: 2147482000; display: flex; flex-wrap: wrap; gap: .5rem; }
+.ww-consent-reopen { font-size: .8rem; padding: .35rem .75rem; border-radius: .375rem; border: 1px solid var(--ww-border-color, #ced4da); background: var(--ww-bg-secondary, #f8f9fa); cursor: pointer; }
