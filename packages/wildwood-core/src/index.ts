@@ -143,10 +143,24 @@ export {
 } from './payment/scriptLoader.js';
 export type { ScriptLoadOptions } from './payment/scriptLoader.js';
 
-// Notifications
+// Notifications (client-side toast queue)
 export { NotificationService } from './notifications/notificationService.js';
 export { NotificationType, NotificationActionStyle, NotificationPosition } from './notifications/types.js';
 export type { ToastNotification, NotificationAction, NotificationActionArgs } from './notifications/types.js';
+
+// Notification Inbox (backend-connected: bell + list + preferences)
+export { NotificationInboxService } from './notifications/notificationInboxService.js';
+export type { NotificationInboxRequestOptions } from './notifications/notificationInboxService.js';
+export type { AppNotification, AppNotificationStatus, UserNotificationPreference } from './notifications/inboxTypes.js';
+
+// Browser (Web Notifications API) channel helpers
+export {
+  isBrowserNotificationSupported,
+  getBrowserNotificationPermission,
+  requestBrowserNotificationPermission,
+  showBrowserNotification,
+} from './notifications/browserNotifications.js';
+export type { BrowserNotificationOptions } from './notifications/browserNotifications.js';
 
 // Security
 export { TwoFactorService } from './security/twoFactorService.js';

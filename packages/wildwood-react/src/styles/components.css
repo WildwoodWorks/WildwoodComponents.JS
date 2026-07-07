@@ -5351,3 +5351,230 @@ img.ww-avatar {
     color: var(--ww-danger, #dc3545);
     cursor: help;
 }
+
+/* ========================================
+   NOTIFICATION INBOX (bell + list + preferences)
+   Backend-connected surface — distinct from the toast styles above.
+   ======================================== */
+
+.ww-notification-bell {
+    position: relative;
+    display: inline-block;
+}
+
+.ww-notification-bell-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ww-text-secondary, #4b5563);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem;
+    border-radius: var(--ww-border-radius, 0.5rem);
+}
+
+.ww-notification-bell-button:hover {
+    color: var(--ww-text-primary, #111827);
+    background: var(--ww-bg-secondary, #f3f4f6);
+}
+
+.ww-notification-bell-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: var(--ww-danger, #dc3545);
+    border-radius: 999px;
+    transform: translate(35%, -35%);
+}
+
+.ww-notification-bell-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 9998;
+    width: 22rem;
+    max-width: 90vw;
+    max-height: 28rem;
+    overflow-y: auto;
+    background: var(--ww-bg-primary, #fff);
+    border: 1px solid var(--ww-border-color, #e5e7eb);
+    border-radius: var(--ww-border-radius, 0.5rem);
+    box-shadow: var(--ww-shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.15));
+}
+
+.ww-notification-list-container {
+    background: var(--ww-bg-primary, #fff);
+    border: 1px solid var(--ww-border-color, #e5e7eb);
+    border-radius: var(--ww-border-radius, 0.5rem);
+}
+
+/* Shared inbox item list (used by both the bell panel and the list container) */
+.ww-notification-inbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--ww-border-color, #e5e7eb);
+    position: sticky;
+    top: 0;
+    background: var(--ww-bg-primary, #fff);
+}
+
+.ww-notification-inbox-title {
+    font-weight: 700;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-notification-inbox-empty {
+    padding: 1.5rem 0.875rem;
+    text-align: center;
+    color: var(--ww-text-muted, #9ca3af);
+    font-size: 0.9rem;
+}
+
+.ww-notification-inbox-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ww-notification-inbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--ww-border-color, #f0f0f0);
+}
+
+.ww-notification-inbox-item:last-child {
+    border-bottom: none;
+}
+
+.ww-notification-inbox-item-unread {
+    background: var(--ww-info-bg, #eff6ff);
+}
+
+.ww-notification-inbox-item-main {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 0.25rem;
+    cursor: default;
+    color: inherit;
+    font: inherit;
+}
+
+.ww-notification-inbox-item-main[data-clickable='true'] {
+    cursor: pointer;
+}
+
+.ww-notification-inbox-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.35rem;
+    border-radius: 999px;
+    background: var(--ww-primary, #2563eb);
+}
+
+.ww-notification-inbox-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.ww-notification-inbox-item-title {
+    font-weight: 600;
+    color: var(--ww-text-primary, #111827);
+    font-size: 0.9rem;
+}
+
+.ww-notification-inbox-item-message {
+    color: var(--ww-text-secondary, #4b5563);
+    font-size: 0.85rem;
+    word-break: break-word;
+}
+
+.ww-notification-inbox-item-time {
+    color: var(--ww-text-muted, #9ca3af);
+    font-size: 0.72rem;
+}
+
+.ww-notification-inbox-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex: 0 0 auto;
+}
+
+/* Preferences */
+.ww-notification-prefs {
+    background: var(--ww-bg-primary, #fff);
+}
+
+.ww-notification-prefs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.ww-notification-prefs-title {
+    margin: 0;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-notification-prefs-saving {
+    color: var(--ww-text-muted, #9ca3af);
+    font-size: 0.8rem;
+}
+
+.ww-notification-prefs-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ww-notification-prefs-row {
+    border-bottom: 1px solid var(--ww-border-color, #f0f0f0);
+}
+
+.ww-notification-prefs-row:last-child {
+    border-bottom: none;
+}
+
+.ww-notification-prefs-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0.25rem;
+    cursor: pointer;
+    color: var(--ww-text-primary, #111827);
+}
+
+.ww-notification-prefs-hint {
+    display: block;
+    color: var(--ww-text-muted, #9ca3af);
+    font-size: 0.78rem;
+    margin-top: 0.125rem;
+}

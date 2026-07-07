@@ -13,6 +13,7 @@ import { DocumentService } from '../documents/documentService.js';
 import { MessagingService } from '../messaging/messagingService.js';
 import { PaymentService } from '../payment/paymentService.js';
 import { NotificationService } from '../notifications/notificationService.js';
+import { NotificationInboxService } from '../notifications/notificationInboxService.js';
 import { TwoFactorService } from '../security/twoFactorService.js';
 import { CaptchaService } from '../security/captchaService.js';
 import { DisclaimerService } from '../features/disclaimerService.js';
@@ -32,6 +33,8 @@ export interface WildwoodClient {
   readonly messaging: MessagingService;
   readonly payment: PaymentService;
   readonly notifications: NotificationService;
+  /** Backend-connected notification inbox (bell + list + preferences). Distinct from `notifications` (toast queue). */
+  readonly notificationInbox: NotificationInboxService;
   readonly twoFactor: TwoFactorService;
   readonly captcha: CaptchaService;
   readonly disclaimer: DisclaimerService;
@@ -60,6 +63,8 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const messaging = new MessagingService(http, storage);
   const payment = new PaymentService(http);
   const notifications = new NotificationService();
+  // Backend-connected inbox needs the raw token (fetch transport, one-shot 401), like DocumentService.
+  const notificationInbox = new NotificationInboxService(config, events, () => session.accessToken);
   const twoFactor = new TwoFactorService(http);
   const captcha = new CaptchaService();
   const disclaimer = new DisclaimerService(http, config.appId ?? '');
@@ -79,6 +84,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     messaging,
     payment,
     notifications,
+    notificationInbox,
     twoFactor,
     captcha,
     disclaimer,

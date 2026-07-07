@@ -13,6 +13,13 @@ export { useSession } from './hooks/useSession';
 export type { UseSessionReturn } from './hooks/useSession';
 export { useNotifications } from './hooks/useNotifications';
 export type { UseNotificationsReturn } from './hooks/useNotifications';
+export { useNotificationInbox } from './hooks/useNotificationInbox';
+export type { UseNotificationInboxOptions, UseNotificationInboxReturn } from './hooks/useNotificationInbox';
+export { useNotificationPreferences } from './hooks/useNotificationPreferences';
+export type {
+  UseNotificationPreferencesOptions,
+  UseNotificationPreferencesReturn,
+} from './hooks/useNotificationPreferences';
 export { useTheme } from './hooks/useTheme';
 export type { UseThemeReturn } from './hooks/useTheme';
 export { useAI } from './hooks/useAI';
@@ -57,6 +64,13 @@ export { NotificationComponent } from './components/NotificationComponent';
 export type { NotificationComponentProps } from './components/NotificationComponent';
 export { NotificationToastComponent } from './components/NotificationToastComponent';
 export type { NotificationToastComponentProps } from './components/NotificationToastComponent';
+// Backend-connected notification inbox (bell + list + preferences)
+export { NotificationsBell } from './components/NotificationsBell';
+export type { NotificationsBellProps } from './components/NotificationsBell';
+export { NotificationList } from './components/NotificationList';
+export type { NotificationListProps } from './components/NotificationList';
+export { NotificationPreferences } from './components/NotificationPreferences';
+export type { NotificationPreferencesProps } from './components/NotificationPreferences';
 export { TwoFactorSettingsComponent } from './components/TwoFactorSettingsComponent';
 export type { TwoFactorSettingsComponentProps } from './components/TwoFactorSettingsComponent';
 export { DisclaimerComponent } from './components/DisclaimerComponent';
@@ -144,6 +158,9 @@ export type {
   PendingDisclaimerModel,
   ToastNotification,
   NotificationType,
+  AppNotification,
+  AppNotificationStatus,
+  UserNotificationPreference,
   AppTierModel,
   UserTierSubscriptionModel,
   PendingDisclaimersResponse,
