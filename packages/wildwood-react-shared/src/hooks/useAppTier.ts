@@ -20,6 +20,8 @@ export interface UseAppTierReturn {
   getUserSubscription: () => Promise<UserTierSubscriptionModel | null>;
   checkFeature: (featureKey: string) => Promise<AppFeatureCheckResultModel>;
   getLimitStatus: (limitKey: string) => Promise<AppTierLimitStatusModel>;
+  /** Record one unit of usage against a limit. Returns the updated status, or null on failure. */
+  incrementUsage: (limitKey: string) => Promise<AppTierLimitStatusModel | null>;
   changeTier: (tierId: string, pricingModelId?: string, immediate?: boolean) => Promise<AppTierChangeResultModel>;
   selfSubscribe: (appTierId: string, appTierPricingId?: string) => Promise<AppTierChangeResultModel>;
 }
@@ -84,6 +86,13 @@ export function useAppTier(): UseAppTierReturn {
     [client, appId],
   );
 
+  const incrementUsage = useCallback(
+    async (limitKey: string) => {
+      return client.appTier.incrementUsage(appId, limitKey);
+    },
+    [client, appId],
+  );
+
   const changeTier = useCallback(
     async (newTierId: string, newPricingId?: string, immediate?: boolean) => {
       setLoading(true);
@@ -130,6 +139,7 @@ export function useAppTier(): UseAppTierReturn {
     getUserSubscription,
     checkFeature,
     getLimitStatus,
+    incrementUsage,
     changeTier,
     selfSubscribe,
   };

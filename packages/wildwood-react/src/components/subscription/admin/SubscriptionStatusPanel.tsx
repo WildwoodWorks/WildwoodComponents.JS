@@ -16,7 +16,21 @@ const STATUS_BADGE: Record<string, string> = {
   PastDue: 'ww-badge-warning',
   Cancelled: 'ww-badge-danger',
   Expired: 'ww-badge-secondary',
+  PendingUpgrade: 'ww-badge-info',
+  PendingDowngrade: 'ww-badge-info',
+  PendingCancellation: 'ww-badge-warning',
 };
+
+const STATUS_LABEL: Record<string, string> = {
+  PastDue: 'Past Due',
+  PendingUpgrade: 'Upgrade Scheduled',
+  PendingDowngrade: 'Downgrade Scheduled',
+  PendingCancellation: 'Cancellation Scheduled',
+};
+
+// Statuses from which the user can still cancel. Excluding Trialing/PastDue locked those
+// subscribers out of cancelling entirely; Pending* changes are cancelled via the plans tab.
+const CANCELLABLE_STATUSES = ['Active', 'Trialing', 'PastDue'];
 
 export function SubscriptionStatusPanel({
   subscription,
@@ -64,12 +78,12 @@ export function SubscriptionStatusPanel({
           <h4 className="ww-sub-status-tier-name">{subscription.tierName}</h4>
           <div className="ww-sub-status-badges">
             <span className={`ww-badge ${STATUS_BADGE[subscription.status] ?? 'ww-badge-secondary'}`}>
-              {subscription.status}
+              {STATUS_LABEL[subscription.status] ?? subscription.status}
             </span>
             {subscription.isFreeTier && <span className="ww-badge ww-badge-secondary">Free</span>}
           </div>
         </div>
-        {!subscription.isFreeTier && subscription.status === 'Active' && onCancelRequested && (
+        {!subscription.isFreeTier && CANCELLABLE_STATUSES.includes(subscription.status) && onCancelRequested && (
           <button
             type="button"
             className="ww-btn ww-btn-sm ww-btn-outline ww-btn-danger"
@@ -122,6 +136,19 @@ export function SubscriptionStatusPanel({
           <span className="ww-sub-status-pending-icon" />
           Pending change to <strong>{subscription.pendingTierName}</strong>
           {subscription.pendingChangeDate && ` on ${new Date(subscription.pendingChangeDate).toLocaleDateString()}`}
+        </div>
+      )}
+
+      {/* Scheduled cancellation notice */}
+      {subscription.status === 'PendingCancellation' && (
+        <div className="ww-sub-status-pending">
+          <span className="ww-sub-status-pending-icon" />
+          Your plan is cancelled
+          {(subscription.pendingChangeDate || subscription.endDate) &&
+            ` and access continues until ${new Date(
+              (subscription.pendingChangeDate ?? subscription.endDate)!,
+            ).toLocaleDateString()}`}
+          . Choose a plan from the Plans tab to stay subscribed.
         </div>
       )}
 

@@ -55,8 +55,10 @@ export function AppTierComponent({
 
   useEffect(() => {
     if (autoLoad) {
-      getTiers();
-      getUserSubscription();
+      // Fire-and-forget loads: failures are recorded in the hook's error state, so swallow
+      // the rejections here to avoid unhandled-promise warnings.
+      getTiers().catch(() => {});
+      getUserSubscription().catch(() => {});
     }
   }, [autoLoad, getTiers, getUserSubscription]);
 

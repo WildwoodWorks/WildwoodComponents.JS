@@ -10,6 +10,8 @@ export interface TokenRegistrationComponentProps {
   requireToken?: boolean;
   /** If true, open registration (no token) is allowed. Default false. */
   allowOpenRegistration?: boolean;
+  /** Show the optional "Have a Registration Token?" card when tokens are optional. Default true. */
+  showOptionalTokenEntry?: boolean;
   /** If true, auto-login after successful registration. Default true. */
   autoLogin?: boolean;
   /** URL to redirect after successful auto-login */
@@ -38,6 +40,7 @@ export function TokenRegistrationComponent({
   registrationToken: initialToken,
   requireToken = true,
   allowOpenRegistration = false,
+  showOptionalTokenEntry = true,
   autoLogin = true,
   redirectUrl,
   deferSubmission = false,
@@ -459,7 +462,7 @@ export function TokenRegistrationComponent({
           </p>
 
           {/* Optional Token Entry */}
-          {tokenIsOptional && !useToken && (
+          {tokenIsOptional && showOptionalTokenEntry && !useToken && (
             <div className="ww-optional-token-card">
               <h6 className="ww-optional-token-title">Have a Registration Token?</h6>
               <p className="ww-optional-token-desc">

@@ -26,11 +26,23 @@ export function TierCardHeader({
   discount,
   currency,
 }: TierCardHeaderProps) {
+  // badgeColor may be a semantic token ("success") or a raw CSS color ("#c9a227"); raw colors
+  // can't be class names, so they become an inline style. "Active" is every publicly listed
+  // tier's lifecycle status — only non-default statuses (Beta, Deprecated, ...) are informative.
+  const isRawColor = !!badgeColor && /^(#|rgb|hsl)/i.test(badgeColor.trim());
+  const showStatusBadge = !!badgeColor && !!status && status.trim().toLowerCase() !== 'active';
   return (
     <div className="ww-tier-header">
       {iconClass && <span className={`ww-tier-icon ${iconClass}`} />}
       <h3>{name}</h3>
-      {badgeColor && <span className={`ww-badge ww-badge-${badgeColor}`}>{status}</span>}
+      {showStatusBadge && (
+        <span
+          className={isRawColor ? 'ww-badge' : `ww-badge ww-badge-${badgeColor}`}
+          style={isRawColor ? { backgroundColor: badgeColor, color: '#fff' } : undefined}
+        >
+          {status}
+        </span>
+      )}
       {showPrice && (
         <div className="ww-tier-price">
           {isEnterprise ? (

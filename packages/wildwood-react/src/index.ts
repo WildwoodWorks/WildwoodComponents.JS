@@ -31,6 +31,8 @@ export { useFeedback } from './hooks/useFeedback.js';
 export type { UseFeedbackReturn } from './hooks/useFeedback.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
+export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';
+export type { UseFeaturesReturn } from './hooks/useFeatures.js';
 export { useCaptcha } from './hooks/useCaptcha.js';
 export type { UseCaptchaReturn } from './hooks/useCaptcha.js';
 export { useWildwoodComponent } from './hooks/useWildwoodComponent.js';
@@ -104,6 +106,8 @@ export { OverageSummaryComponent } from './components/usage/OverageSummaryCompon
 export type { OverageSummaryComponentProps } from './components/usage/OverageSummaryComponent.js';
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
+export { FeatureGate } from './components/gating/FeatureGate.js';
+export type { FeatureGateProps } from './components/gating/FeatureGate.js';
 
 // Tier Card (shared sub-components)
 export { TierCard } from './components/tier/TierCard.js';

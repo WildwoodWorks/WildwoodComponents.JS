@@ -9,9 +9,13 @@ import { useWildwood } from '../../hooks/useWildwood.js';
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
   preSelectedTierId?: string;
+  /** Pricing option to preselect within the pre-selected tier (e.g. the annual option chosen on a pricing page). */
+  preSelectedPricingId?: string;
   registrationToken?: string;
   requireToken?: boolean;
   allowOpenRegistration?: boolean;
+  /** Show the optional "Have a Registration Token?" card on the registration step. Default true. */
+  showOptionalTokenEntry?: boolean;
   skipTierSelection?: boolean;
   requireBillingAddress?: boolean;
   onComplete?: () => void;
@@ -24,9 +28,11 @@ type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'success';
 export function SignupWithSubscriptionComponent({
   appId,
   preSelectedTierId,
+  preSelectedPricingId,
   registrationToken,
   requireToken = false,
   allowOpenRegistration = true,
+  showOptionalTokenEntry = true,
   skipTierSelection = false,
   requireBillingAddress = false,
   onComplete,
@@ -69,7 +75,13 @@ export function SignupWithSubscriptionComponent({
         const tier = tiers.find((t) => t.id?.toLowerCase() === preSelectedTierId?.toLowerCase());
         if (tier) {
           setPreSelectedTier(tier);
-          const pricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0] ?? null;
+          const pricing =
+            (preSelectedPricingId
+              ? tier.pricingOptions?.find((p) => p.id?.toLowerCase() === preSelectedPricingId.toLowerCase())
+              : undefined) ??
+            tier.pricingOptions?.find((p) => p.isDefault) ??
+            tier.pricingOptions?.[0] ??
+            null;
           setPreSelectedTierPricing(pricing);
           setSelectedTier(tier);
           setSelectedPricing(pricing);
@@ -81,7 +93,7 @@ export function SignupWithSubscriptionComponent({
       .finally(() => {
         setTierLoading(false);
       });
-  }, [preSelectedTierId, resolvedAppId, client.appTier]);
+  }, [preSelectedTierId, preSelectedPricingId, resolvedAppId, client.appTier]);
 
   // Determine the effective flow
   const hasPreSelectedTier = !!preSelectedTier && !showFullTierSelection;
@@ -405,6 +417,7 @@ export function SignupWithSubscriptionComponent({
             registrationToken={registrationToken}
             requireToken={requireToken}
             allowOpenRegistration={allowOpenRegistration}
+            showOptionalTokenEntry={showOptionalTokenEntry}
             deferSubmission={true}
             onFormDataCollected={handleFormDataCollected}
             initialFormData={formData ?? undefined}

@@ -397,9 +397,11 @@ import { SignupWithSubscriptionComponent } from '@wildwood/react';
 
 <SignupWithSubscriptionComponent
   appId={APP_ID}
-  preSelectedTierId={tierIdFromUrl}  // optional, from pricing page
+  preSelectedTierId={tierIdFromUrl}       // optional, from pricing page
+  preSelectedPricingId={pricingIdFromUrl} // optional, carries the monthly/annual choice from the pricing page
   allowOpenRegistration={true}
   requireToken={false}
+  showOptionalTokenEntry={false}          // hide the "Have a Registration Token?" card for public signups
   onComplete={() => navigate('/')}
   onCancel={() => navigate('/pricing')}
 />
@@ -462,7 +464,7 @@ await admin.resetUserUsage(appId, userId, 'LIMIT_CODE');
 
 ### Integration pattern: Landing page → Signup → Subscription
 
-1. **Landing page** (unauthenticated): Use `PricingDisplayComponent` with `onSelectTier` to navigate to signup with `?tier=<id>`
+1. **Landing page** (unauthenticated): Use `PricingDisplayComponent` with `onSelectTier={(tier, pricing) => ...}` to navigate to signup with `?tier=<id>&pricing=<id>` — forward `pricing.id` too, or the monthly/annual choice is lost and signup re-defaults
 2. **Signup page**: Use `SignupWithSubscriptionComponent` with `preSelectedTierId` from URL params
 3. **Dashboard** (authenticated): Use `UsageDashboardComponent` for usage overview
 4. **Subscription management page**: Use `SubscriptionAdminComponent` — single component with tabbed UI for subscription status, tier plans, features & add-ons, and usage

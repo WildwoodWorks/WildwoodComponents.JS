@@ -194,6 +194,23 @@ export interface AppTierChangeResultModel {
   effectiveDate?: string;
 }
 
+/**
+ * Result of a subscription cancellation. isScheduled=true means access continues until
+ * effectiveDate (the end of the current billing period); false means access ended immediately.
+ * requiresUserAction is set for store-billed subscriptions (Apple App Store / Google Play):
+ * the platform cannot stop the store's billing — show userActionInstructions/userActionUrl
+ * so the user cancels in their store settings too.
+ */
+export interface AppTierCancelResultModel {
+  success: boolean;
+  errorMessage?: string;
+  isScheduled?: boolean;
+  effectiveDate?: string;
+  requiresUserAction?: boolean;
+  userActionUrl?: string;
+  userActionInstructions?: string;
+}
+
 export interface AppFeatureOverrideModel {
   id: string;
   appId: string;

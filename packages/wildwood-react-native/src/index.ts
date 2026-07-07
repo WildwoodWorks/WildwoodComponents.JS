@@ -43,6 +43,8 @@ export { useUsageDashboard } from './hooks/useUsageDashboard';
 export type { UseUsageDashboardOptions, UseUsageDashboardReturn } from './hooks/useUsageDashboard';
 export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin';
+export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures';
+export type { UseFeaturesReturn } from './hooks/useFeatures';
 
 // Components
 export { AuthenticationComponent } from './components/AuthenticationComponent';
