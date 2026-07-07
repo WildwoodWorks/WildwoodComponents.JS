@@ -37,6 +37,8 @@ export { usePayment } from './hooks/usePayment.js';
 export type { UsePaymentReturn } from './hooks/usePayment.js';
 export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
+// Subscription status display constants shared by the web and native status panels
+export { STATUS_LABEL, CANCELLABLE_STATUSES, pendingCancellationNotice } from './subscription/statusDisplay.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useTwoFactorLogic } from './hooks/useTwoFactorLogic.js';

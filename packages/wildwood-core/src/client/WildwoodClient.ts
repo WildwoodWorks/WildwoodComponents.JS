@@ -52,6 +52,9 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const ai = new AIService(http, config.appId);
   // SSE streams need the raw token (fetch-based transport, not HttpClient)
   const aiFlow = new AIFlowService(config, events, () => session.accessToken);
+  // Reactive 401 handling (Blazor parity): on 401, refresh token and replay once —
+  // same wiring SessionManager applies to the HttpClient.
+  aiFlow.setOn401Refresh(() => session.refreshToken());
   // Multipart uploads need the raw token too (FormData, not HttpClient JSON)
   const documents = new DocumentService(config, events, () => session.accessToken);
   const messaging = new MessagingService(http, storage);

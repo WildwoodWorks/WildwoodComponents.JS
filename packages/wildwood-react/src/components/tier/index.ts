@@ -13,6 +13,8 @@ export {
   isEnterpriseTier,
   isAnnualFrequency,
   hasAnnualPricing,
+  isRawBadgeColor,
+  shouldShowTierStatusBadge,
   getSelectedPricing,
   computeAnnualDiscount,
   CURRENCY_SYMBOLS,

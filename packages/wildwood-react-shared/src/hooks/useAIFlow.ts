@@ -5,7 +5,7 @@
 // render this hook's state; all flow selection, input typing, streaming, interrupt
 // resolution, and history behavior lives here.
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   AIFlowModel,
   AIFlowRunEvent,
@@ -99,7 +99,6 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   const [flows, setFlows] = useState<AIFlowModel[]>([]);
   const [loadingFlows, setLoadingFlows] = useState(true);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
-  const [selectedFlow, setSelectedFlow] = useState<AIFlowModel | null>(null);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [rawInput, setRawInput] = useState('{}');
   const [running, setRunning] = useState(false);
@@ -117,29 +116,44 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   // only on a throttled flush to avoid a render per token on a long stream.
   const streamBufferRef = useRef('');
   const lastFlushRef = useRef(0);
+  // Captured debug events buffer the same way: appended per SSE frame, materialized into
+  // setEvents only on the throttled flush (plus the final flush) — not a render per frame.
+  const eventsBufferRef = useRef<string[]>([]);
   // Run/thread continuity lives in refs: SSE callbacks update them mid-run without renders.
   const threadIdRef = useRef<string | null>(null);
   const activeRunIdRef = useRef<string | null>(null);
+  // Re-entrancy guard: `running` state is async, so a double-click could start two
+  // overlapping runs before the first render lands. Mirrors the Blazor/Razor/Swift guards.
+  const runningRef = useRef(false);
+  // Mirrors the pendingInterrupt state so resolveWith can snapshot/restore it without
+  // taking the state value as a dependency.
+  const pendingInterruptRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const onRunCompletedRef = useRef(options?.onRunCompleted);
   onRunCompletedRef.current = options?.onRunCompleted;
+
+  const setInterrupt = useCallback((value: string | null) => {
+    pendingInterruptRef.current = value;
+    setPendingInterrupt(value);
+  }, []);
 
   const requestOptions = useCallback((signal?: AbortSignal) => ({ apiBaseUrl, appId, signal }), [apiBaseUrl, appId]);
 
   const resetRunState = useCallback(() => {
     streamBufferRef.current = '';
+    eventsBufferRef.current = [];
     setStreamText('');
     setActiveNode(null);
-    setPendingInterrupt(null);
+    setInterrupt(null);
     setEditingResume(false);
     setResumeEditValue('');
     setError(null);
     setResult(null);
     setEvents([]);
-  }, []);
+  }, [setInterrupt]);
 
   const selectFlow = useCallback(
-    (flowId: string | null, flowList?: AIFlowModel[]) => {
+    (flowId: string | null) => {
       const id = flowId || null;
       setSelectedFlowId(id);
       setInputs({});
@@ -150,10 +164,15 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
       activeRunIdRef.current = null;
       setHistory([]);
       resetRunState();
-      const list = flowList ?? flows;
-      setSelectedFlow(id ? (list.find((f) => f.id === id) ?? null) : null);
     },
-    [flows, resetRunState],
+    [resetRunState],
+  );
+
+  // Derived, not stored: the selected flow object always tracks the CURRENT flows list,
+  // so a reload can't leave a stale object from the previous app on screen.
+  const selectedFlow = useMemo(
+    () => (selectedFlowId ? (flows.find((f) => f.id === selectedFlowId) ?? null) : null),
+    [flows, selectedFlowId],
   );
 
   // A token arriving after an initial (unauthenticated) load must trigger a reload —
@@ -170,6 +189,10 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
     let disposed = false;
     setLoadingFlows(true);
     setFlows([]);
+    // The previous context's selection must not survive a reload: the flow id and thread
+    // checkpoint are scoped to the app/base-URL/auth context that loaded them, and keeping
+    // them would run the old app's flow (or resume its thread) against the new context.
+    selectFlow(null);
     client.aiFlow
       .getFlows({ apiBaseUrl, appId })
       .then((loaded) => {
@@ -178,7 +201,7 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
         setLoadingFlows(false);
         // Auto-select a fixed flow, or the only flow.
         const initialId = fixedFlowId || (loaded.length === 1 ? loaded[0].id : null);
-        if (initialId) selectFlow(initialId, loaded);
+        if (initialId) selectFlow(initialId);
       })
       .catch(() => {
         if (!disposed) setLoadingFlows(false);
@@ -186,10 +209,7 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
     return () => {
       disposed = true;
     };
-    // selectFlow intentionally omitted: it changes with `flows`, and re-running this
-    // effect on selection would wipe the user's selection.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, apiBaseUrl, appId, fixedFlowId, authEpoch]);
+  }, [client, apiBaseUrl, appId, fixedFlowId, authEpoch, selectFlow]);
 
   // Surface session expiry the way the Blazor component's AuthenticationFailed handler does.
   useEffect(() => {
@@ -222,27 +242,28 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
           streamBufferRef.current += typeof obj?.content === 'string' ? obj.content : '';
           break;
         case 'interrupt':
-          if (obj && 'payload' in obj) setPendingInterrupt(JSON.stringify(obj.payload, null, 2));
+          if (obj && 'payload' in obj) setInterrupt(JSON.stringify(obj.payload, null, 2));
           break;
       }
 
       if (captureEvents) {
-        setEvents((prev) => {
-          const next = [...prev, `${evt.event}: ${shortData(evt.data)}`];
-          return next.length > 200 ? next.slice(next.length - 200) : next;
-        });
+        const buffer = eventsBufferRef.current;
+        buffer.push(`${evt.event}: ${shortData(evt.data)}`);
+        if (buffer.length > 200) buffer.splice(0, buffer.length - 200);
       }
 
       // Flush immediately for structural events; throttle token-only updates to ~10/s so a
-      // long stream doesn't force thousands of renders.
+      // long stream doesn't force thousands of renders. Captured debug events materialize
+      // on the same flush instead of a state update per SSE frame.
       const isToken = evt.event === 'token';
       const now = Date.now();
       if (!isToken || now - lastFlushRef.current >= 100) {
         lastFlushRef.current = now;
         setStreamText(streamBufferRef.current);
+        if (captureEvents) setEvents([...eventsBufferRef.current]);
       }
     },
-    [captureEvents],
+    [captureEvents, setInterrupt],
   );
 
   /**
@@ -260,20 +281,25 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   }, [client, apiBaseUrl, appId, showRunHistory]);
 
   const finishRun = useCallback(
-    async (runResult: AIFlowRunResult) => {
-      // Materialize any tokens that arrived since the last throttled flush.
+    (runResult: AIFlowRunResult, keepInterrupt = false) => {
+      // Materialize anything that arrived since the last throttled flush.
       setStreamText(streamBufferRef.current);
+      if (captureEvents) setEvents([...eventsBufferRef.current]);
       if (runResult.runId) activeRunIdRef.current = runResult.runId;
       if (runResult.threadId) threadIdRef.current = runResult.threadId;
       setActiveNode(null);
       setResult(runResult);
       if (runResult.status !== 'interrupted') {
-        setPendingInterrupt(null);
+        // keepInterrupt: a failed resume restored the interrupt so the user can retry —
+        // don't clear it again here.
+        if (!keepInterrupt) setInterrupt(null);
         onRunCompletedRef.current?.(runResult);
       }
-      await loadHistory();
+      // History is an enrichment: refresh it in the background so the terminal result lands
+      // and `running` flips false immediately (loadHistory swallows its own failures).
+      void loadHistory();
     },
-    [loadHistory],
+    [loadHistory, captureEvents, setInterrupt],
   );
 
   const resetAbort = useCallback(() => {
@@ -310,7 +336,9 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   );
 
   const run = useCallback(async () => {
-    if (!selectedFlow) return;
+    // Ref-based guard: `running` state is async, so back-to-back calls could both pass a
+    // state check and start overlapping runs.
+    if (runningRef.current || !selectedFlow) return;
     resetRunState();
 
     const inputJson = buildInputJson(selectedFlow);
@@ -319,6 +347,7 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
       return;
     }
 
+    runningRef.current = true;
     setRunning(true);
     const controller = resetAbort();
     try {
@@ -329,17 +358,22 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
         handleEvent,
         requestOptions(controller.signal),
       );
-      await finishRun(runResult);
+      finishRun(runResult);
     } finally {
+      runningRef.current = false;
       setRunning(false);
     }
   }, [client, selectedFlow, buildInputJson, handleEvent, finishRun, requestOptions, resetAbort, resetRunState]);
 
   const resolveWith = useCallback(
     async (approve: boolean, valueJson: string | null) => {
-      if (!activeRunIdRef.current) return;
-      setPendingInterrupt(null);
+      if (runningRef.current || !activeRunIdRef.current) return;
+      // Snapshot the interrupt before clearing: when the resume fails, restore it so the
+      // Approve/Reject panel returns and the user can retry instead of dead-ending.
+      const interruptSnapshot = pendingInterruptRef.current;
+      setInterrupt(null);
       setEditingResume(false);
+      runningRef.current = true;
       setRunning(true);
       const controller = resetAbort();
       try {
@@ -350,12 +384,15 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
           handleEvent,
           requestOptions(controller.signal),
         );
-        await finishRun(runResult);
+        const restoreInterrupt = runResult.status === 'failed' && interruptSnapshot !== null;
+        if (restoreInterrupt) setInterrupt(interruptSnapshot);
+        finishRun(runResult, restoreInterrupt);
       } finally {
+        runningRef.current = false;
         setRunning(false);
       }
     },
-    [client, handleEvent, finishRun, requestOptions, resetAbort],
+    [client, handleEvent, finishRun, requestOptions, resetAbort, setInterrupt],
   );
 
   const resolveInterrupt = useCallback((approve: boolean) => resolveWith(approve, null), [resolveWith]);

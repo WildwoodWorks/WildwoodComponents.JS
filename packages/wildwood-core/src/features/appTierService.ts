@@ -1,6 +1,7 @@
 // App tier service - ported from WildwoodComponents.Blazor/Services/AppTierComponentService.cs
 
 import type { HttpClient } from '../client/httpClient.js';
+import { WildwoodError } from '../client/errors.js';
 import type {
   AppTierModel,
   AppTierAddOnModel,
@@ -92,14 +93,21 @@ export class AppTierService {
   // ---------------------------------------------------------------------------
 
   /**
-   * The user's active subscription, or null when none exists (204). THROWS on transport/HTTP
-   * failure so callers can distinguish "no subscription" from a failed lookup — swallowing both
-   * as null made subscribed users look unsubscribed during transient errors.
+   * The user's active subscription, or null when none exists (204 or 404 — the backend 404s
+   * for users who never subscribed, matching the pre-July-2026 .NET behavior). THROWS on any
+   * other transport/HTTP failure so callers can distinguish "no subscription" from a failed
+   * lookup — swallowing both as null made subscribed users look unsubscribed during
+   * transient errors.
    */
   async getUserSubscription(appId?: string): Promise<UserTierSubscriptionModel | null> {
     if (!appId) return null;
-    const { data } = await this.http.get<UserTierSubscriptionModel>(`api/app-tiers/${appId}/my-subscription`);
-    return data ?? null;
+    try {
+      const { data } = await this.http.get<UserTierSubscriptionModel>(`api/app-tiers/${appId}/my-subscription`);
+      return data ?? null;
+    } catch (err) {
+      if (err instanceof WildwoodError && err.code === 'NotFound') return null; // 404 = no subscription
+      throw err;
+    }
   }
 
   async getUserAddOns(appId: string): Promise<UserAddOnSubscriptionModel[]> {
