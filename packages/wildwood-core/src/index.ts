@@ -65,6 +65,8 @@ export type {
 // AI
 export { AIService } from './ai/aiService.js';
 export type { TTSVoice } from './ai/aiService.js';
+export { AIFlowService } from './ai/aiFlowService.js';
+export type { AIFlowRequestOptions, AIFlowEventHandler } from './ai/aiFlowService.js';
 export type {
   AIMessage,
   AISession,
@@ -74,6 +76,11 @@ export type {
   AIChatResponse,
   AIChatSettings,
   ChatTypingIndicator,
+  AIFlowModel,
+  AIFlowInputField,
+  AIFlowRunEvent,
+  AIFlowRunResult,
+  AIFlowRunSummary,
 } from './ai/types.js';
 
 // Messaging

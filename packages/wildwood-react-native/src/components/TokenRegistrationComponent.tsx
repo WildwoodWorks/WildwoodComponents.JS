@@ -24,6 +24,8 @@ export interface TokenRegistrationComponentProps {
   requireToken?: boolean;
   /** If true, open registration (no token) is allowed. Default false. */
   allowOpenRegistration?: boolean;
+  /** Show the optional "Have a Registration Token?" card when tokens are optional. Default true. */
+  showOptionalTokenEntry?: boolean;
   /** If true, auto-login after successful registration. Default true. */
   autoLogin?: boolean;
   /** If true, form validates client-side but does NOT call the API. Instead calls onFormDataCollected. */
@@ -50,6 +52,7 @@ export function TokenRegistrationComponent({
   registrationToken: initialToken,
   requireToken = true,
   allowOpenRegistration = false,
+  showOptionalTokenEntry = true,
   autoLogin = true,
   deferSubmission = false,
   onFormDataCollected,
@@ -495,7 +498,7 @@ export function TokenRegistrationComponent({
             </Text>
 
             {/* Optional Token Entry */}
-            {tokenIsOptional && !useToken && (
+            {tokenIsOptional && showOptionalTokenEntry && !useToken && (
               <View style={styles.optionalTokenCard}>
                 <Text style={styles.optionalTokenTitle}>Have a Registration Token?</Text>
                 <Text style={styles.optionalTokenDesc}>

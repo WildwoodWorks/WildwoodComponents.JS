@@ -111,3 +111,55 @@ export interface ChatTypingIndicator {
   text: string;
   startedAt: string;
 }
+
+// AI Flows (LangGraph) types - ported from WildwoodComponents.Shared/Models/AIFlowModels.cs
+
+/** A published AI Flow (LangGraph) runnable by an app user. */
+export interface AIFlowModel {
+  id: string;
+  name: string;
+  description: string;
+  iconClass: string;
+  /** State channels the run can be seeded with (drives the input form). */
+  inputFields: AIFlowInputField[];
+}
+
+/** A state channel the run can be seeded with. */
+export interface AIFlowInputField {
+  name: string;
+  reducer: string;
+}
+
+/** One SSE frame from a flow run stream. */
+export interface AIFlowRunEvent {
+  /** run_started | node_start | node_end | token | usage | interrupt | done | error */
+  event: string;
+  /** Parsed event JSON payload; undefined when the frame was empty or unparseable. */
+  data?: unknown;
+}
+
+/** Terminal outcome of a flow run, surfaced to the component. */
+export interface AIFlowRunResult {
+  /** 'succeeded' | 'failed' | 'cancelled' | 'interrupted' ('unknown' until a terminal event arrives). */
+  status: string;
+  outputJson?: string;
+  errorMessage?: string;
+  totalTokens: number;
+  /** Set when the run paused for human review; the payload to display. */
+  interruptPayloadJson?: string;
+  /** Run id (for resume/history). Populated once the run row is known. */
+  runId?: string;
+  threadId?: string;
+}
+
+export interface AIFlowRunSummary {
+  id: string;
+  flowId: string;
+  threadId: string;
+  triggerType: string;
+  status: string;
+  createdAt: string;
+  durationMs?: number;
+  totalTokens: number;
+  errorMessage?: string;
+}

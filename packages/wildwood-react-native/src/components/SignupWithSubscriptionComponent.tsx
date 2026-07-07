@@ -10,6 +10,8 @@ import { usePayment } from '../hooks/usePayment';
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
   preSelectedTierId?: string;
+  /** Pricing option to preselect within the pre-selected tier (e.g. the annual option chosen on a pricing page). */
+  preSelectedPricingId?: string;
   registrationToken?: string;
   requireToken?: boolean;
   allowOpenRegistration?: boolean;
@@ -33,6 +35,7 @@ const STEP_LABELS: Record<Step, string> = {
 export function SignupWithSubscriptionComponent({
   appId,
   preSelectedTierId,
+  preSelectedPricingId,
   registrationToken: initialToken,
   requireToken = false,
   allowOpenRegistration: _allowOpenRegistration = true,
@@ -89,7 +92,13 @@ export function SignupWithSubscriptionComponent({
         const tier = tiers.find((t) => t.id?.toLowerCase() === preSelectedTierId?.toLowerCase());
         if (tier) {
           setPreSelectedTier(tier);
-          const pricing = tier.pricingOptions?.find((p) => p.isDefault) ?? tier.pricingOptions?.[0] ?? null;
+          const pricing =
+            (preSelectedPricingId
+              ? tier.pricingOptions?.find((p) => p.id?.toLowerCase() === preSelectedPricingId.toLowerCase())
+              : undefined) ??
+            tier.pricingOptions?.find((p) => p.isDefault) ??
+            tier.pricingOptions?.[0] ??
+            null;
           setPreSelectedTierPricing(pricing);
           setSelectedTier(tier);
           setSelectedPricing(pricing);
@@ -99,7 +108,7 @@ export function SignupWithSubscriptionComponent({
         console.warn('Failed to load pre-selected tier details:', err);
       })
       .finally(() => setTierLoading(false));
-  }, [preSelectedTierId, resolvedAppId, client.appTier]);
+  }, [preSelectedTierId, preSelectedPricingId, resolvedAppId, client.appTier]);
 
   const hasPreSelectedTier = !!preSelectedTier && !showFullTierSelection;
   const effectiveSkipTierSelection = skipTierSelection || hasPreSelectedTier;

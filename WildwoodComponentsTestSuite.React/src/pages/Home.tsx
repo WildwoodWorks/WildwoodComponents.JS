@@ -54,6 +54,9 @@ export function Home() {
             <strong>AI Chat</strong> — Chat sessions, messages, TTS
           </li>
           <li>
+            <strong>AI Flows</strong> — LangGraph flow runs, streaming, human review
+          </li>
+          <li>
             <strong>Messaging</strong> — Threads, reactions, typing indicators
           </li>
           <li>
