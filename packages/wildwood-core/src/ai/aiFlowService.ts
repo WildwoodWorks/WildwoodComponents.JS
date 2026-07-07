@@ -9,6 +9,8 @@
 import type { WildwoodConfig } from '../client/types.js';
 import type { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type { AIFlowModel, AIFlowRunEvent, AIFlowRunResult, AIFlowRunSummary } from './types.js';
+import { createSseParser, isAbort } from './sse.js';
+import type { SseFrame } from './sse.js';
 
 export interface AIFlowRequestOptions {
   /** Override the API base INCLUDING the /api segment (e.g. "https://host/api"). Defaults to config.baseUrl + "/api". */
@@ -23,62 +25,6 @@ export interface AIFlowRequestOptions {
 /** Invoked for each SSE frame of a flow run stream. */
 export type AIFlowEventHandler = (event: AIFlowRunEvent) => void | Promise<void>;
 
-interface SseFrame {
-  event: string;
-  data: string;
-}
-
-/**
- * Stateful SSE frame parser: push raw text chunks (which may split a frame mid-way), get back the
- * complete frames so far. Frames are blank-line separated; only `event:` and `data:` fields are
- * read. Same idiom as react-shared's orchestratedChat transport.
- */
-function createSseParser(): {
-  push: (chunk: string) => SseFrame[];
-  flush: () => SseFrame[];
-} {
-  let buffer = '';
-  return {
-    push(chunk: string): SseFrame[] {
-      buffer += chunk.replace(/\r\n/g, '\n');
-      const frames: SseFrame[] = [];
-      let boundary: number;
-      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
-        const raw = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        const frame = parseFrame(raw);
-        if (frame) frames.push(frame);
-      }
-      return frames;
-    },
-    // Emit any residual frame the stream ended on without a trailing blank line.
-    flush(): SseFrame[] {
-      const raw = buffer.trim();
-      buffer = '';
-      if (!raw) return [];
-      const frame = parseFrame(raw);
-      return frame ? [frame] : [];
-    },
-  };
-}
-
-function parseFrame(raw: string): SseFrame | null {
-  let event = 'message';
-  const dataLines: string[] = [];
-  for (const line of raw.split('\n')) {
-    if (line.startsWith(':')) continue; // comment / heartbeat
-    if (line.startsWith('event:')) event = line.slice('event:'.length).trim();
-    else if (line.startsWith('data:')) dataLines.push(line.slice('data:'.length).replace(/^ /, ''));
-  }
-  if (dataLines.length === 0 && event === 'message') return null;
-  return { event, data: dataLines.join('\n') };
-}
-
-function isAbort(err: unknown, signal?: AbortSignal): boolean {
-  if (signal?.aborted) return true;
-  return err instanceof Error && err.name === 'AbortError';
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -87,19 +33,29 @@ export class AIFlowService {
   /** Token the one-shot 401 signal last fired for; re-armed when the token changes. */
   private lastAuthFailureToken: string | undefined;
 
+  /** Refreshes the token on a 401 (returns true when refreshed) — same contract as HttpClient.setOn401Refresh. */
+  private on401Refresh: (() => Promise<boolean>) | null = null;
+
   constructor(
     private config: WildwoodConfig,
     private events: WildwoodEventEmitter,
     private getAccessToken: () => string | null,
   ) {}
 
+  /** Set the function that handles 401 retry (refreshes token, returns true if refreshed). */
+  setOn401Refresh(handler: () => Promise<boolean>): void {
+    this.on401Refresh = handler;
+  }
+
   async getFlows(options?: AIFlowRequestOptions): Promise<AIFlowModel[]> {
     try {
       const fetchFn = options?.fetchImpl ?? globalThis.fetch;
-      const response = await fetchFn(`${this.apiBase(options)}/ai/flows${this.appQuery(options)}`, {
-        headers: this.buildHeaders({ Accept: 'application/json' }),
-        signal: options?.signal,
-      });
+      const response = await this.fetchWithAuthRetry(() =>
+        fetchFn(`${this.apiBase(options)}/ai/flows${this.appQuery(options)}`, {
+          headers: this.buildHeaders({ Accept: 'application/json' }),
+          signal: options?.signal,
+        }),
+      );
       if (!this.ensureAuthorized(response.status) || !response.ok) return [];
       return ((await response.json()) as AIFlowModel[]) ?? [];
     } catch (err) {
@@ -140,12 +96,14 @@ export class AIFlowService {
   async getThreadRuns(threadId: string, options?: AIFlowRequestOptions): Promise<AIFlowRunSummary[]> {
     try {
       const fetchFn = options?.fetchImpl ?? globalThis.fetch;
-      const response = await fetchFn(
-        `${this.apiBase(options)}/ai/flows/threads/${encodeURIComponent(threadId)}/runs${this.appQuery(options)}`,
-        {
-          headers: this.buildHeaders({ Accept: 'application/json' }),
-          signal: options?.signal,
-        },
+      const response = await this.fetchWithAuthRetry(() =>
+        fetchFn(
+          `${this.apiBase(options)}/ai/flows/threads/${encodeURIComponent(threadId)}/runs${this.appQuery(options)}`,
+          {
+            headers: this.buildHeaders({ Accept: 'application/json' }),
+            signal: options?.signal,
+          },
+        ),
       );
       if (!this.ensureAuthorized(response.status) || !response.ok) return [];
       return ((await response.json()) as AIFlowRunSummary[]) ?? [];
@@ -167,12 +125,15 @@ export class AIFlowService {
     const signal = options?.signal;
     const fetchFn = options?.fetchImpl ?? globalThis.fetch;
     try {
-      const response = await fetchFn(url, {
-        method: 'POST',
-        headers: this.buildHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
-        body,
-        signal,
-      });
+      // buildHeaders runs per attempt so a 401-triggered replay carries the refreshed token.
+      const response = await this.fetchWithAuthRetry(() =>
+        fetchFn(url, {
+          method: 'POST',
+          headers: this.buildHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
+          body,
+          signal,
+        }),
+      );
 
       if (!this.ensureAuthorized(response.status)) {
         result.status = 'failed';
@@ -296,6 +257,24 @@ export class AIFlowService {
 
     if (onEvent) await onEvent({ event: frame.event, data });
     return frame.event === 'done' || frame.event === 'error';
+  }
+
+  /**
+   * Reactive 401 handling for the fetch-based transport (parity with HttpClient's
+   * refresh-and-retry): on a 401, refresh the token once and replay the request with
+   * the new token. When refresh fails or no handler is wired, the 401 response falls
+   * through to ensureAuthorized's sessionExpired-once-per-token emit.
+   */
+  private async fetchWithAuthRetry(doFetch: () => Promise<Response>): Promise<Response> {
+    const response = await doFetch();
+    if (response.status !== 401 || !this.on401Refresh) return response;
+    let refreshed = false;
+    try {
+      refreshed = await this.on401Refresh();
+    } catch {
+      // Treat a refresh failure like "not refreshed" — the original 401 stands.
+    }
+    return refreshed ? doFetch() : response;
   }
 
   private ensureAuthorized(status: number): boolean {

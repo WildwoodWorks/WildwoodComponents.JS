@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { UserTierSubscriptionModel } from '@wildwood/core';
+import { STATUS_LABEL, CANCELLABLE_STATUSES, pendingCancellationNotice } from '@wildwood/react-shared';
 
 export interface SubscriptionStatusPanelProps {
   subscription: UserTierSubscriptionModel | null;
@@ -20,17 +21,6 @@ const STATUS_COLORS: Record<string, string> = {
   PendingDowngrade: '#3B82F6',
   PendingCancellation: '#F59E0B',
 };
-
-const STATUS_LABEL: Record<string, string> = {
-  PastDue: 'Past Due',
-  PendingUpgrade: 'Upgrade Scheduled',
-  PendingDowngrade: 'Downgrade Scheduled',
-  PendingCancellation: 'Cancellation Scheduled',
-};
-
-// Statuses from which the user can still cancel. Excluding Trialing/PastDue locked those
-// subscribers out of cancelling entirely; Pending* changes are cancelled via the plans tab.
-const CANCELLABLE_STATUSES = ['Active', 'Trialing', 'PastDue'];
 
 export function SubscriptionStatusPanel({
   subscription,
@@ -136,15 +126,7 @@ export function SubscriptionStatusPanel({
       {/* Scheduled cancellation notice */}
       {subscription.status === 'PendingCancellation' ? (
         <View style={styles.pendingNotice}>
-          <Text style={styles.pendingText}>
-            Your plan is cancelled
-            {subscription.pendingChangeDate || subscription.endDate
-              ? ` and access continues until ${new Date(
-                  (subscription.pendingChangeDate ?? subscription.endDate)!,
-                ).toLocaleDateString()}`
-              : ''}
-            . Choose a plan from the Plans tab to stay subscribed.
-          </Text>
+          <Text style={styles.pendingText}>{pendingCancellationNotice(subscription)}</Text>
         </View>
       ) : null}
 

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AppTierPricingModel } from '@wildwood/core';
-import { formatPrice } from '@wildwood/core';
+import { formatPrice, isRawBadgeColor, shouldShowTierStatusBadge } from '@wildwood/core';
 
 export interface TierCardHeaderProps {
   name: string;
@@ -30,10 +30,9 @@ export function TierCardHeader({
   style,
 }: TierCardHeaderProps) {
   // badgeColor may be a semantic token ("success") or a raw CSS color ("#c9a227"); raw colors
-  // become an inline backgroundColor. "Active" is every publicly listed tier's lifecycle
-  // status — only non-default statuses (Beta, Deprecated, ...) are informative.
-  const isRawColor = !!badgeColor && /^(#|rgb|hsl)/i.test(badgeColor.trim());
-  const showStatusBadge = !!badgeColor && !!status && status.trim().toLowerCase() !== 'active';
+  // become an inline backgroundColor (predicates shared via @wildwood/core).
+  const isRawColor = isRawBadgeColor(badgeColor);
+  const showStatusBadge = shouldShowTierStatusBadge(badgeColor, status);
   return (
     <View style={[styles.container, style]}>
       <Text style={styles.name}>{name}</Text>
