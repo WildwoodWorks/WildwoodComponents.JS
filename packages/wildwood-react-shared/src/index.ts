@@ -23,6 +23,8 @@ export type {
   StreamOrchestratedChatOptions,
   SseFrame,
 } from './ai/orchestratedChat.js';
+export { useAIFlow } from './hooks/useAIFlow.js';
+export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';

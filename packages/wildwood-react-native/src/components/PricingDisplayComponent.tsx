@@ -199,10 +199,9 @@ export function PricingDisplayComponent({
                         <Text style={styles.limitValue}>
                           {l.maxValue === -1 ? 'Unlimited' : l.maxValue.toLocaleString()}
                         </Text>
-                        <Text style={styles.limitName}>
-                          {l.displayName}
-                          {l.unit ? ` (${l.unit})` : ''}
-                        </Text>
+                        {/* Unit is intentionally omitted: "5 Active Pursuits (pursuits)" reads as
+                            noise — the value + display name already carry it. */}
+                        <Text style={styles.limitName}>{l.displayName}</Text>
                       </View>
                     ))}
                   </View>

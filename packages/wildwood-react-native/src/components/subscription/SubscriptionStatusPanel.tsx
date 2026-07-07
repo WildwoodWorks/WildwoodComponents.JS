@@ -16,7 +16,21 @@ const STATUS_COLORS: Record<string, string> = {
   PastDue: '#F59E0B',
   Cancelled: '#EF4444',
   Expired: '#999',
+  PendingUpgrade: '#3B82F6',
+  PendingDowngrade: '#3B82F6',
+  PendingCancellation: '#F59E0B',
 };
+
+const STATUS_LABEL: Record<string, string> = {
+  PastDue: 'Past Due',
+  PendingUpgrade: 'Upgrade Scheduled',
+  PendingDowngrade: 'Downgrade Scheduled',
+  PendingCancellation: 'Cancellation Scheduled',
+};
+
+// Statuses from which the user can still cancel. Excluding Trialing/PastDue locked those
+// subscribers out of cancelling entirely; Pending* changes are cancelled via the plans tab.
+const CANCELLABLE_STATUSES = ['Active', 'Trialing', 'PastDue'];
 
 export function SubscriptionStatusPanel({
   subscription,
@@ -66,7 +80,9 @@ export function SubscriptionStatusPanel({
           <Text style={styles.tierName}>{subscription.tierName}</Text>
           <View style={styles.badges}>
             <View style={[styles.badge, { backgroundColor: statusColor + '22' }]}>
-              <Text style={[styles.badgeText, { color: statusColor }]}>{subscription.status}</Text>
+              <Text style={[styles.badgeText, { color: statusColor }]}>
+                {STATUS_LABEL[subscription.status] ?? subscription.status}
+              </Text>
             </View>
             {subscription.isFreeTier ? (
               <View style={[styles.badge, { backgroundColor: '#F3F4F6' }]}>
@@ -75,7 +91,7 @@ export function SubscriptionStatusPanel({
             ) : null}
           </View>
         </View>
-        {!subscription.isFreeTier && subscription.status === 'Active' && onCancelRequested ? (
+        {!subscription.isFreeTier && CANCELLABLE_STATUSES.includes(subscription.status) && onCancelRequested ? (
           <Pressable style={styles.cancelButton} onPress={() => setShowCancelConfirm(true)}>
             <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
           </Pressable>
@@ -113,6 +129,21 @@ export function SubscriptionStatusPanel({
             {subscription.pendingChangeDate
               ? ` on ${new Date(subscription.pendingChangeDate).toLocaleDateString()}`
               : ''}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Scheduled cancellation notice */}
+      {subscription.status === 'PendingCancellation' ? (
+        <View style={styles.pendingNotice}>
+          <Text style={styles.pendingText}>
+            Your plan is cancelled
+            {subscription.pendingChangeDate || subscription.endDate
+              ? ` and access continues until ${new Date(
+                  (subscription.pendingChangeDate ?? subscription.endDate)!,
+                ).toLocaleDateString()}`
+              : ''}
+            . Choose a plan from the Plans tab to stay subscribed.
           </Text>
         </View>
       ) : null}

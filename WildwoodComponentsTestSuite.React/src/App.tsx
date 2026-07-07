@@ -12,6 +12,7 @@ import { ConsentTest } from './pages/ConsentTest';
 import { FeedbackTest } from './pages/FeedbackTest';
 import { AppTierTest } from './pages/AppTierTest';
 import { AIChatTest } from './pages/AIChatTest';
+import { AIFlowTest } from './pages/AIFlowTest';
 import { MessagingTest } from './pages/MessagingTest';
 import { PaymentTest } from './pages/PaymentTest';
 import { PricingDisplayTest } from './pages/PricingDisplayTest';
@@ -44,6 +45,7 @@ export function App() {
           <Route path="feedback" element={<FeedbackTest />} />
           <Route path="app-tier" element={<AppTierTest />} />
           <Route path="ai-chat" element={<AIChatTest />} />
+          <Route path="ai-flow" element={<AIFlowTest />} />
           <Route path="messaging" element={<MessagingTest />} />
           <Route path="payment" element={<PaymentTest />} />
           <Route path="pricing-display" element={<PricingDisplayTest />} />

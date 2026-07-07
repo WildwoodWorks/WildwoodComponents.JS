@@ -64,6 +64,12 @@ describe('@wildwood/react exports', () => {
   it('exports AIProxyComponent', () => {
     expect(WildwoodReact.AIProxyComponent).toBeDefined();
   });
+  it('exports AIFlowComponent', () => {
+    expect(WildwoodReact.AIFlowComponent).toBeDefined();
+  });
+  it('exports useAIFlow', () => {
+    expect(WildwoodReact.useAIFlow).toBeDefined();
+  });
   it('exports SecureMessagingComponent', () => {
     expect(WildwoodReact.SecureMessagingComponent).toBeDefined();
   });

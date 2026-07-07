@@ -29,12 +29,17 @@ export function TierCardHeader({
   currency,
   style,
 }: TierCardHeaderProps) {
+  // badgeColor may be a semantic token ("success") or a raw CSS color ("#c9a227"); raw colors
+  // become an inline backgroundColor. "Active" is every publicly listed tier's lifecycle
+  // status — only non-default statuses (Beta, Deprecated, ...) are informative.
+  const isRawColor = !!badgeColor && /^(#|rgb|hsl)/i.test(badgeColor.trim());
+  const showStatusBadge = !!badgeColor && !!status && status.trim().toLowerCase() !== 'active';
   return (
     <View style={[styles.container, style]}>
       <Text style={styles.name}>{name}</Text>
-      {badgeColor && status ? (
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText}>{status}</Text>
+      {showStatusBadge ? (
+        <View style={[styles.statusBadge, isRawColor ? { backgroundColor: badgeColor } : null]}>
+          <Text style={[styles.statusBadgeText, isRawColor ? styles.statusBadgeTextRaw : null]}>{status}</Text>
         </View>
       ) : null}
       {showPrice ? (
@@ -72,6 +77,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusBadgeText: { color: '#1D4ED8', fontSize: 11, fontWeight: '600' },
+  statusBadgeTextRaw: { color: '#fff' },
   priceRow: { flexDirection: 'row', alignItems: 'baseline' },
   priceAmount: { fontSize: 24, fontWeight: '700', color: '#007AFF' },
   priceInterval: { fontSize: 14, fontWeight: '400', color: '#666' },
