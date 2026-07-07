@@ -18,7 +18,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        # Node 18 dropped July 2026: EOL since April 2025, and the jsdom 28 test
+        # chain (html-encoding-sniffer → ESM-only @exodus/bytes) can't load on it.
+        node-version: [20, 22]
 
     steps:
       - uses: actions/checkout@v5
