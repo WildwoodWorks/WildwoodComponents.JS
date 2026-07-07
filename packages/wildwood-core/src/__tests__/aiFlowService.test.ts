@@ -132,6 +132,81 @@ describe('AIFlowService', () => {
     expect(result.status).toBe('cancelled');
   });
 
+  it('on 401 with a refresh handler: refreshes and replays the stream POST once with the new token', async () => {
+    const { service, sessionExpired, setToken } = makeService('jwt-old');
+    const refresh = vi.fn(async () => {
+      setToken('jwt-new');
+      return true;
+    });
+    service.setOn401Refresh(refresh);
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(sseResponse(frame('done', '{"status":"succeeded"}')));
+
+    const result = await service.runFlow('f', '{}', null, undefined, { fetchImpl });
+
+    expect(result.status).toBe('succeeded');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // replayed exactly once
+    // Replay carries the refreshed token.
+    expect(fetchImpl.mock.calls[1][1].headers).toMatchObject({ Authorization: 'Bearer jwt-new' });
+    expect(sessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('on 401 with a refresh handler: GET helpers also refresh and replay once', async () => {
+    const { service, sessionExpired } = makeService();
+    const refresh = vi.fn(async () => true);
+    service.setOn401Refresh(refresh);
+
+    const flows = [{ id: 'f1', name: 'Flow', description: '', iconClass: '', inputFields: [] }];
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(flows), { status: 200, headers: { 'content-type': 'application/json' } }),
+      );
+
+    expect(await service.getFlows({ fetchImpl })).toEqual(flows);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the sessionExpired-once-per-token emit when refresh fails', async () => {
+    const { service, sessionExpired } = makeService('jwt-1');
+    const refresh = vi.fn(async () => false);
+    service.setOn401Refresh(refresh);
+    const unauthorized = vi.fn(async () => new Response('', { status: 401 }));
+
+    const result = await service.runFlow('f', '{}', null, undefined, { fetchImpl: unauthorized });
+
+    expect(result.status).toBe('failed');
+    expect(result.errorMessage).toBe('Not authorized');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(unauthorized).toHaveBeenCalledTimes(1); // no replay without a refreshed token
+    expect(sessionExpired).toHaveBeenCalledTimes(1);
+
+    // Still once per token lifetime across subsequent 401s.
+    await service.getFlows({ fetchImpl: unauthorized });
+    expect(sessionExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing refresh handler is treated as "not refreshed" (sessionExpired, no replay)', async () => {
+    const { service, sessionExpired } = makeService();
+    service.setOn401Refresh(async () => {
+      throw new Error('refresh endpoint down');
+    });
+    const unauthorized = vi.fn(async () => new Response('', { status: 401 }));
+
+    const result = await service.runFlow('f', '{}', null, undefined, { fetchImpl: unauthorized });
+
+    expect(result.status).toBe('failed');
+    expect(unauthorized).toHaveBeenCalledTimes(1);
+    expect(sessionExpired).toHaveBeenCalledTimes(1);
+  });
+
   it('fires sessionExpired once per token lifetime on 401, re-arming when the token changes', async () => {
     const { service, sessionExpired, setToken } = makeService('jwt-1');
     const unauthorized = async () => new Response('', { status: 401 });

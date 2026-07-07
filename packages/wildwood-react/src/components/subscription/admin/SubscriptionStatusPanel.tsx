@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { UserTierSubscriptionModel } from '@wildwood/core';
+import { STATUS_LABEL, CANCELLABLE_STATUSES, pendingCancellationNotice } from '@wildwood/react-shared';
 
 export interface SubscriptionStatusPanelProps {
   subscription: UserTierSubscriptionModel | null;
@@ -20,17 +21,6 @@ const STATUS_BADGE: Record<string, string> = {
   PendingDowngrade: 'ww-badge-info',
   PendingCancellation: 'ww-badge-warning',
 };
-
-const STATUS_LABEL: Record<string, string> = {
-  PastDue: 'Past Due',
-  PendingUpgrade: 'Upgrade Scheduled',
-  PendingDowngrade: 'Downgrade Scheduled',
-  PendingCancellation: 'Cancellation Scheduled',
-};
-
-// Statuses from which the user can still cancel. Excluding Trialing/PastDue locked those
-// subscribers out of cancelling entirely; Pending* changes are cancelled via the plans tab.
-const CANCELLABLE_STATUSES = ['Active', 'Trialing', 'PastDue'];
 
 export function SubscriptionStatusPanel({
   subscription,
@@ -143,12 +133,7 @@ export function SubscriptionStatusPanel({
       {subscription.status === 'PendingCancellation' && (
         <div className="ww-sub-status-pending">
           <span className="ww-sub-status-pending-icon" />
-          Your plan is cancelled
-          {(subscription.pendingChangeDate || subscription.endDate) &&
-            ` and access continues until ${new Date(
-              (subscription.pendingChangeDate ?? subscription.endDate)!,
-            ).toLocaleDateString()}`}
-          . Choose a plan from the Plans tab to stay subscribed.
+          {pendingCancellationNotice(subscription)}
         </div>
       )}
 

@@ -5,6 +5,8 @@ export {
   isAnnualFrequency,
   hasAnnualPricing,
   isEnterpriseTier,
+  isRawBadgeColor,
+  shouldShowTierStatusBadge,
   getSelectedPricing,
   computeAnnualDiscount,
 } from '@wildwood/core';

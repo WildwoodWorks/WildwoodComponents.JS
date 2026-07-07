@@ -67,6 +67,9 @@ export { AIService } from './ai/aiService.js';
 export type { TTSVoice } from './ai/aiService.js';
 export { AIFlowService } from './ai/aiFlowService.js';
 export type { AIFlowRequestOptions, AIFlowEventHandler } from './ai/aiFlowService.js';
+// Shared SSE plumbing for fetch-based streaming transports
+export { createSseParser, isAbort } from './ai/sse.js';
+export type { SseFrame } from './ai/sse.js';
 export type {
   AIMessage,
   AISession,
@@ -185,6 +188,8 @@ export {
   isAnnualFrequency,
   hasAnnualPricing,
   isEnterpriseTier,
+  isRawBadgeColor,
+  shouldShowTierStatusBadge,
   getSelectedPricing,
   computeAnnualDiscount,
 } from './features/tierUtils.js';

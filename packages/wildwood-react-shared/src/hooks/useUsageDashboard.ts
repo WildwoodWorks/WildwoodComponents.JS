@@ -44,6 +44,9 @@ export function useUsageDashboard(options?: UseUsageDashboardOptions): UseUsageD
 
   const onMergeUsageRef = useRef(options?.onMergeUsage);
   onMergeUsageRef.current = options?.onMergeUsage;
+  // Mirrors the subscription state so refresh() can degrade to the previous value
+  // without taking the state as a dependency.
+  const subscriptionRef = useRef<UserTierSubscriptionModel | null>(null);
 
   const appId = client.config.appId ?? '';
 
@@ -52,15 +55,32 @@ export function useUsageDashboard(options?: UseUsageDashboardOptions): UseUsageD
     setLoading(true);
     setError(null);
     try {
-      const [statuses, sub] = await Promise.all([
+      // Failure policy: the two fetches settle independently so one failing doesn't
+      // discard the other's data. Limit statuses are the dashboard's primary data — a
+      // failed fetch surfaces as the hook error. The subscription is an enrichment: when
+      // its lookup fails, keep the previously loaded value (degrade) instead of erroring
+      // the whole dashboard.
+      const [statusesResult, subResult] = await Promise.allSettled([
         clientRef.current.appTier.getAllLimitStatuses(appId),
         clientRef.current.appTier.getUserSubscription(appId),
       ]);
+
+      if (subResult.status === 'fulfilled') {
+        subscriptionRef.current = subResult.value;
+        setSubscription(subResult.value);
+      }
+
+      if (statusesResult.status === 'rejected') {
+        const reason: unknown = statusesResult.reason;
+        setError(reason instanceof Error ? reason.message : 'Failed to load usage data');
+        return;
+      }
+
+      const statuses = statusesResult.value;
       setRawLimitStatuses(statuses);
-      setSubscription(sub);
 
       if (onMergeUsageRef.current) {
-        const merged = await onMergeUsageRef.current(statuses, sub);
+        const merged = await onMergeUsageRef.current(statuses, subscriptionRef.current);
         setMergedLimitStatuses(merged);
       } else {
         setMergedLimitStatuses(statuses);

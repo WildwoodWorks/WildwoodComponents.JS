@@ -1,5 +1,5 @@
 import type { AppTierPricingModel } from '@wildwood/core';
-import { formatPrice } from './tierUtils.js';
+import { formatPrice, isRawBadgeColor, shouldShowTierStatusBadge } from './tierUtils.js';
 
 export interface TierCardHeaderProps {
   name: string;
@@ -27,10 +27,9 @@ export function TierCardHeader({
   currency,
 }: TierCardHeaderProps) {
   // badgeColor may be a semantic token ("success") or a raw CSS color ("#c9a227"); raw colors
-  // can't be class names, so they become an inline style. "Active" is every publicly listed
-  // tier's lifecycle status — only non-default statuses (Beta, Deprecated, ...) are informative.
-  const isRawColor = !!badgeColor && /^(#|rgb|hsl)/i.test(badgeColor.trim());
-  const showStatusBadge = !!badgeColor && !!status && status.trim().toLowerCase() !== 'active';
+  // can't be class names, so they become an inline style (predicates shared via @wildwood/core).
+  const isRawColor = isRawBadgeColor(badgeColor);
+  const showStatusBadge = shouldShowTierStatusBadge(badgeColor, status);
   return (
     <div className="ww-tier-header">
       {iconClass && <span className={`ww-tier-icon ${iconClass}`} />}

@@ -20,6 +20,27 @@ export function formatPrice(amount: number, currency: string): string {
   return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(2)}`;
 }
 
+/**
+ * True when a tier badge color is a raw CSS color ("#c9a227", "rgb(...)", "hsl(...)")
+ * rather than a semantic token ("success"). Raw colors can't be class names, so
+ * renderers apply them as inline styles.
+ */
+export function isRawBadgeColor(badgeColor: string | undefined | null): boolean {
+  return !!badgeColor && /^(#|rgb|hsl)/i.test(badgeColor.trim());
+}
+
+/**
+ * Whether a tier's lifecycle status badge is worth showing. "Active" is every publicly
+ * listed tier's lifecycle status — only non-default statuses (Beta, Deprecated, ...) are
+ * informative, and the badge needs a color to render.
+ */
+export function shouldShowTierStatusBadge(
+  badgeColor: string | undefined | null,
+  status: string | undefined | null,
+): boolean {
+  return !!badgeColor && !!status && status.trim().toLowerCase() !== 'active';
+}
+
 /** Returns true if a billing frequency string represents an annual cycle. */
 export function isAnnualFrequency(freq: string | undefined | null): boolean {
   if (!freq) return false;

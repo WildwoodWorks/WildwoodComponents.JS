@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type {
   TierChangePreviewModel,
   AppFeatureDefinitionModel,
+  AppTierCancelResultModel,
   AppTierLimitStatusModel,
   UserTierSubscriptionModel,
 } from '@wildwood/core';
@@ -82,6 +83,10 @@ export function SubscriptionAdminComponent({
   const [preview, setPreview] = useState<TierChangePreviewModel | null>(null);
   const [pendingArgs, setPendingArgs] = useState<TierSelectedEventArgs | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  // Result of the most recent cancel action, shown as a dismissible notice near the status
+  // panel (mirrors the Swift lastCancelResult card): scheduled vs immediate, plus store
+  // instructions when the subscription is store-billed (requiresUserAction).
+  const [lastCancelResult, setLastCancelResult] = useState<AppTierCancelResultModel | null>(null);
 
   useEffect(() => {
     if (appId) {
@@ -118,13 +123,18 @@ export function SubscriptionAdminComponent({
   }, [admin, appId, companyId, userId, onSubscriptionChanged]);
 
   const handleCancelSubscription = useCallback(async () => {
+    let result: AppTierCancelResultModel;
     if (userId) {
-      await admin.cancelUserSubscription(appId, userId);
+      result = await admin.cancelUserSubscription(appId, userId);
     } else if (companyId) {
-      await admin.cancelCompanySubscription(appId, companyId);
+      result = await admin.cancelCompanySubscription(appId, companyId);
     } else {
-      await admin.cancelSubscription(appId);
+      result = await admin.cancelSubscription(appId);
     }
+    setLastCancelResult(result);
+    // A failed cancel must not look successful: the hook already set admin.error,
+    // so skip the refresh + onSubscriptionChanged success path.
+    if (!result.success) return;
     await handleRefresh();
   }, [admin, appId, companyId, userId, handleRefresh]);
 
@@ -363,6 +373,39 @@ export function SubscriptionAdminComponent({
     />
   );
 
+  // Dismissible cancel-result notice, rendered near the status panel. Only successful
+  // cancels render here — a failed cancel surfaces through the admin.error alert.
+  const cancelNotice = lastCancelResult?.success ? (
+    <div className="ww-alert ww-alert-info ww-sub-cancel-notice">
+      <span>
+        {lastCancelResult.isScheduled
+          ? `Your cancellation is scheduled — access continues until ${
+              lastCancelResult.effectiveDate
+                ? new Date(lastCancelResult.effectiveDate).toLocaleDateString()
+                : 'the end of the billing period'
+            }.`
+          : 'Your subscription has been cancelled.'}
+        {lastCancelResult.requiresUserAction && (
+          <>
+            {' '}
+            {lastCancelResult.userActionInstructions ?? 'Also cancel the subscription in your store settings.'}
+            {lastCancelResult.userActionUrl && (
+              <>
+                {' '}
+                <a href={lastCancelResult.userActionUrl} target="_blank" rel="noopener noreferrer">
+                  Open subscription settings
+                </a>
+              </>
+            )}
+          </>
+        )}
+      </span>
+      <button type="button" className="ww-alert-dismiss" onClick={() => setLastCancelResult(null)}>
+        &times;
+      </button>
+    </div>
+  ) : null;
+
   const overridesPanel = isAdmin ? (
     <OverridesPanel
       overrides={admin.featureOverrides}
@@ -384,6 +427,7 @@ export function SubscriptionAdminComponent({
             </button>
           </div>
         )}
+        {cancelNotice}
         {displayMode === 'subscription' && (
           <SubscriptionStatusPanel
             subscription={admin.subscription}
@@ -438,6 +482,8 @@ export function SubscriptionAdminComponent({
           </button>
         </div>
       )}
+
+      {cancelNotice}
 
       {showStatusAboveTabs && (
         <div className="ww-sub-status-card">

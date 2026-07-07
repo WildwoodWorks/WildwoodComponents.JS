@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AppTierService } from '../features/appTierService.js';
+import { WildwoodError } from '../client/errors.js';
 import type { HttpClient } from '../client/httpClient.js';
 
 const ok = (data: unknown) => ({ data, status: 200, headers: {} });
@@ -65,17 +66,24 @@ describe('AppTierService', () => {
     expect(failed.errorMessage).toBe('boom');
   });
 
-  it('getUserSubscription returns null for 204/no data but THROWS on lookup failure', async () => {
+  it('getUserSubscription returns null for 204/404 but THROWS on other lookup failures', async () => {
     const http = makeHttp();
     const svc = new AppTierService(http);
 
     // 204 No Content → data undefined → null ("no subscription")
     expect(await svc.getUserSubscription('app-1')).toBeNull();
 
-    // A failed lookup must be distinguishable from "no subscription" — subscribed users were
-    // shown "no plan" banners on transient errors when both resolved to null.
+    // 404 also means "no subscription": the backend 404s for users who never subscribed
+    // (pre-July-2026 .NET behavior), so it must not surface as a dashboard error.
+    http.get.mockRejectedValueOnce(new WildwoodError('Not Found', 404));
+    expect(await svc.getUserSubscription('app-1')).toBeNull();
+
+    // Any other failed lookup must stay distinguishable from "no subscription" — subscribed
+    // users were shown "no plan" banners on transient errors when both resolved to null.
     http.get.mockRejectedValueOnce(new Error('boom'));
     await expect(svc.getUserSubscription('app-1')).rejects.toThrow('boom');
+    http.get.mockRejectedValueOnce(new WildwoodError('Server Error', 500));
+    await expect(svc.getUserSubscription('app-1')).rejects.toThrow('Server Error');
   });
 
   it('getUserFeatures returns the feature map from the API and THROWS on failure', async () => {
