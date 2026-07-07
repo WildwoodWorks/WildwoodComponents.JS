@@ -25,6 +25,8 @@ export type {
 } from './ai/orchestratedChat.js';
 export { useAIFlow } from './hooks/useAIFlow.js';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
+export { useDocuments } from './hooks/useDocuments.js';
+export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';

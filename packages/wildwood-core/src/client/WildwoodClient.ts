@@ -9,6 +9,7 @@ import { AuthService } from '../auth/authService.js';
 import { SessionManager } from '../auth/sessionManager.js';
 import { AIService } from '../ai/aiService.js';
 import { AIFlowService } from '../ai/aiFlowService.js';
+import { DocumentService } from '../documents/documentService.js';
 import { MessagingService } from '../messaging/messagingService.js';
 import { PaymentService } from '../payment/paymentService.js';
 import { NotificationService } from '../notifications/notificationService.js';
@@ -27,6 +28,7 @@ export interface WildwoodClient {
   readonly session: SessionManager;
   readonly ai: AIService;
   readonly aiFlow: AIFlowService;
+  readonly documents: DocumentService;
   readonly messaging: MessagingService;
   readonly payment: PaymentService;
   readonly notifications: NotificationService;
@@ -50,6 +52,8 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const ai = new AIService(http, config.appId);
   // SSE streams need the raw token (fetch-based transport, not HttpClient)
   const aiFlow = new AIFlowService(config, events, () => session.accessToken);
+  // Multipart uploads need the raw token too (FormData, not HttpClient JSON)
+  const documents = new DocumentService(config, events, () => session.accessToken);
   const messaging = new MessagingService(http, storage);
   const payment = new PaymentService(http);
   const notifications = new NotificationService();
@@ -68,6 +72,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     session,
     ai,
     aiFlow,
+    documents,
     messaging,
     payment,
     notifications,

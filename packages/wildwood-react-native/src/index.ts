@@ -19,6 +19,8 @@ export { useAI } from './hooks/useAI';
 export type { UseAIReturn } from './hooks/useAI';
 export { useAIFlow } from './hooks/useAIFlow';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow';
+export { useDocuments } from './hooks/useDocuments';
+export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments';
 export { useMessaging } from './hooks/useMessaging';
 export type { UseMessagingReturn } from './hooks/useMessaging';
 export { usePayment } from './hooks/usePayment';
