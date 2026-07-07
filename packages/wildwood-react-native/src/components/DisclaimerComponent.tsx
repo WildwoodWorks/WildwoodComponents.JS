@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert, Modal } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { sanitizeHtml, type PendingDisclaimerModel } from '@wildwood/core';
@@ -11,6 +11,13 @@ export interface DisclaimerComponentProps {
   onDisclaimerAccepted?: (disclaimerId: string) => void;
   /** Whether to auto-load pending disclaimers on mount */
   autoLoad?: boolean;
+  /** App to load/accept disclaimers for. Defaults to the WildwoodProvider config appId.
+   *  Pass this when the surrounding flow targets an app other than the provider default. */
+  appId?: string;
+  /** Fires once after the initial load resolves, with the number of pending disclaimers found.
+   *  Lets a gating parent proceed when the fetch comes back empty (which never calls onAllAccepted),
+   *  instead of stranding the user on an "empty" screen. */
+  onLoaded?: (pendingCount: number) => void;
   style?: ViewStyle;
 }
 
@@ -39,23 +46,49 @@ export function DisclaimerComponent({
   onAllAccepted,
   onDisclaimerAccepted,
   autoLoad = true,
+  appId,
+  onLoaded,
   style,
 }: DisclaimerComponentProps) {
-  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
+  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer(appId);
 
+  const [error, setError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [expandedDisclaimer, setExpandedDisclaimer] = useState<PendingDisclaimerModel | null>(null);
+  // When auto-loading, treat the pre-fetch window as loading so we never flash the
+  // empty/success state before the first request resolves.
+  const [hasLoaded, setHasLoaded] = useState(!autoLoad);
+
+  const pendingList = disclaimers?.disclaimers ?? [];
+  const isLoading = loading || (autoLoad && !hasLoaded);
+
+  // Latest onLoaded without retriggering load(); fire it exactly once, on the first successful load.
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+  const loadedNotifiedRef = useRef(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    return getPendingDisclaimers()
+      .then((res) => {
+        if (!loadedNotifiedRef.current) {
+          loadedNotifiedRef.current = true;
+          onLoadedRef.current?.(res?.disclaimers?.length ?? 0);
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to load disclaimers');
+      })
+      .finally(() => setHasLoaded(true));
+  }, [getPendingDisclaimers]);
 
   useEffect(() => {
-    if (autoLoad) {
-      getPendingDisclaimers().catch((err) => {
-        Alert.alert('Error', err instanceof Error ? err.message : 'Failed to load disclaimers');
-      });
-    }
-  }, [autoLoad, getPendingDisclaimers]);
+    if (autoLoad) load();
+  }, [autoLoad, load]);
 
   const handleAcceptSingle = useCallback(
     async (disclaimerId: string, versionId: string) => {
+      if (accepting) return; // guard against double-submit — acceptDisclaimer doesn't toggle `loading`
       setAccepting(true);
       try {
         await acceptDisclaimer(disclaimerId, versionId);
@@ -66,11 +99,12 @@ export function DisclaimerComponent({
         setAccepting(false);
       }
     },
-    [acceptDisclaimer, onDisclaimerAccepted],
+    [accepting, acceptDisclaimer, onDisclaimerAccepted],
   );
 
   const handleAcceptAll = useCallback(async () => {
     if (!disclaimers?.disclaimers?.length) return;
+    if (accepting) return;
     setAccepting(true);
     try {
       const acceptances = disclaimers.disclaimers.map((d) => ({
@@ -84,31 +118,40 @@ export function DisclaimerComponent({
     } finally {
       setAccepting(false);
     }
-  }, [disclaimers, acceptAllDisclaimers, onAllAccepted]);
+  }, [accepting, disclaimers, acceptAllDisclaimers, onAllAccepted]);
 
-  // Loading state
-  if (loading && !disclaimers) {
+  // Loading state (pre-fetch window or in-flight fetch with nothing yet)
+  if (isLoading && pendingList.length === 0) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, style]}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading disclaimers...</Text>
       </View>
     );
   }
 
-  // No pending disclaimers
-  if (disclaimers && (!disclaimers.disclaimers || disclaimers.disclaimers.length === 0)) {
+  // Failed load with nothing pending — offer a retry instead of dead-ending the user
+  // (critical when this gates signup / app access).
+  if (error && pendingList.length === 0) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, style]}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable style={styles.retryButton} onPress={() => load()}>
+          <Text style={styles.retryButtonText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // No pending disclaimers
+  if (pendingList.length === 0) {
+    return (
+      <View style={[styles.centered, style]}>
         <Text style={styles.successIcon}>✓</Text>
         <Text style={styles.successText}>All disclaimers have been accepted.</Text>
       </View>
     );
   }
-
-  if (!disclaimers?.disclaimers) return null;
-
-  const pendingList = disclaimers.disclaimers;
 
   return (
     <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
@@ -250,6 +293,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#166534',
     textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#B91C1C',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',

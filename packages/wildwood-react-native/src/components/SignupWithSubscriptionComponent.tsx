@@ -4,6 +4,7 @@ import type { ViewStyle } from 'react-native';
 import type { AppTierModel, AppTierPricingModel } from '@wildwood/core';
 import { formatPrice } from '@wildwood/core';
 import { PricingDisplayComponent } from './PricingDisplayComponent';
+import { DisclaimerComponent } from './DisclaimerComponent';
 import { useWildwood } from '../hooks/useWildwood';
 import { usePayment } from '../hooks/usePayment';
 
@@ -22,13 +23,14 @@ export interface SignupWithSubscriptionComponentProps {
   style?: ViewStyle;
 }
 
-type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'success';
+type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'disclaimers' | 'success';
 
 const STEP_LABELS: Record<Step, string> = {
   register: 'Create Account',
   'select-tier': 'Choose Plan',
   payment: 'Payment',
   processing: 'Processing',
+  disclaimers: 'Disclaimers',
   success: 'Complete',
 };
 
@@ -68,6 +70,9 @@ export function SignupWithSubscriptionComponent({
   const processingRef = useRef(false);
   const registeredRef = useRef(false);
   const loggedInRef = useRef(false);
+  // Login/registration can report disclaimers that must be accepted before the account is usable.
+  // Captured in a ref so a retry (which skips the already-completed login sub-step) still routes to them.
+  const disclaimersPendingRef = useRef(false);
 
   // Payment state
   const [paymentTransactionId, setPaymentTransactionId] = useState<string | undefined>();
@@ -160,6 +165,9 @@ export function SignupWithSubscriptionComponent({
             if (response.jwtToken) {
               await client.session.login(response);
               loggedInRef.current = true;
+              if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
+                disclaimersPendingRef.current = true;
+              }
             }
           } else {
             // Open registration (api/userregistration/register) — enforces the app's
@@ -194,6 +202,11 @@ export function SignupWithSubscriptionComponent({
           });
           if (loginResponse.jwtToken) {
             await client.session.login(loginResponse);
+            // Capture only when a session was actually stored — otherwise the disclaimer step's
+            // authenticated fetch/accept would 401. (Mirrors the token-registration path above.)
+            if (loginResponse.requiresDisclaimerAcceptance && loginResponse.pendingDisclaimers?.length) {
+              disclaimersPendingRef.current = true;
+            }
           }
           loggedInRef.current = true;
         }
@@ -222,7 +235,14 @@ export function SignupWithSubscriptionComponent({
           }
         }
 
-        setCurrentStep('success');
+        // Gate on disclaimer acceptance before declaring success. The registration/login response
+        // carries pending disclaimers (mirrors the login flow in AuthenticationComponent); the session
+        // JWT is already stored above, so DisclaimerComponent's authenticated accept calls succeed.
+        if (disclaimersPendingRef.current) {
+          setCurrentStep('disclaimers');
+        } else {
+          setCurrentStep('success');
+        }
       } catch (err) {
         setProcessingError(err instanceof Error ? err.message : 'Signup failed');
       } finally {
@@ -357,6 +377,31 @@ export function SignupWithSubscriptionComponent({
       <View style={[styles.centered, style]}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.mutedText}>Loading plan details...</Text>
+      </View>
+    );
+  }
+
+  // Pending legal acceptance surfaced by the login/registration response. Rendered as its own
+  // screen (not nested in the outer ScrollView) so DisclaimerComponent's own flex:1 ScrollView
+  // lays out correctly instead of collapsing inside a parent ScrollView. Must be accepted before
+  // onComplete; the session JWT is already stored so accepts are authorized.
+  if (currentStep === 'disclaimers') {
+    return (
+      <View style={[styles.container, style]}>
+        <View style={styles.disclaimersHeader}>
+          <Text style={styles.disclaimersTitle}>One more step</Text>
+          <Text style={styles.mutedText}>Please review and accept the following before continuing.</Text>
+        </View>
+        <DisclaimerComponent
+          autoLoad
+          appId={resolvedAppId}
+          onAllAccepted={() => setCurrentStep('success')}
+          // If the re-fetch finds nothing pending (e.g. accepted meanwhile), don't strand the
+          // user on the disclaimers step — advance to success.
+          onLoaded={(count) => {
+            if (count === 0) setCurrentStep('success');
+          }}
+        />
       </View>
     );
   }
@@ -610,6 +655,7 @@ export function SignupWithSubscriptionComponent({
                   onPress={() => {
                     registeredRef.current = false;
                     loggedInRef.current = false;
+                    disclaimersPendingRef.current = false;
                     setCurrentStep('register');
                   }}
                 >
@@ -653,6 +699,8 @@ const styles = StyleSheet.create({
   content: { padding: 16 },
   centered: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   mutedText: { fontSize: 14, color: '#999', textAlign: 'center' },
+  disclaimersHeader: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 },
+  disclaimersTitle: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginBottom: 4 },
 
   // Step indicator
   stepIndicator: {
