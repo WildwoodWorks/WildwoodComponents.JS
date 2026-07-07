@@ -1,27 +1,61 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { sanitizeHtml, type PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../../hooks/useDisclaimer.js';
 
 export interface DisclaimerComponentProps {
   autoLoad?: boolean;
+  /** App to load/accept disclaimers for. Defaults to the WildwoodProvider config appId.
+   *  Pass this when the surrounding flow targets an app other than the provider default. */
+  appId?: string;
   onAllAccepted?: () => void;
+  /** Fires once after the initial load resolves, with the number of pending disclaimers found.
+   *  Lets a gating parent proceed when the fetch comes back empty (which never calls onAllAccepted),
+   *  instead of stranding the user on an "empty" screen. */
+  onLoaded?: (pendingCount: number) => void;
   className?: string;
 }
 
-export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className }: DisclaimerComponentProps) {
-  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer();
+export function DisclaimerComponent({
+  autoLoad = true,
+  appId,
+  onAllAccepted,
+  onLoaded,
+  className,
+}: DisclaimerComponentProps) {
+  const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer(appId);
   const [error, setError] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
   const [expandedDisclaimer, setExpandedDisclaimer] = useState<PendingDisclaimerModel | null>(null);
+  // When auto-loading, treat the pre-fetch window as loading so we never flash the
+  // "No pending disclaimers." empty state before the first request resolves.
+  const [hasLoaded, setHasLoaded] = useState(!autoLoad);
 
   const pendingList = disclaimers?.disclaimers ?? [];
+  const isLoading = loading || (autoLoad && !hasLoaded);
+
+  // Latest onLoaded without retriggering load(); fire it exactly once, on the first successful load.
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+  const loadedNotifiedRef = useRef(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    return getPendingDisclaimers()
+      .then((res) => {
+        if (!loadedNotifiedRef.current) {
+          loadedNotifiedRef.current = true;
+          onLoadedRef.current?.(res?.disclaimers?.length ?? 0);
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to load disclaimers');
+      })
+      .finally(() => setHasLoaded(true));
+  }, [getPendingDisclaimers]);
 
   useEffect(() => {
-    if (autoLoad) {
-      getPendingDisclaimers().catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to load disclaimers');
-      });
-    }
-  }, [autoLoad, getPendingDisclaimers]);
+    if (autoLoad) load();
+  }, [autoLoad, load]);
 
   useEffect(() => {
     if (!expandedDisclaimer) return;
@@ -34,7 +68,9 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
 
   const handleAccept = useCallback(
     async (disclaimerId: string, versionId: string) => {
+      if (accepting) return; // guard against double-submit — acceptDisclaimer doesn't toggle `loading`
       setError(null);
+      setAccepting(true);
       try {
         // Check count before accepting — after accept completes, the hook's
         // disclaimers state will update asynchronously so we can't rely on it.
@@ -45,22 +81,28 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to accept disclaimer');
+      } finally {
+        setAccepting(false);
       }
     },
-    [acceptDisclaimer, pendingList, onAllAccepted],
+    [accepting, acceptDisclaimer, pendingList, onAllAccepted],
   );
 
   const handleAcceptAll = useCallback(async () => {
+    if (accepting) return;
     setError(null);
+    setAccepting(true);
     try {
       await acceptAllDisclaimers(pendingList.map((d) => ({ disclaimerId: d.disclaimerId, versionId: d.versionId })));
       onAllAccepted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to accept disclaimers');
+    } finally {
+      setAccepting(false);
     }
-  }, [acceptAllDisclaimers, pendingList, onAllAccepted]);
+  }, [accepting, acceptAllDisclaimers, pendingList, onAllAccepted]);
 
-  if (!loading && pendingList.length === 0 && !error) {
+  if (!isLoading && pendingList.length === 0 && !error) {
     return (
       <div className={`ww-disclaimer-component ${className ?? ''}`}>
         <div className="ww-alert ww-alert-success">No pending disclaimers.</div>
@@ -72,7 +114,17 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
     <div className={`ww-disclaimer-component ${className ?? ''}`}>
       {error && <div className="ww-alert ww-alert-danger">{error}</div>}
 
-      {loading ? (
+      {/* Recover from a failed load: without this, an errored fetch leaves the user with an
+          error message and no way forward (a dead-end when this gates signup / app access). */}
+      {error && !isLoading && pendingList.length === 0 && (
+        <div className="ww-disclaimer-actions">
+          <button type="button" className="ww-btn ww-btn-primary" onClick={() => load()}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
         <div className="ww-loading">Loading disclaimers...</div>
       ) : (
         <>
@@ -97,7 +149,7 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
                   type="button"
                   className="ww-btn ww-btn-primary"
                   onClick={() => handleAccept(d.disclaimerId, d.versionId)}
-                  disabled={loading}
+                  disabled={loading || accepting}
                 >
                   Accept
                 </button>
@@ -111,7 +163,7 @@ export function DisclaimerComponent({ autoLoad = true, onAllAccepted, className 
                 type="button"
                 className="ww-btn ww-btn-primary ww-btn-block"
                 onClick={handleAcceptAll}
-                disabled={loading}
+                disabled={loading || accepting}
               >
                 Accept All ({pendingList.length})
               </button>

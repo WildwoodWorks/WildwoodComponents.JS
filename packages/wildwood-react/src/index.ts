@@ -13,12 +13,23 @@ export { useSession } from './hooks/useSession.js';
 export type { UseSessionReturn } from './hooks/useSession.js';
 export { useNotifications } from './hooks/useNotifications.js';
 export type { UseNotificationsReturn } from './hooks/useNotifications.js';
+export { useNotificationInbox } from './hooks/useNotificationInbox.js';
+export type { UseNotificationInboxOptions, UseNotificationInboxReturn } from './hooks/useNotificationInbox.js';
+export { useNotificationPreferences } from './hooks/useNotificationPreferences.js';
+export type {
+  UseNotificationPreferencesOptions,
+  UseNotificationPreferencesReturn,
+} from './hooks/useNotificationPreferences.js';
+export { useBrowserNotifications } from './hooks/useBrowserNotifications.js';
+export type { UseBrowserNotificationsReturn } from './hooks/useBrowserNotifications.js';
 export { useTheme } from './hooks/useTheme.js';
 export type { UseThemeReturn } from './hooks/useTheme.js';
 export { useAI } from './hooks/useAI.js';
 export type { UseAIReturn } from './hooks/useAI.js';
 export { useAIFlow } from './hooks/useAIFlow.js';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
+export { useDocuments } from './hooks/useDocuments.js';
+export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments.js';
 export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';
@@ -59,6 +70,13 @@ export { NotificationComponent } from './components/notifications/NotificationCo
 export type { NotificationComponentProps } from './components/notifications/NotificationComponent.js';
 export { NotificationToastComponent } from './components/notifications/NotificationToastComponent.js';
 export type { NotificationToastComponentProps } from './components/notifications/NotificationToastComponent.js';
+// Backend-connected notification inbox (bell + list + preferences)
+export { NotificationsBell } from './components/notifications/NotificationsBell.js';
+export type { NotificationsBellProps } from './components/notifications/NotificationsBell.js';
+export { NotificationList } from './components/notifications/NotificationList.js';
+export type { NotificationListProps } from './components/notifications/NotificationList.js';
+export { NotificationPreferences } from './components/notifications/NotificationPreferences.js';
+export type { NotificationPreferencesProps } from './components/notifications/NotificationPreferences.js';
 export { TwoFactorSettingsComponent } from './components/twofactor/TwoFactorSettingsComponent.js';
 export type { TwoFactorSettingsComponentProps } from './components/twofactor/TwoFactorSettingsComponent.js';
 export { DisclaimerComponent } from './components/disclaimer/DisclaimerComponent.js';
@@ -147,6 +165,9 @@ export type {
   PendingDisclaimerModel,
   ToastNotification,
   NotificationType,
+  AppNotification,
+  AppNotificationStatus,
+  UserNotificationPreference,
   AppTierModel,
   UserTierSubscriptionModel,
   PendingDisclaimersResponse,

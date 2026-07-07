@@ -41,6 +41,24 @@ describe('@wildwood/react exports', () => {
   it('exports useNotifications', () => {
     expect(WildwoodReact.useNotifications).toBeDefined();
   });
+  it('exports useNotificationInbox', () => {
+    expect(WildwoodReact.useNotificationInbox).toBeDefined();
+  });
+  it('exports useNotificationPreferences', () => {
+    expect(WildwoodReact.useNotificationPreferences).toBeDefined();
+  });
+  it('exports useBrowserNotifications', () => {
+    expect(WildwoodReact.useBrowserNotifications).toBeDefined();
+  });
+  it('exports NotificationsBell', () => {
+    expect(WildwoodReact.NotificationsBell).toBeDefined();
+  });
+  it('exports NotificationList', () => {
+    expect(WildwoodReact.NotificationList).toBeDefined();
+  });
+  it('exports NotificationPreferences', () => {
+    expect(WildwoodReact.NotificationPreferences).toBeDefined();
+  });
   it('exports useTheme', () => {
     expect(WildwoodReact.useTheme).toBeDefined();
   });

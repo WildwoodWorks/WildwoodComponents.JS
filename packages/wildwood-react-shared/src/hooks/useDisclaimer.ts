@@ -19,19 +19,21 @@ export interface UseDisclaimerReturn {
   ) => Promise<DisclaimerAcceptanceResponse>;
 }
 
-export function useDisclaimer(): UseDisclaimerReturn {
+export function useDisclaimer(appId?: string): UseDisclaimerReturn {
   const client = useWildwood();
   const [disclaimers, setDisclaimers] = useState<PendingDisclaimersResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const appId = client.config.appId ?? '';
+  // Honor an explicit appId (e.g. a component rendered for an app other than the provider default),
+  // falling back to the provider config. Mirrors how useAuthenticationLogic threads its appId.
+  const resolvedAppId = appId ?? client.config.appId ?? '';
 
   const getPendingDisclaimers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await client.disclaimer.getPendingDisclaimers(appId);
+      const result = await client.disclaimer.getPendingDisclaimers(resolvedAppId);
       setDisclaimers(result);
       return result;
     } catch (err) {
@@ -40,13 +42,13 @@ export function useDisclaimer(): UseDisclaimerReturn {
     } finally {
       setLoading(false);
     }
-  }, [client, appId]);
+  }, [client, resolvedAppId]);
 
   const acceptDisclaimer = useCallback(
     async (disclaimerId: string, versionId: string) => {
       setError(null);
       try {
-        const result = await client.disclaimer.acceptDisclaimer(disclaimerId, versionId, appId);
+        const result = await client.disclaimer.acceptDisclaimer(disclaimerId, versionId, resolvedAppId);
         await getPendingDisclaimers();
         return result;
       } catch (err) {
@@ -54,14 +56,14 @@ export function useDisclaimer(): UseDisclaimerReturn {
         throw err;
       }
     },
-    [client, appId, getPendingDisclaimers],
+    [client, resolvedAppId, getPendingDisclaimers],
   );
 
   const acceptAllDisclaimers = useCallback(
     async (acceptances: Array<{ disclaimerId: string; versionId: string }>) => {
       setError(null);
       try {
-        const result = await client.disclaimer.acceptAllDisclaimers(acceptances, appId);
+        const result = await client.disclaimer.acceptAllDisclaimers(acceptances, resolvedAppId);
         setDisclaimers(null);
         return result;
       } catch (err) {
@@ -69,7 +71,7 @@ export function useDisclaimer(): UseDisclaimerReturn {
         throw err;
       }
     },
-    [client, appId],
+    [client, resolvedAppId],
   );
 
   return { disclaimers, loading, error, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers };

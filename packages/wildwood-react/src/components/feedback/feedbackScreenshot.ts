@@ -3,16 +3,27 @@
 // compressScreenshot, captureArea, captureFullPage, openAnnotationEditor) to keep
 // the React widget at feature parity with the Razor/Blazor feedback widgets.
 //
-// html2canvas is NOT a bundled dependency — it is loaded lazily from a CDN the
-// first time the user requests a screenshot. If it cannot be loaded (offline,
-// CSP, etc.) capture is skipped gracefully and the form can still be submitted.
+// html2canvas is NOT a bundled dependency — it is loaded lazily the first time the
+// user requests a screenshot. If it cannot be loaded (offline, CSP, etc.) capture is
+// skipped gracefully and the form can still be submitted.
+//
+// The source URL defaults to a public CDN, but a privacy-conscious or CSP-restricted
+// host can self-host the library and serve it same-origin (no third-party request) by
+// setting `globalThis.__WW_HTML2CANVAS_SRC__ = '/vendor/html2canvas.min.js'` before the
+// first screenshot. A host that pre-registers `window.html2canvas` skips the fetch entirely.
 //
 // The capture overlay and annotation editor are built directly on document.body
 // (outside React) because they must sit above the page during selection/markup;
 // their styles live in the global feedback CSS (ww-feedback-capture-* and
 // ww-feedback-annotation-* rules).
 
-const HTML2CANVAS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const DEFAULT_HTML2CANVAS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+
+/** Resolve where html2canvas is loaded from, honoring a host's self-hosted override. */
+function html2canvasSrc(): string {
+  const override = (globalThis as { __WW_HTML2CANVAS_SRC__?: string }).__WW_HTML2CANVAS_SRC__;
+  return typeof override === 'string' && override ? override : DEFAULT_HTML2CANVAS_CDN;
+}
 
 type Html2CanvasFn = (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
 
@@ -34,7 +45,7 @@ export function ensureHtml2Canvas(): Promise<Html2CanvasFn> {
       return;
     }
     const script = document.createElement('script');
-    script.src = HTML2CANVAS_CDN;
+    script.src = html2canvasSrc();
     script.onload = () => {
       const fn = getHtml2Canvas();
       if (fn) resolve(fn);

@@ -9,9 +9,11 @@ import { AuthService } from '../auth/authService.js';
 import { SessionManager } from '../auth/sessionManager.js';
 import { AIService } from '../ai/aiService.js';
 import { AIFlowService } from '../ai/aiFlowService.js';
+import { DocumentService } from '../documents/documentService.js';
 import { MessagingService } from '../messaging/messagingService.js';
 import { PaymentService } from '../payment/paymentService.js';
 import { NotificationService } from '../notifications/notificationService.js';
+import { NotificationInboxService } from '../notifications/notificationInboxService.js';
 import { TwoFactorService } from '../security/twoFactorService.js';
 import { CaptchaService } from '../security/captchaService.js';
 import { DisclaimerService } from '../features/disclaimerService.js';
@@ -27,9 +29,12 @@ export interface WildwoodClient {
   readonly session: SessionManager;
   readonly ai: AIService;
   readonly aiFlow: AIFlowService;
+  readonly documents: DocumentService;
   readonly messaging: MessagingService;
   readonly payment: PaymentService;
   readonly notifications: NotificationService;
+  /** Backend-connected notification inbox (bell + list + preferences). Distinct from `notifications` (toast queue). */
+  readonly notificationInbox: NotificationInboxService;
   readonly twoFactor: TwoFactorService;
   readonly captcha: CaptchaService;
   readonly disclaimer: DisclaimerService;
@@ -53,9 +58,13 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   // Reactive 401 handling (Blazor parity): on 401, refresh token and replay once —
   // same wiring SessionManager applies to the HttpClient.
   aiFlow.setOn401Refresh(() => session.refreshToken());
+  // Multipart uploads need the raw token too (FormData, not HttpClient JSON)
+  const documents = new DocumentService(config, events, () => session.accessToken);
   const messaging = new MessagingService(http, storage);
   const payment = new PaymentService(http);
   const notifications = new NotificationService();
+  // Backend-connected inbox needs the raw token (fetch transport, one-shot 401), like DocumentService.
+  const notificationInbox = new NotificationInboxService(config, events, () => session.accessToken);
   const twoFactor = new TwoFactorService(http);
   const captcha = new CaptchaService();
   const disclaimer = new DisclaimerService(http, config.appId ?? '');
@@ -71,9 +80,11 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     session,
     ai,
     aiFlow,
+    documents,
     messaging,
     payment,
     notifications,
+    notificationInbox,
     twoFactor,
     captcha,
     disclaimer,

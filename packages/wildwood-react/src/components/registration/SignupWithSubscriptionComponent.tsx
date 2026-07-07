@@ -4,6 +4,7 @@ import type { RegistrationFormData, AppTierModel, AppTierPricingModel, PaymentCo
 import { TokenRegistrationComponent } from './TokenRegistrationComponent.js';
 import { PricingDisplayComponent } from '../pricing/PricingDisplayComponent.js';
 import { PaymentComponent } from '../payment/PaymentComponent.js';
+import { DisclaimerComponent } from '../disclaimer/DisclaimerComponent.js';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface SignupWithSubscriptionComponentProps {
@@ -23,7 +24,7 @@ export interface SignupWithSubscriptionComponentProps {
   className?: string;
 }
 
-type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'success';
+type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'disclaimers' | 'success';
 
 export function SignupWithSubscriptionComponent({
   appId,
@@ -54,6 +55,9 @@ export function SignupWithSubscriptionComponent({
   // Track completed sub-steps so retry doesn't re-register an already-created user
   const registeredRef = useRef(false);
   const loggedInRef = useRef(false);
+  // Login/registration can report disclaimers that must be accepted before the account is usable.
+  // Captured in a ref so a retry (which skips the already-completed login sub-step) still routes to them.
+  const disclaimersPendingRef = useRef(false);
 
   // Pre-selected tier: fetch tier details and show summary card instead of tier selection step
   const [preSelectedTier, setPreSelectedTier] = useState<AppTierModel | null>(null);
@@ -125,6 +129,7 @@ export function SignupWithSubscriptionComponent({
     'select-tier': 'Choose Plan',
     payment: 'Payment',
     processing: 'Processing',
+    disclaimers: 'Disclaimers',
     success: 'Complete',
   };
 
@@ -166,6 +171,9 @@ export function SignupWithSubscriptionComponent({
             if (response.jwtToken) {
               await client.session.login(response);
               loggedInRef.current = true;
+              if (response.requiresDisclaimerAcceptance && response.pendingDisclaimers?.length) {
+                disclaimersPendingRef.current = true;
+              }
             }
           } else {
             // Open registration (api/userregistration/register) — enforces the app's
@@ -200,6 +208,11 @@ export function SignupWithSubscriptionComponent({
           });
           if (loginResponse.jwtToken) {
             await client.session.login(loginResponse);
+            // Capture only when a session was actually stored — otherwise the disclaimer step's
+            // authenticated fetch/accept would 401. (Mirrors the token-registration path above.)
+            if (loginResponse.requiresDisclaimerAcceptance && loginResponse.pendingDisclaimers?.length) {
+              disclaimersPendingRef.current = true;
+            }
           }
           loggedInRef.current = true;
         }
@@ -230,7 +243,14 @@ export function SignupWithSubscriptionComponent({
           }
         }
 
-        setCurrentStep('success');
+        // Gate on disclaimer acceptance before declaring success. The registration/login response
+        // carries pending disclaimers (mirrors the login flow in AuthenticationComponent); the session
+        // JWT is already stored above, so DisclaimerComponent's authenticated accept calls succeed.
+        if (disclaimersPendingRef.current) {
+          setCurrentStep('disclaimers');
+        } else {
+          setCurrentStep('success');
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Signup failed';
         setProcessingError(msg);
@@ -352,7 +372,7 @@ export function SignupWithSubscriptionComponent({
   return (
     <div className={`ww-signup-subscription ${className ?? ''}`}>
       {/* Step Indicator */}
-      {currentStep !== 'success' && currentStep !== 'processing' && (
+      {currentStep !== 'success' && currentStep !== 'processing' && currentStep !== 'disclaimers' && (
         <div className="ww-step-indicator">
           <div className="ww-steps">
             {visibleSteps.map((stepKey, index) => (
@@ -536,6 +556,7 @@ export function SignupWithSubscriptionComponent({
                   onClick={() => {
                     registeredRef.current = false;
                     loggedInRef.current = false;
+                    disclaimersPendingRef.current = false;
                     setCurrentStep('register');
                   }}
                 >
@@ -552,6 +573,25 @@ export function SignupWithSubscriptionComponent({
               <p className="ww-text-muted">Please wait while we set up your account.</p>
             </>
           )}
+        </div>
+      )}
+
+      {/* Disclaimers — pending legal acceptance surfaced by the login/registration response.
+          Must be accepted before onComplete; the session JWT is already stored so accepts are authorized. */}
+      {currentStep === 'disclaimers' && (
+        <div className="ww-signup-step ww-signup-disclaimers">
+          <h3 className="ww-signup-disclaimers-title">One more step</h3>
+          <p className="ww-text-muted">Please review and accept the following before continuing.</p>
+          <DisclaimerComponent
+            autoLoad
+            appId={resolvedAppId}
+            onAllAccepted={() => setCurrentStep('success')}
+            // If the re-fetch finds nothing pending (e.g. accepted meanwhile), don't strand the
+            // user on the disclaimers step — advance to success.
+            onLoaded={(count) => {
+              if (count === 0) setCurrentStep('success');
+            }}
+          />
         </div>
       )}
 

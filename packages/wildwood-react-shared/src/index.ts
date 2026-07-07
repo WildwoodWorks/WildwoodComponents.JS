@@ -25,6 +25,8 @@ export type {
 } from './ai/orchestratedChat.js';
 export { useAIFlow } from './hooks/useAIFlow.js';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
+export { useDocuments } from './hooks/useDocuments.js';
+export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';
@@ -55,6 +57,16 @@ export { useCaptcha } from './hooks/useCaptcha.js';
 export type { UseCaptchaReturn } from './hooks/useCaptcha.js';
 export { useNotifications } from './hooks/useNotifications.js';
 export type { UseNotificationsReturn } from './hooks/useNotifications.js';
+// Backend-connected notification inbox (distinct from the useNotifications toast queue)
+export { useNotificationInbox } from './hooks/useNotificationInbox.js';
+export type { UseNotificationInboxOptions, UseNotificationInboxReturn } from './hooks/useNotificationInbox.js';
+export { useNotificationPreferences } from './hooks/useNotificationPreferences.js';
+export type {
+  UseNotificationPreferencesOptions,
+  UseNotificationPreferencesReturn,
+} from './hooks/useNotificationPreferences.js';
+export { useBrowserNotifications } from './hooks/useBrowserNotifications.js';
+export type { UseBrowserNotificationsReturn } from './hooks/useBrowserNotifications.js';
 export { useTheme } from './hooks/useTheme.js';
 export type { UseThemeReturn } from './hooks/useTheme.js';
 export { useExternalApi } from './hooks/useExternalApi.js';
