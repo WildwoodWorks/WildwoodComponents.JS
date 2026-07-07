@@ -39,7 +39,10 @@ export function useNotificationPreferences(
   const refresh = useCallback(async () => {
     const pref = await client.notificationInbox.getPreferences(appId, requestOptions());
     if (!disposedRef.current) {
-      setPreferences(pref);
+      // null signals a transient failure — retain the previously-loaded preferences rather
+      // than dropping the user's settings back to defaults on a blip. The service already
+      // returns safe defaults (not null) for a legitimate 401/403 deny.
+      if (pref !== null) setPreferences(pref);
       setLoading(false);
     }
   }, [client, appId, requestOptions]);

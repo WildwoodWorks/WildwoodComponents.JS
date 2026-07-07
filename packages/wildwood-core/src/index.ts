@@ -151,6 +151,7 @@ export type { ToastNotification, NotificationAction, NotificationActionArgs } fr
 // Notification Inbox (backend-connected: bell + list + preferences)
 export { NotificationInboxService } from './notifications/notificationInboxService.js';
 export type { NotificationInboxRequestOptions } from './notifications/notificationInboxService.js';
+export { createDefaultNotificationPreference } from './notifications/inboxTypes.js';
 export type { AppNotification, AppNotificationStatus, UserNotificationPreference } from './notifications/inboxTypes.js';
 
 // Browser (Web Notifications API) channel helpers

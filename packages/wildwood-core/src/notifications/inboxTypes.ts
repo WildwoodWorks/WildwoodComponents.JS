@@ -37,3 +37,20 @@ export interface UserNotificationPreference {
   /** Opaque JSON blob of per-event opt-outs, owned by the server. */
   eventOptOutsJson?: string | null;
 }
+
+/**
+ * Safe default preferences for an app (email on, all other channels off). Returned by
+ * NotificationInboxService.getPreferences on the graceful-deny paths (401 auth failure /
+ * 403 feature-off) so callers get a usable object rather than null — null is reserved for
+ * a transient failure the caller should retain across. Also a sensible initial UI state.
+ */
+export function createDefaultNotificationPreference(appId: string): UserNotificationPreference {
+  return {
+    appId,
+    emailEnabled: true,
+    smsEnabled: false,
+    pushEnabled: false,
+    browserEnabled: false,
+    eventOptOutsJson: null,
+  };
+}

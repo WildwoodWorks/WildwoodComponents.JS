@@ -14,6 +14,7 @@
 import type { WildwoodConfig } from '../client/types.js';
 import type { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type { AppNotification, UserNotificationPreference } from './inboxTypes.js';
+import { createDefaultNotificationPreference } from './inboxTypes.js';
 
 export interface NotificationInboxRequestOptions {
   /** Override the API base INCLUDING the /api segment (e.g. "https://host/api"). Defaults to config.baseUrl + "/api". */
@@ -128,7 +129,14 @@ export class NotificationInboxService {
     }
   }
 
-  /** The user's delivery preferences for an app. Null when unauthorized or on error. */
+  /**
+   * The user's delivery preferences for an app.
+   * - Returns the safe DEFAULT preference on the graceful-deny paths (401 auth failure —
+   *   sessionExpired still fires once; 403 feature-off) so a real deny yields usable
+   *   defaults, not stale values.
+   * - Returns `null` on a TRANSIENT failure (HTTP 5xx / non-ok / network error) so callers
+   *   can retain the previously-loaded preferences instead of resetting them to defaults.
+   */
   async getPreferences(
     appId: string,
     options?: NotificationInboxRequestOptions,
@@ -139,7 +147,10 @@ export class NotificationInboxService {
         headers: this.buildHeaders({ Accept: 'application/json' }),
         signal: options?.signal,
       });
-      if (!this.ensureAuthorized(response.status) || !response.ok) return null;
+      // 401 (sessionExpired fired) / 403 (feature off): a legitimate deny — safe defaults.
+      if (!this.ensureAuthorized(response.status)) return createDefaultNotificationPreference(appId);
+      // Anything else non-ok is transient — signal retain (null), don't reset to defaults.
+      if (!response.ok) return null;
       return (await response.json()) as UserNotificationPreference;
     } catch (err) {
       console.warn('[NotificationInboxService] Failed to load preferences:', err);

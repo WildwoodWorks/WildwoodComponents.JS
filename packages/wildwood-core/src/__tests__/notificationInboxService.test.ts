@@ -127,7 +127,16 @@ describe('NotificationInboxService', () => {
     expect(await service.list({ fetchImpl: forbidden })).toEqual([]);
     expect(await service.getUnreadCount({ fetchImpl: forbidden })).toBe(0);
     expect(await service.markAllRead({ fetchImpl: forbidden })).toBe(0);
-    expect(await service.getPreferences('app-1', { fetchImpl: forbidden })).toBeNull();
+    // 403 feature-off returns the safe default pref (NOT null — null is reserved for transient).
+    expect(await service.getPreferences('app-1', { fetchImpl: forbidden })).toEqual(
+      expect.objectContaining({
+        appId: 'app-1',
+        emailEnabled: true,
+        smsEnabled: false,
+        pushEnabled: false,
+        browserEnabled: false,
+      }),
+    );
     expect(sessionExpired).not.toHaveBeenCalled();
   });
 
@@ -146,6 +155,8 @@ describe('NotificationInboxService', () => {
 
     expect(await service.list({ fetchImpl: serverError })).toBeNull();
     expect(await service.getUnreadCount({ fetchImpl: serverError })).toBeNull();
+    // Preferences also retain (null) on a transient failure — not reset to defaults.
+    expect(await service.getPreferences('app-1', { fetchImpl: serverError })).toBeNull();
     // A transient failure is not an auth failure.
     expect(sessionExpired).not.toHaveBeenCalled();
   });
@@ -158,6 +169,7 @@ describe('NotificationInboxService', () => {
 
     expect(await service.list({ fetchImpl: networkError })).toBeNull();
     expect(await service.getUnreadCount({ fetchImpl: networkError })).toBeNull();
+    expect(await service.getPreferences('app-1', { fetchImpl: networkError })).toBeNull();
   });
 
   it('round-trips browserEnabled through preferences', async () => {
