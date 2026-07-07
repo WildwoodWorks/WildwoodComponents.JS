@@ -48,26 +48,37 @@ describe('AppTierService', () => {
     });
   });
 
-  it('cancelSubscription returns true on success and false on error', async () => {
+  it('cancelSubscription surfaces the scheduled-cancel payload and reports failures', async () => {
     const http = makeHttp();
+    http.post.mockResolvedValueOnce(ok({ success: true, isScheduled: true, effectiveDate: '2026-08-01T00:00:00Z' }));
     const svc = new AppTierService(http);
 
-    expect(await svc.cancelSubscription('app-1')).toBe(true);
+    const result = await svc.cancelSubscription('app-1');
     expect(http.post).toHaveBeenCalledWith('api/app-tiers/app-1/my-subscription/cancel');
+    expect(result.success).toBe(true);
+    expect(result.isScheduled).toBe(true);
+    expect(result.effectiveDate).toBe('2026-08-01T00:00:00Z');
 
     http.post.mockRejectedValueOnce(new Error('boom'));
-    expect(await svc.cancelSubscription('app-1')).toBe(false);
+    const failed = await svc.cancelSubscription('app-1');
+    expect(failed.success).toBe(false);
+    expect(failed.errorMessage).toBe('boom');
   });
 
-  it('getUserSubscription returns null when none exists', async () => {
+  it('getUserSubscription returns null for 204/no data but THROWS on lookup failure', async () => {
     const http = makeHttp();
-    http.get.mockRejectedValueOnce(new Error('no sub'));
     const svc = new AppTierService(http);
 
+    // 204 No Content → data undefined → null ("no subscription")
     expect(await svc.getUserSubscription('app-1')).toBeNull();
+
+    // A failed lookup must be distinguishable from "no subscription" — subscribed users were
+    // shown "no plan" banners on transient errors when both resolved to null.
+    http.get.mockRejectedValueOnce(new Error('boom'));
+    await expect(svc.getUserSubscription('app-1')).rejects.toThrow('boom');
   });
 
-  it('getUserFeatures returns the feature map from the API', async () => {
+  it('getUserFeatures returns the feature map from the API and THROWS on failure', async () => {
     const http = makeHttp();
     http.get.mockResolvedValueOnce(ok({ chat: true, payments: false }));
     const svc = new AppTierService(http);
@@ -76,5 +87,10 @@ describe('AppTierService', () => {
 
     expect(http.get).toHaveBeenCalledWith('api/app-tiers/app-1/user-features');
     expect(features).toEqual({ chat: true, payments: false });
+
+    // Failures must not masquerade as an empty (= no access) map — feature gates would lock
+    // entitled users out during transient errors.
+    http.get.mockRejectedValueOnce(new Error('boom'));
+    await expect(svc.getUserFeatures('app-1')).rejects.toThrow('boom');
   });
 });

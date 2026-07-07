@@ -199,6 +199,7 @@ export type {
   AppFeatureOverrideModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
+  AppTierCancelResultModel,
   TierChangePreviewModel,
 } from './features/types.js';
 

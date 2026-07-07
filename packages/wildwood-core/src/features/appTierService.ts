@@ -11,6 +11,7 @@ import type {
   AppFeatureOverrideModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
+  AppTierCancelResultModel,
   TierChangePreviewModel,
 } from './types.js';
 
@@ -90,14 +91,15 @@ export class AppTierService {
   // User Subscription
   // ---------------------------------------------------------------------------
 
+  /**
+   * The user's active subscription, or null when none exists (204). THROWS on transport/HTTP
+   * failure so callers can distinguish "no subscription" from a failed lookup — swallowing both
+   * as null made subscribed users look unsubscribed during transient errors.
+   */
   async getUserSubscription(appId?: string): Promise<UserTierSubscriptionModel | null> {
     if (!appId) return null;
-    try {
-      const { data } = await this.http.get<UserTierSubscriptionModel>(`api/app-tiers/${appId}/my-subscription`);
-      return data ?? null;
-    } catch {
-      return null;
-    }
+    const { data } = await this.http.get<UserTierSubscriptionModel>(`api/app-tiers/${appId}/my-subscription`);
+    return data ?? null;
   }
 
   async getUserAddOns(appId: string): Promise<UserAddOnSubscriptionModel[]> {
@@ -155,13 +157,29 @@ export class AppTierService {
     return data;
   }
 
-  async cancelSubscription(appId: string): Promise<boolean> {
+  /**
+   * Shared POST for the three cancel endpoints: on 2xx the cancellation succeeded (the server
+   * payload carries isScheduled/effectiveDate/requiresUserAction); failures are reported via
+   * success/errorMessage instead of being silently swallowed.
+   */
+  private async postCancel(url: string): Promise<AppTierCancelResultModel> {
     try {
-      await this.http.post(`api/app-tiers/${appId}/my-subscription/cancel`);
-      return true;
-    } catch {
-      return false;
+      const { data } = await this.http.post<AppTierCancelResultModel>(url);
+      return { ...data, success: true };
+    } catch (err) {
+      return {
+        success: false,
+        errorMessage: err instanceof Error ? err.message : 'Failed to cancel subscription',
+      };
     }
+  }
+
+  /**
+   * Self-service cancellation. Returns whether the cancellation is scheduled for the end of
+   * the billing period (isScheduled + effectiveDate) or took effect immediately.
+   */
+  async cancelSubscription(appId: string): Promise<AppTierCancelResultModel> {
+    return this.postCancel(`api/app-tiers/${appId}/my-subscription/cancel`);
   }
 
   /**
@@ -258,13 +276,14 @@ export class AppTierService {
   // Feature Gating
   // ---------------------------------------------------------------------------
 
+  /**
+   * The user's feature entitlement map. THROWS on transport/HTTP failure: an empty map is a
+   * real "no access" answer, so failures must stay distinguishable from it — swallowing them
+   * made feature gates lock entitled users out during transient errors.
+   */
   async getUserFeatures(appId: string): Promise<Record<string, boolean>> {
-    try {
-      const { data } = await this.http.get<Record<string, boolean>>(`api/app-tiers/${appId}/user-features`);
-      return data ?? {};
-    } catch {
-      return {};
-    }
+    const { data } = await this.http.get<Record<string, boolean>>(`api/app-tiers/${appId}/user-features`);
+    return data ?? {};
   }
 
   async checkFeature(featureKey: string, appId: string): Promise<AppFeatureCheckResultModel> {
@@ -402,13 +421,8 @@ export class AppTierService {
     return data;
   }
 
-  async cancelCompanySubscription(appId: string, companyId: string): Promise<boolean> {
-    try {
-      await this.http.post(`api/app-tiers/${appId}/cancel/company/${companyId}`);
-      return true;
-    } catch {
-      return false;
-    }
+  async cancelCompanySubscription(appId: string, companyId: string): Promise<AppTierCancelResultModel> {
+    return this.postCancel(`api/app-tiers/${appId}/cancel/company/${companyId}`);
   }
 
   async subscribeCompanyToAddOn(appId: string, companyId: string, addOnId: string): Promise<boolean> {
@@ -514,13 +528,8 @@ export class AppTierService {
     return data;
   }
 
-  async cancelUserSubscription(appId: string, userId: string): Promise<boolean> {
-    try {
-      await this.http.post(`api/app-tiers/${appId}/cancel/${userId}`);
-      return true;
-    } catch {
-      return false;
-    }
+  async cancelUserSubscription(appId: string, userId: string): Promise<AppTierCancelResultModel> {
+    return this.postCancel(`api/app-tiers/${appId}/cancel/${userId}`);
   }
 
   async subscribeUserToAddOn(appId: string, userId: string, addOnId: string): Promise<boolean> {

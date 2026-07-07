@@ -25,6 +25,8 @@ export type {
 } from './ai/orchestratedChat.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
+export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';
+export type { UseFeaturesReturn } from './hooks/useFeatures.js';
 export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';
