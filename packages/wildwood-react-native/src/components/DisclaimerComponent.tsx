@@ -91,15 +91,23 @@ export function DisclaimerComponent({
       if (accepting) return; // guard against double-submit — acceptDisclaimer doesn't toggle `loading`
       setAccepting(true);
       try {
+        // Check count before accepting — the hook re-fetches and empties the list
+        // asynchronously after accept, so we can't rely on it afterward. When this was
+        // the last pending disclaimer, fire onAllAccepted so a gating parent (signup)
+        // advances (mirrors web handleAccept's wasLastPending logic).
+        const wasLastPending = (disclaimers?.disclaimers?.length ?? 0) <= 1;
         await acceptDisclaimer(disclaimerId, versionId);
         onDisclaimerAccepted?.(disclaimerId);
+        if (wasLastPending) {
+          onAllAccepted?.();
+        }
       } catch (err) {
         Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept disclaimer');
       } finally {
         setAccepting(false);
       }
     },
-    [accepting, acceptDisclaimer, onDisclaimerAccepted],
+    [accepting, acceptDisclaimer, onDisclaimerAccepted, onAllAccepted, disclaimers],
   );
 
   const handleAcceptAll = useCallback(async () => {
