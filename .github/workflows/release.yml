@@ -29,8 +29,24 @@ jobs:
 
       - run: pnpm run test
 
+      # Detect whether an npm publish credential is configured. `secrets` can't be used directly
+      # in an `if:` expression, so surface it as a step output. Without the token, publishing would
+      # fail with ENEEDAUTH — so we skip the publish step instead of failing every merge to main.
+      - name: Detect npm publish token
+        id: npm_auth
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NPM_TOKEN secret is not set — skipping the changesets publish step. Add an npm Automation token as the NPM_TOKEN repo secret to enable releases."
+          fi
+
       - name: Create Release Pull Request or Publish
         id: changesets
+        if: steps.npm_auth.outputs.present == 'true'
         uses: changesets/action@v1
         with:
           publish: pnpm run release
