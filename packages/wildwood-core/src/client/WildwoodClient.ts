@@ -9,6 +9,7 @@ import { AuthService } from '../auth/authService.js';
 import { SessionManager } from '../auth/sessionManager.js';
 import { AIService } from '../ai/aiService.js';
 import { AIFlowService } from '../ai/aiFlowService.js';
+import { AIFlowSubscriptionService } from '../ai/aiFlowSubscriptionService.js';
 import { DocumentService } from '../documents/documentService.js';
 import { MessagingService } from '../messaging/messagingService.js';
 import { PaymentService } from '../payment/paymentService.js';
@@ -29,6 +30,7 @@ export interface WildwoodClient {
   readonly session: SessionManager;
   readonly ai: AIService;
   readonly aiFlow: AIFlowService;
+  readonly aiFlowSubscription: AIFlowSubscriptionService;
   readonly documents: DocumentService;
   readonly messaging: MessagingService;
   readonly payment: PaymentService;
@@ -58,6 +60,8 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   // Reactive 401 handling (Blazor parity): on 401, refresh token and replay once —
   // same wiring SessionManager applies to the HttpClient.
   aiFlow.setOn401Refresh(() => session.refreshToken());
+  // Plain JSON standing-orders surface — raw token, one-shot 401, no SSE/refresh-retry.
+  const aiFlowSubscription = new AIFlowSubscriptionService(config, events, () => session.accessToken);
   // Multipart uploads need the raw token too (FormData, not HttpClient JSON)
   const documents = new DocumentService(config, events, () => session.accessToken);
   const messaging = new MessagingService(http, storage);
@@ -80,6 +84,7 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     session,
     ai,
     aiFlow,
+    aiFlowSubscription,
     documents,
     messaging,
     payment,

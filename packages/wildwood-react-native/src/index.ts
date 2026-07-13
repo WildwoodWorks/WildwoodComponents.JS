@@ -28,6 +28,8 @@ export { useAIFlow } from './hooks/useAIFlow';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow';
 export { useDocuments } from './hooks/useDocuments';
 export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments';
+export { useAIFlowSubscriptions } from './hooks/useAIFlowSubscriptions';
+export type { UseAIFlowSubscriptionsOptions, UseAIFlowSubscriptionsReturn } from './hooks/useAIFlowSubscriptions';
 export { useMessaging } from './hooks/useMessaging';
 export type { UseMessagingReturn } from './hooks/useMessaging';
 export { usePayment } from './hooks/usePayment';
