@@ -71,7 +71,12 @@ export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions):
       setError(null);
       setLimitMessage(null);
       const created = await client.aiFlowSubscription.create(request, requestOptions());
-      if (!disposedRef.current) setLimitMessage(client.aiFlowSubscription.lastLimitMessage);
+      const limit = client.aiFlowSubscription.lastLimitMessage;
+      if (!disposedRef.current) {
+        setLimitMessage(limit);
+        // A 429 is surfaced via limitMessage, not error; only flag a generic failure otherwise.
+        if (!created && !limit) setError('Unable to create the subscription. Please try again.');
+      }
       if (created) await refresh();
       return created;
     },
@@ -80,8 +85,10 @@ export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions):
 
   const update = useCallback(
     async (subscriptionId: string, request: AIFlowSubscriptionUpdateRequest): Promise<AIFlowSubscription | null> => {
+      setError(null);
       const updated = await client.aiFlowSubscription.update(subscriptionId, request, requestOptions());
       if (updated) await refresh();
+      else if (!disposedRef.current) setError('Unable to update the subscription. Please try again.');
       return updated;
     },
     [client, requestOptions, refresh],
@@ -89,8 +96,10 @@ export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions):
 
   const setEnabled = useCallback(
     async (subscriptionId: string, enabled: boolean): Promise<AIFlowSubscription | null> => {
+      setError(null);
       const result = await client.aiFlowSubscription.setEnabled(subscriptionId, enabled, requestOptions());
       if (result) await refresh();
+      else if (!disposedRef.current) setError('Unable to update the subscription. Please try again.');
       return result;
     },
     [client, requestOptions, refresh],
@@ -98,8 +107,10 @@ export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions):
 
   const remove = useCallback(
     async (subscriptionId: string): Promise<boolean> => {
+      setError(null);
       const deleted = await client.aiFlowSubscription.delete(subscriptionId, requestOptions());
       if (deleted) await refresh();
+      else if (!disposedRef.current) setError('Unable to delete the subscription. Please try again.');
       return deleted;
     },
     [client, requestOptions, refresh],
