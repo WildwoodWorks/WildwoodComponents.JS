@@ -103,6 +103,58 @@ const users = await admin.getUsers();
 const apps = await admin.getApps();
 ```
 
+## Seeder
+
+Idempotent app-data seeding that runs at server startup. Define seed tasks
+(each a stable-keyed, versioned, idempotent unit — AI flows, tiers, provider
+wiring, ...); the runner topologically orders them by their `dependsOn` edges,
+authenticates to WildwoodAPI as a CompanyAdmin service account, consults the
+server-side ledger to skip already-seeded tasks, runs the rest with bounded
+retries, and records ledger + history. It is the server-side counterpart of the
+.NET `WildwoodComponents.Shared/Seeder` component (there is no browser/mobile
+equivalent, so it lives in `@wildwood/node`, not `@wildwood/core`).
+
+```typescript
+import { runSeeder, SeederTaskResult, type SeederTask } from '@wildwood/node';
+
+const seedTiers: SeederTask = {
+  key: 'myapp.tiers.default',
+  name: 'Default tiers',
+  note: 'Free + Pro tiers with baseline limits',
+  version: 1, // bump to force a re-run on next startup
+  dependsOn: [],
+  async run(ctx) {
+    const existing = await ctx.client.get<unknown[]>(`api/app-tiers/${ctx.appId}`);
+    if (Array.isArray(existing) && existing.length > 0) {
+      return SeederTaskResult.alreadyPresent('Tiers already exist.');
+    }
+    if (!ctx.shouldWrite('create default tiers')) {
+      return SeederTaskResult.skipped('dry-run');
+    }
+    await ctx.client.post(`api/app-tiers/${ctx.appId}`, { name: 'Free' });
+    return SeederTaskResult.created('Created default tiers.');
+  },
+};
+
+// Best-effort, non-fatal: never crashes the host if WildwoodAPI is down or a
+// task fails — data is just left unseeded until the next start.
+void runSeeder(
+  {
+    baseUrl: process.env.WILDWOOD_API_URL!,
+    appId: process.env.WILDWOOD_APP_ID!,
+    adminEmail: process.env.WILDWOOD_SEEDER_EMAIL, // CompanyAdmin service account (no 2FA)
+    adminPassword: process.env.WILDWOOD_SEEDER_PASSWORD,
+    environment: process.env.NODE_ENV === 'production' ? 'Production' : 'Dev',
+  },
+  [seedTiers],
+);
+```
+
+Use `createSeederRunner(options, tasks)` + `runner.runPending()` if you want to
+drive the pass yourself (e.g. from a CLI) instead of the startup helper. The
+server admin can disable seeding per app or tune retries via the seeder
+configuration; a local `runOnStartup: false` hard-gates it without a round trip.
+
 ## Token Validation
 
 Validate JWT tokens without API calls:
@@ -136,6 +188,12 @@ equivalent (middleware / proxy / client), not a UI:
 | Two-Factor     | twoFactorService    | ✓     | ✓            | --                  |
 | Disclaimers    | disclaimerService   | ✓     | ✓            | --                  |
 | Feedback       | feedbackService     | ✓     | ✓            | feedbackProxy       |
+| Seeder         | --                  | --    | --           | runSeeder / SeederRunner |
+
+The Seeder is intentionally `node`-only — it is a server-side provisioning
+harness (CompanyAdmin login, startup seeding), so it has no core service or
+client (react / react-native / Swift) counterpart, mirroring the .NET seeder
+living in `WildwoodComponents.Shared` for server hosts.
 
 The Feedback `node` entry is `createFeedbackProxyMiddleware` — a server-side
 proxy that lets an Express/SSR backend host the browser widget while keeping the
