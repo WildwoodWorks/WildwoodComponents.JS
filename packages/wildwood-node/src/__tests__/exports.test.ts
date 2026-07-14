@@ -16,6 +16,17 @@ import {
   JwksClient,
   createJwksClient,
   verifyRS256Signature,
+  SeederApiClient,
+  createSeederApiClient,
+  SeederApiError,
+  SeederRunner,
+  createSeederRunner,
+  runSeeder,
+  SeederContext,
+  SeederTaskResult,
+  resolveSeederOptions,
+  hasCredentials,
+  consoleSeederLogger,
 } from '../index.js';
 
 describe('public exports', () => {
@@ -81,5 +92,51 @@ describe('public exports', () => {
 
   it('exports verifyRS256Signature as a function', () => {
     expect(typeof verifyRS256Signature).toBe('function');
+  });
+
+  // ── Seeder (server-side app-data seeding harness) ──
+
+  it('exports SeederApiClient as a class', () => {
+    expect(typeof SeederApiClient).toBe('function');
+  });
+
+  it('exports createSeederApiClient as a function', () => {
+    expect(typeof createSeederApiClient).toBe('function');
+  });
+
+  it('exports SeederApiError as a class', () => {
+    expect(typeof SeederApiError).toBe('function');
+  });
+
+  it('exports SeederRunner as a class', () => {
+    expect(typeof SeederRunner).toBe('function');
+  });
+
+  it('exports createSeederRunner as a function', () => {
+    expect(typeof createSeederRunner).toBe('function');
+  });
+
+  it('exports runSeeder as a function', () => {
+    expect(typeof runSeeder).toBe('function');
+  });
+
+  it('exports SeederContext as a class', () => {
+    expect(typeof SeederContext).toBe('function');
+  });
+
+  it('exports SeederTaskResult as a class', () => {
+    expect(typeof SeederTaskResult).toBe('function');
+  });
+
+  it('exports resolveSeederOptions as a function', () => {
+    expect(typeof resolveSeederOptions).toBe('function');
+  });
+
+  it('exports hasCredentials as a function', () => {
+    expect(typeof hasCredentials).toBe('function');
+  });
+
+  it('exports consoleSeederLogger as an object', () => {
+    expect(typeof consoleSeederLogger).toBe('object');
   });
 });

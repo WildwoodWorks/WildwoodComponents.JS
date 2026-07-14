@@ -66,6 +66,38 @@ export type {
   EncryptionMigrationResult,
 } from './admin/adminClient.js';
 
+// Seeder (server-side app-data seeding harness — port of WildwoodComponents.Shared/Seeder).
+// Server-only: no browser/mobile counterpart, so it lives here rather than in @wildwood/core.
+export {
+  SeederApiClient,
+  createSeederApiClient,
+  SeederApiError,
+  SeederRunner,
+  createSeederRunner,
+  runSeeder,
+  SeederContext,
+  SeederTaskResult,
+  resolveSeederOptions,
+  hasCredentials,
+  consoleSeederLogger,
+} from './seeder/index.js';
+export type {
+  SeederTask,
+  SeederContextInit,
+  SeederOptions,
+  ResolvedSeederOptions,
+  SeederLogger,
+  SeederTaskStatus,
+  SeededArtifact,
+  SeederRunSummary,
+  SeedTaskLedgerDto,
+  UpsertSeedLedgerRequest,
+  SeedRunHistoryDto,
+  RecordSeedRunRequest,
+  SeederConfigurationDto,
+  SeederLoginResponse,
+} from './seeder/index.js';
+
 // Feedback (re-exported from @wildwood/core for direct server-side use).
 // The browser-facing widget should go through createFeedbackProxyMiddleware so
 // credentials stay server-side; use FeedbackService directly when a server
