@@ -34,11 +34,31 @@ export class SeederRunner {
     private readonly logger: SeederLogger = consoleSeederLogger,
   ) {}
 
+  private running = false;
+
   /**
    * Run all pending tasks (those not yet seeded at their current version, or
-   * previously failed). Returns a short human-readable summary.
+   * previously failed). Returns a short human-readable summary. Guarded against
+   * overlapping passes on the same runner: a concurrent call is ignored (the .NET
+   * hosted service ran exactly once per process).
    */
   async runPending(signal?: AbortSignal): Promise<SeederRunSummary> {
+    if (this.running) {
+      this.logger.warn('Seeder run already in progress on this runner; ignoring the concurrent call.');
+      return { ran: 0, skipped: 0, failed: 0, message: 'Seeder already running.' };
+    }
+    this.running = true;
+    // Route every request (including task-issued ones) through the run signal.
+    this.client.useSignal?.(signal);
+    try {
+      return await this.runPendingInner(signal);
+    } finally {
+      this.running = false;
+      this.client.useSignal?.(undefined);
+    }
+  }
+
+  private async runPendingInner(signal?: AbortSignal): Promise<SeederRunSummary> {
     const ordered = this.topoSort([...this.tasks]);
     if (ordered.length === 0) {
       return { ran: 0, skipped: 0, failed: 0, message: 'No seed tasks registered.' };
@@ -178,6 +198,13 @@ export class SeederRunner {
     completedAt: string,
     correlationId: string,
   ): Promise<void> {
+    // Dry-run performs no writes at all, including the ledger/history — attempting
+    // them would only trip the client's write guard and log misleading warnings.
+    if (this.options.dryRun) {
+      this.logger.debug?.(`[dry-run] not recording ledger/history for task '${task.key}'.`);
+      return;
+    }
+
     const artifactsJson =
       result.artifacts && result.artifacts.length > 0 ? JSON.stringify(result.artifacts) : undefined;
 
@@ -316,26 +343,45 @@ export async function runSeeder(
     return null;
   }
 
-  try {
-    await delay(resolved.startupDelayMs, signal);
-  } catch {
-    return null; // aborted during the startup delay
-  }
-
-  try {
-    const client = new SeederApiClient(resolved, logger);
-    const runner = new SeederRunner(client, tasks, resolved, logger);
-    logger.info(`Seeder starting for app ${resolved.appId} (environment '${resolved.environment}').`);
-    const summary = await runner.runPending(signal);
-    logger.info(`Seeder finished: ${summary.message}`);
-    return summary;
-  } catch (error) {
-    if (signal?.aborted) return null; // shutting down
-    // Best-effort: never crash the app because seeding failed.
-    logger.error('Seeder run failed (non-fatal). Data may be unseeded until next startup.', error);
+  // Guard against a duplicate startup invocation in the same process (two boot paths,
+  // a hot reload). The .NET singleton BackgroundService ran exactly once; here nothing
+  // else prevents two overlapping passes from racing the ledger and double-seeding.
+  const inFlightKey = `${resolved.baseUrl}|${resolved.appId}|${resolved.environment}`;
+  if (inFlightSeeds.has(inFlightKey)) {
+    logger.warn(
+      `Seeder already running for app ${resolved.appId} (environment '${resolved.environment}'); skipping duplicate invocation.`,
+    );
     return null;
   }
+  inFlightSeeds.add(inFlightKey);
+
+  try {
+    try {
+      await delay(resolved.startupDelayMs, signal);
+    } catch {
+      return null; // aborted during the startup delay
+    }
+
+    try {
+      const client = new SeederApiClient(resolved, logger);
+      const runner = new SeederRunner(client, tasks, resolved, logger);
+      logger.info(`Seeder starting for app ${resolved.appId} (environment '${resolved.environment}').`);
+      const summary = await runner.runPending(signal);
+      logger.info(`Seeder finished: ${summary.message}`);
+      return summary;
+    } catch (error) {
+      if (signal?.aborted) return null; // shutting down
+      // Best-effort: never crash the app because seeding failed.
+      logger.error('Seeder run failed (non-fatal). Data may be unseeded until next startup.', error);
+      return null;
+    }
+  } finally {
+    inFlightSeeds.delete(inFlightKey);
+  }
 }
+
+/** In-process guard so a second runSeeder() for the same app/environment can't overlap the first. */
+const inFlightSeeds = new Set<string>();
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

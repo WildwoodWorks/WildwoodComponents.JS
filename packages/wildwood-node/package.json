@@ -29,6 +29,9 @@
       "optional": true
     }
   },
+  "optionalDependencies": {
+    "undici": "^7.0.0"
+  },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^25.3.5",

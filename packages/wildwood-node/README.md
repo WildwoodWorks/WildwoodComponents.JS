@@ -155,6 +155,19 @@ drive the pass yourself (e.g. from a CLI) instead of the startup helper. The
 server admin can disable seeding per app or tune retries via the seeder
 configuration; a local `runOnStartup: false` hard-gates it without a round trip.
 
+Notes:
+
+- **Local HTTPS dev backends:** for a loopback `baseUrl` (`https://localhost:…`)
+  the client accepts a self-signed cert by default (via the optional `undici`
+  package), matching the .NET seeder. Set `allowInsecureLoopback: false` to
+  enforce validation, or `NODE_TLS_REJECT_UNAUTHORIZED=0` if `undici` is absent.
+  Certificate validation is **never** relaxed for non-loopback hosts.
+- **Cancellation:** pass an `AbortSignal` as the 4th argument to `runSeeder`
+  (or to `runner.runPending(signal)`); aborting it cancels in-flight requests so
+  a graceful shutdown does not block on the request timeout.
+- **Run-once:** `runSeeder` ignores a duplicate concurrent invocation for the
+  same app + environment in the same process.
+
 ## Token Validation
 
 Validate JWT tokens without API calls:
