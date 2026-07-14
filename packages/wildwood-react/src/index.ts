@@ -30,6 +30,8 @@ export { useAIFlow } from './hooks/useAIFlow.js';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
 export { useDocuments } from './hooks/useDocuments.js';
 export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments.js';
+export { useAIFlowSubscriptions } from './hooks/useAIFlowSubscriptions.js';
+export type { UseAIFlowSubscriptionsOptions, UseAIFlowSubscriptionsReturn } from './hooks/useAIFlowSubscriptions.js';
 export { useMessaging } from './hooks/useMessaging.js';
 export type { UseMessagingReturn } from './hooks/useMessaging.js';
 export { usePayment } from './hooks/usePayment.js';

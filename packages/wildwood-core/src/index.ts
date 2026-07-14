@@ -67,6 +67,8 @@ export { AIService } from './ai/aiService.js';
 export type { TTSVoice } from './ai/aiService.js';
 export { AIFlowService } from './ai/aiFlowService.js';
 export type { AIFlowRequestOptions, AIFlowEventHandler } from './ai/aiFlowService.js';
+export { AIFlowSubscriptionService } from './ai/aiFlowSubscriptionService.js';
+export type { AIFlowSubscriptionRequestOptions } from './ai/aiFlowSubscriptionService.js';
 // Shared SSE plumbing for fetch-based streaming transports
 export { createSseParser, isAbort } from './ai/sse.js';
 export type { SseFrame } from './ai/sse.js';
@@ -84,6 +86,10 @@ export type {
   AIFlowRunEvent,
   AIFlowRunResult,
   AIFlowRunSummary,
+  AIFlowRunDetail,
+  AIFlowSubscription,
+  AIFlowSubscriptionCreateRequest,
+  AIFlowSubscriptionUpdateRequest,
 } from './ai/types.js';
 
 // Documents (tenant document storage + text extraction)

@@ -27,6 +27,8 @@ export { useAIFlow } from './hooks/useAIFlow.js';
 export type { UseAIFlowOptions, UseAIFlowReturn } from './hooks/useAIFlow.js';
 export { useDocuments } from './hooks/useDocuments.js';
 export type { UseDocumentsOptions, UseDocumentsReturn } from './hooks/useDocuments.js';
+export { useAIFlowSubscriptions } from './hooks/useAIFlowSubscriptions.js';
+export type { UseAIFlowSubscriptionsOptions, UseAIFlowSubscriptionsReturn } from './hooks/useAIFlowSubscriptions.js';
 export { useAppTier } from './hooks/useAppTier.js';
 export type { UseAppTierReturn } from './hooks/useAppTier.js';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures.js';

@@ -163,3 +163,52 @@ export interface AIFlowRunSummary {
   totalTokens: number;
   errorMessage?: string;
 }
+
+/**
+ * Full run detail — includes the input/output, so a client can sync the result
+ * of a background/subscription run it did not stream.
+ */
+export interface AIFlowRunDetail extends AIFlowRunSummary {
+  inputJson?: string;
+  outputJson?: string;
+}
+
+/**
+ * A user's standing order for a scheduled run of a published flow (the server's
+ * AppLangFlowSubscription): saved inputs + cron schedule + notify-on-complete.
+ */
+export interface AIFlowSubscription {
+  id: string;
+  flowId: string;
+  flowName: string;
+  name: string;
+  inputJson?: string;
+  scheduleCron?: string;
+  scheduleTimezone?: string;
+  nextRunAt?: string;
+  isEnabled: boolean;
+  notifyOnComplete: boolean;
+  lastRunId?: string;
+  lastRunAt?: string;
+  lastRunStatus?: string;
+  createdAt: string;
+}
+
+export interface AIFlowSubscriptionCreateRequest {
+  flowId: string;
+  name: string;
+  inputJson?: string;
+  scheduleCron: string;
+  scheduleTimezone?: string;
+  /** Defaults to true server-side when omitted. */
+  notifyOnComplete?: boolean;
+}
+
+/** All fields optional — an omitted field leaves the current value unchanged. */
+export interface AIFlowSubscriptionUpdateRequest {
+  name?: string;
+  inputJson?: string;
+  scheduleCron?: string;
+  scheduleTimezone?: string;
+  notifyOnComplete?: boolean;
+}
