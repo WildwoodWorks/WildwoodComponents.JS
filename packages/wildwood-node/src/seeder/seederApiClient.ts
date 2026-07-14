@@ -63,6 +63,8 @@ export class SeederApiClient {
   private bearerToken: string | null = null;
   private authenticated = false;
   private loginInFlight: Promise<void> | null = null;
+  private runSignal?: AbortSignal;
+  private dispatcherPromise?: Promise<unknown>;
 
   /** Optional X-API-Key sent with every request. */
   apiKey?: string;
@@ -77,6 +79,16 @@ export class SeederApiClient {
   /** The bearer token acquired at login, if any. */
   get token(): string | null {
     return this.bearerToken;
+  }
+
+  /**
+   * Link a run-level cancellation signal into every request (including task-issued
+   * calls through {@link SeederContext.client}). Aborting it cancels in-flight HTTP,
+   * so a graceful shutdown does not block on a request until its timeout. The runner
+   * sets this at the start of each pass.
+   */
+  useSignal(signal?: AbortSignal): void {
+    this.runSignal = signal;
   }
 
   /** Ensures the client is authenticated (logs in on first call using the configured credentials). */
@@ -124,28 +136,51 @@ export class SeederApiClient {
   }
 
   // ---- generic verbs (tasks call arbitrary WildwoodAPI endpoints) ----
+  // The value-returning verbs (get/post/put) throw on an empty body rather than
+  // handing back `undefined` cast as T — an empty response where JSON is expected is
+  // an error, and a clear message beats a downstream "cannot read properties of
+  // undefined". Use getOrDefault / postVoid / putVoid for endpoints that legitimately
+  // return no body (404-tolerant reads, 200/204 writes).
 
-  get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path) as Promise<T>;
+  async get<T>(path: string): Promise<T> {
+    return this.requireBody(await this.request<T>('GET', path), path);
   }
 
-  /** GET that resolves to undefined on 404 instead of throwing. */
+  /** GET that resolves to undefined on 404 (or an empty body) instead of throwing. */
   getOrDefault<T>(path: string): Promise<T | undefined> {
     return this.request<T>('GET', path, undefined, { allowNotFound: true });
   }
 
-  post<T>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>('POST', path, body ?? null) as Promise<T>;
+  async post<T>(path: string, body?: unknown): Promise<T> {
+    return this.requireBody(await this.request<T>('POST', path, body ?? null), path);
   }
 
-  put<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('PUT', path, body) as Promise<T>;
+  /** POST that ignores the (possibly empty) response body. */
+  async postVoid(path: string, body?: unknown): Promise<void> {
+    await this.request('POST', path, body ?? null);
+  }
+
+  async put<T>(path: string, body: unknown): Promise<T> {
+    return this.requireBody(await this.request<T>('PUT', path, body), path);
+  }
+
+  /** PUT that ignores the (possibly empty) response body. */
+  async putVoid(path: string, body: unknown): Promise<void> {
+    await this.request('PUT', path, body);
+  }
+
+  private requireBody<T>(value: T | undefined, path: string): T {
+    if (value === undefined) {
+      throw new Error(`Empty response body from ${path} (expected JSON).`);
+    }
+    return value;
   }
 
   // ---- seeder ledger / history / config ----
 
-  getSeederConfiguration(appId: string): Promise<SeederConfigurationDto> {
-    return this.get<SeederConfigurationDto>(`api/AppComponentConfigurations/${appId}/seeder-configuration`);
+  /** Returns undefined when the app has no seeder-configuration row yet (404); the runner then uses option defaults. */
+  getSeederConfiguration(appId: string): Promise<SeederConfigurationDto | undefined> {
+    return this.getOrDefault<SeederConfigurationDto>(`api/AppComponentConfigurations/${appId}/seeder-configuration`);
   }
 
   getLedger(appId: string, environment?: string): Promise<SeedTaskLedgerDto[]> {
@@ -157,7 +192,7 @@ export class SeederApiClient {
   }
 
   upsertLedger(appId: string, request: UpsertSeedLedgerRequest): Promise<void> {
-    return this.post<void>(`api/AppComponentConfigurations/${appId}/seeder/ledger`, request);
+    return this.postVoid(`api/AppComponentConfigurations/${appId}/seeder/ledger`, request);
   }
 
   recordRun(appId: string, request: RecordSeedRunRequest): Promise<SeedRunHistoryDto> {
@@ -177,8 +212,13 @@ export class SeederApiClient {
       );
     }
 
+    const dispatcher = await this.resolveDispatcher();
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.options.timeoutMs);
+    const timeoutId = setTimeout(
+      () => controller.abort(new Error(`Seeder request timed out after ${this.options.timeoutMs}ms`)),
+      this.options.timeoutMs,
+    );
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -187,10 +227,14 @@ export class SeederApiClient {
       if (this.bearerToken) headers['Authorization'] = `Bearer ${this.bearerToken}`;
       if (this.apiKey) headers['X-API-Key'] = this.apiKey;
 
-      const init: RequestInit = { method, headers, signal: controller.signal };
+      // Combine the per-request timeout with the run-level cancellation signal so a
+      // graceful shutdown aborts in-flight HTTP instead of waiting out the timeout.
+      const init: RequestInit = { method, headers, signal: combineSignals(controller.signal, this.runSignal) };
       if (body !== undefined || method === 'POST' || method === 'PUT') {
         init.body = body == null ? '{}' : JSON.stringify(body);
       }
+      // `dispatcher` is an undici (Node fetch) extension not present on the DOM RequestInit type.
+      if (dispatcher) (init as { dispatcher?: unknown }).dispatcher = dispatcher;
 
       const url = `${this.baseUrl}/${path.replace(/^\/+/, '')}`;
       const response = await fetch(url, init);
@@ -209,6 +253,56 @@ export class SeederApiClient {
       clearTimeout(timeoutId);
     }
   }
+
+  /**
+   * Lazily build (and memoize) an undici dispatcher that accepts self-signed certs,
+   * but only for a loopback HTTPS base URL and only when not explicitly disabled.
+   * Returns undefined otherwise (normal cert validation). undici is optional: if it
+   * cannot be loaded we warn once and fall back to default validation.
+   */
+  private resolveDispatcher(): Promise<unknown> {
+    if (this.dispatcherPromise) return this.dispatcherPromise;
+    this.dispatcherPromise = (async () => {
+      if (!this.shouldBypassLoopbackTls()) return undefined;
+      try {
+        const undici = await import('undici');
+        return new undici.Agent({ connect: { rejectUnauthorized: false } });
+      } catch (error) {
+        this.logger.warn(
+          'Loopback dev-cert acceptance needs the optional "undici" package; install it ' +
+            'or set NODE_TLS_REJECT_UNAUTHORIZED=0 for local HTTPS seeding.',
+          error,
+        );
+        return undefined;
+      }
+    })();
+    return this.dispatcherPromise;
+  }
+
+  /** True only for an https loopback base URL when allowInsecureLoopback is not false. */
+  private shouldBypassLoopbackTls(): boolean {
+    if (this.options.allowInsecureLoopback === false) return false;
+    let url: URL;
+    try {
+      url = new URL(this.baseUrl);
+    } catch {
+      return false;
+    }
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname;
+    return host === 'localhost' || host === '::1' || host === '[::1]' || host.startsWith('127.');
+  }
+}
+
+/**
+ * Merge the per-request timeout signal with an optional run-level signal. Prefers
+ * AbortSignal.any (Node 20.3+); falls back to whichever is already aborted.
+ */
+function combineSignals(timeout: AbortSignal, run?: AbortSignal): AbortSignal {
+  if (!run) return timeout;
+  const anyFn = (AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }).any;
+  if (typeof anyFn === 'function') return anyFn([timeout, run]);
+  return run.aborted ? run : timeout;
 }
 
 /** Build a {@link SeederApiClient} from raw {@link SeederOptions}. */

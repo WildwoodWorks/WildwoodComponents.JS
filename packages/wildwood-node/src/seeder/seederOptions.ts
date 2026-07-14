@@ -54,6 +54,14 @@ export interface SeederOptions {
   startupDelayMs?: number;
   /** Per-request timeout (ms). Default 300000 (5 min — MCP tool generation can fetch remote specs). */
   timeoutMs?: number;
+  /**
+   * Accept self-signed certs for a loopback HTTPS base URL (e.g. https://localhost:5291)
+   * so seeding works against a local dev backend — mirrors the .NET client's loopback
+   * dev-cert acceptance. Defaults to true for loopback hosts; set false to enforce
+   * certificate validation even on localhost. Never relaxes validation for non-loopback
+   * hosts. Uses the optional `undici` package; a warning is logged if it is unavailable.
+   */
+  allowInsecureLoopback?: boolean;
   /** Fallback for stopOnFirstFailure when no server config row exists yet. Default true. */
   stopOnFirstFailureDefault?: boolean;
   /** Fallback max attempts per task when no server config row exists yet. Default 5. */
@@ -79,6 +87,7 @@ export interface ResolvedSeederOptions {
   stopOnFirstFailureDefault: boolean;
   maxAttemptsDefault: number;
   retryDelaySecondsDefault: number;
+  allowInsecureLoopback?: boolean;
 }
 
 /** Apply defaults + resolve the effective login app id. Mirrors the .NET SeederOptions property defaults. */
@@ -89,7 +98,10 @@ export function resolveSeederOptions(options: SeederOptions): ResolvedSeederOpti
     baseUrl: options.baseUrl,
     appId: options.appId,
     apiKey: options.apiKey,
-    adminEmail: options.adminEmail,
+    // Trim the email so the run-gate (hasCredentials) and the login request agree —
+    // a padded email must not pass the gate then 401 at login. The password is sent
+    // verbatim (it may legitimately contain surrounding characters; matches .NET).
+    adminEmail: options.adminEmail?.trim() || undefined,
     adminPassword: options.adminPassword,
     loginAppId,
     environment,
@@ -101,6 +113,7 @@ export function resolveSeederOptions(options: SeederOptions): ResolvedSeederOpti
     stopOnFirstFailureDefault: options.stopOnFirstFailureDefault ?? true,
     maxAttemptsDefault: options.maxAttemptsDefault ?? 5,
     retryDelaySecondsDefault: options.retryDelaySecondsDefault ?? 20,
+    allowInsecureLoopback: options.allowInsecureLoopback,
   };
 }
 

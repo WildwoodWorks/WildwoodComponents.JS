@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: 'es2022',
-  external: ['@wildwood/core', 'express'],
+  external: ['@wildwood/core', 'express', 'undici'],
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   SeederRunner,
   SeederApiClient,
@@ -25,7 +25,10 @@ const baseOptions = {
 };
 
 /** Minimal fake client that records seeded task keys and never touches the network. */
-function makeFakeClient(overrides: Partial<Record<keyof SeederApiClient, unknown>> = {}) {
+function makeFakeClient(
+  overrides: Partial<Record<keyof SeederApiClient, unknown>> = {},
+  configOverride: Partial<SeederConfigurationDto> = {},
+) {
   const recordedLedger: string[] = [];
   const config: SeederConfigurationDto = {
     id: 'cfg',
@@ -34,6 +37,7 @@ function makeFakeClient(overrides: Partial<Record<keyof SeederApiClient, unknown
     stopOnFirstFailure: true,
     maxAttempts: 1,
     retryDelaySeconds: 0,
+    ...configOverride,
   };
   const client = {
     ensureAuthenticated: vi.fn(async () => {}),
@@ -314,5 +318,134 @@ describe('runSeeder (startup helper)', () => {
   it('does not run when baseUrl is missing', async () => {
     const summary = await runSeeder({ baseUrl: '', appId: 'a', adminEmail: 'e', adminPassword: 'p' }, [], silentLogger);
     expect(summary).toBeNull();
+  });
+});
+
+// ── Review follow-up coverage ──
+
+describe('SeederRunner retries (maxAttempts > 1)', () => {
+  it('retries a transient failure and then succeeds', async () => {
+    const ran: string[] = [];
+    let attempts = 0;
+    // Server config raises maxAttempts to 3 with no retry delay.
+    const { client } = makeFakeClient({}, { maxAttempts: 3, retryDelaySeconds: 0 });
+    const flaky = makeTask('flaky', [], ran, {
+      run: async () => {
+        attempts++;
+        if (attempts === 1) throw new Error('transient');
+        ran.push('flaky');
+        return SeederTaskResult.created('ok on retry');
+      },
+    });
+    const runner = new SeederRunner(client, [flaky], resolveSeederOptions(baseOptions), silentLogger);
+    const summary = await runner.runPending();
+    expect(attempts).toBe(2);
+    expect(ran).toEqual(['flaky']);
+    expect(summary.ran).toBe(1);
+    expect(summary.failed).toBe(0);
+  });
+});
+
+describe('SeederRunner cancellation', () => {
+  it('throws when the run signal is already aborted', async () => {
+    const ran: string[] = [];
+    const { client } = makeFakeClient();
+    const ac = new AbortController();
+    ac.abort();
+    const runner = new SeederRunner(client, [makeTask('t', [], ran)], resolveSeederOptions(baseOptions), silentLogger);
+    await expect(runner.runPending(ac.signal)).rejects.toThrow(/cancel/i);
+    expect(ran).toEqual([]);
+  });
+});
+
+describe('SeederRunner re-entrancy guard', () => {
+  it('ignores a concurrent runPending on the same runner', async () => {
+    const ran: string[] = [];
+    const { client } = makeFakeClient();
+    const runner = new SeederRunner(client, [makeTask('t', [], ran)], resolveSeederOptions(baseOptions), silentLogger);
+    // running is set synchronously at the top of runPending, so the second call
+    // sees the first still in flight.
+    const p1 = runner.runPending();
+    const second = await runner.runPending();
+    expect(second.message).toMatch(/already running/i);
+    const first = await p1;
+    expect(first.ran).toBe(1);
+  });
+});
+
+describe('SeederRunner dry-run', () => {
+  it('runs tasks but records no ledger/history', async () => {
+    const ran: string[] = [];
+    const { client } = makeFakeClient();
+    const runner = new SeederRunner(
+      client,
+      [makeTask('t', [], ran)],
+      resolveSeederOptions({ ...baseOptions, dryRun: true }),
+      silentLogger,
+    );
+    const summary = await runner.runPending();
+    expect(summary.ran).toBe(1);
+    expect(client.recordRun).not.toHaveBeenCalled();
+    expect(client.upsertLedger).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveSeederOptions credentials + loopback', () => {
+  it('trims the admin email so the gate and login agree', () => {
+    expect(resolveSeederOptions({ baseUrl: 'x', appId: 'a', adminEmail: '  e@x.com  ' }).adminEmail).toBe('e@x.com');
+  });
+
+  it('passes allowInsecureLoopback through', () => {
+    expect(resolveSeederOptions({ baseUrl: 'x', appId: 'a', allowInsecureLoopback: false }).allowInsecureLoopback).toBe(
+      false,
+    );
+  });
+});
+
+describe('SeederApiClient network semantics', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('get() throws on an empty response body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 200 })),
+    );
+    const client = createSeederApiClient(baseOptions, silentLogger);
+    await expect(client.get('api/app-tiers/app-1')).rejects.toThrow(/empty response body/i);
+  });
+
+  it('getOrDefault() resolves undefined on 404', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('not found', { status: 404 })),
+    );
+    const client = createSeederApiClient(baseOptions, silentLogger);
+    await expect(client.getOrDefault('api/app-tiers/app-1')).resolves.toBeUndefined();
+  });
+
+  it('postVoid() tolerates an empty response body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    );
+    const client = createSeederApiClient(baseOptions, silentLogger);
+    await expect(client.postVoid('api/app-tiers/subscribe', { a: 1 })).resolves.toBeUndefined();
+  });
+
+  it('links the run signal into fetch so an aborted run cancels requests', async () => {
+    let seenSignal: AbortSignal | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        seenSignal = init.signal ?? undefined;
+        return new Response('{}', { status: 200 });
+      }),
+    );
+    const ac = new AbortController();
+    const client = createSeederApiClient(baseOptions, silentLogger);
+    client.useSignal(ac.signal);
+    ac.abort();
+    await client.getOrDefault('api/app-tiers/app-1');
+    expect(seenSignal?.aborted).toBe(true);
   });
 });
