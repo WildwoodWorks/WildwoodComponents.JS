@@ -449,3 +449,101 @@ describe('SeederApiClient network semantics', () => {
     expect(seenSignal?.aborted).toBe(true);
   });
 });
+
+describe('SeederRunner ported fix semantics (.NET parity)', () => {
+  const resolved = () => resolveSeederOptions(baseOptions);
+
+  it('a Skipped result records nothing and counts as skipped in the summary', async () => {
+    const { client, recordedLedger } = makeFakeClient();
+    const task = makeTask('t.skip', [], [], {
+      run: async () => SeederTaskResult.skipped('not configured yet'),
+    });
+    const runner = new SeederRunner(client as SeederApiClient, [task], resolved(), silentLogger);
+
+    const summary = await runner.runPending();
+
+    expect((client as unknown as { recordRun: ReturnType<typeof vi.fn> }).recordRun).not.toHaveBeenCalled();
+    expect(recordedLedger).toEqual([]); // Success@version here would suppress the task forever
+    expect(summary.ran).toBe(0);
+    expect(summary.skipped).toBe(1); // "1 run" would mask an unseeded env
+  });
+
+  it('a transient server config (empty id) does not override the option defaults', async () => {
+    // stopOnFirstFailureDefault is false; the transient default DTO carries true. Fast retry
+    // knobs, because a transient config means the OPTION defaults govern the retry loop.
+    const { client } = makeFakeClient({}, { id: '', stopOnFirstFailure: true });
+    const ran: string[] = [];
+    const failing = makeTask('a.fails', [], ran, { run: async () => SeederTaskResult.failed('boom') });
+    const dependent = makeTask('b.runs', [], ran);
+    const runner = new SeederRunner(
+      client as SeederApiClient,
+      [failing, dependent],
+      resolveSeederOptions({ ...baseOptions, maxAttemptsDefault: 1, retryDelaySecondsDefault: 0 }),
+      silentLogger,
+    );
+
+    await runner.runPending();
+
+    expect(ran).toContain('b.runs'); // failure isolation preserved on fresh apps
+  });
+
+  it('a persisted server config (real id) still overrides', async () => {
+    const { client } = makeFakeClient({}, { id: 'cfg-1', stopOnFirstFailure: true });
+    const ran: string[] = [];
+    const failing = makeTask('a.fails', [], ran, { run: async () => SeederTaskResult.failed('boom') });
+    const dependent = makeTask('b.blocked', [], ran);
+    const runner = new SeederRunner(client as SeederApiClient, [failing, dependent], resolved(), silentLogger);
+
+    await runner.runPending();
+
+    expect(ran).not.toContain('b.blocked'); // an operator-persisted row is authoritative
+  });
+
+  it('a config fetch failure fails closed and runs nothing', async () => {
+    const { client } = makeFakeClient({
+      getSeederConfiguration: vi.fn(async () => {
+        throw new Error('config 500');
+      }),
+    });
+    const ran: string[] = [];
+    const task = makeTask('t.blocked', [], ran);
+    const runner = new SeederRunner(client as SeederApiClient, [task], resolved(), silentLogger);
+
+    const summary = await runner.runPending();
+
+    expect(ran).toEqual([]); // the kill-switch state is unknown — do not assume "enabled"
+    expect(summary.ran).toBe(0);
+  });
+
+  it('dry-run makes no server calls at all', async () => {
+    const { client } = makeFakeClient();
+    const task = makeTask('t.dry', [], [], {
+      run: async (ctx) => SeederTaskResult.skipped(`dry-run: ${ctx.dryRun}`),
+    });
+    const runner = new SeederRunner(
+      client as SeederApiClient,
+      [task],
+      resolveSeederOptions({ ...baseOptions, dryRun: true }),
+      silentLogger,
+    );
+
+    await runner.runPending();
+
+    const mocked = client as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    expect(mocked.ensureAuthenticated).not.toHaveBeenCalled(); // a login is a real server-side side effect
+    expect(mocked.getSeederConfiguration).not.toHaveBeenCalled();
+    expect(mocked.getLedger).not.toHaveBeenCalled();
+  });
+
+  it('a pre-issued bearerToken counts as credentials and skips the login', async () => {
+    expect(hasCredentials(resolveSeederOptions({ baseUrl: 'x', appId: 'a', bearerToken: 'jwt' }))).toBe(true);
+    expect(hasCredentials(resolveSeederOptions({ baseUrl: 'x', appId: 'a', adminEmail: 'e' }))).toBe(false);
+
+    const client = createSeederApiClient(
+      { baseUrl: 'https://api.example.com', appId: 'app-1', bearerToken: 'pre-issued-jwt' },
+      silentLogger,
+    );
+    await client.ensureAuthenticated(); // must not attempt a network login
+    expect(client.token).toBe('pre-issued-jwt');
+  });
+});

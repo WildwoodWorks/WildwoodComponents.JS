@@ -94,6 +94,14 @@ export class SeederApiClient {
   /** Ensures the client is authenticated (logs in on first call using the configured credentials). */
   async ensureAuthenticated(): Promise<void> {
     if (this.authenticated) return;
+    // A pre-issued token wins over the login flow (parity with the .NET client; the token
+    // expires and cannot be refreshed here).
+    if (this.options.bearerToken) {
+      this.bearerToken = this.options.bearerToken;
+      this.authenticated = true;
+      this.logger.info('Seeder using the pre-issued bearer token (no login).');
+      return;
+    }
     // Coalesce concurrent callers onto a single in-flight login.
     if (this.loginInFlight) return this.loginInFlight;
     this.loginInFlight = this.login();

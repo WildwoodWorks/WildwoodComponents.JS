@@ -64,34 +64,57 @@ export class SeederRunner {
       return { ran: 0, skipped: 0, failed: 0, message: 'No seed tasks registered.' };
     }
 
-    await this.client.ensureAuthenticated();
-
-    // Server config (enable kill-switch + run knobs); fall back to option defaults if absent.
     let stopOnFirstFailure = this.options.stopOnFirstFailureDefault;
     let maxAttempts = Math.max(1, this.options.maxAttemptsDefault);
     let retryDelaySeconds = Math.max(0, this.options.retryDelaySecondsDefault);
-    try {
-      const config = await this.client.getSeederConfiguration(this.options.appId);
-      if (config && config.enabled === false) {
-        this.logger.info(`Seeder is disabled for app ${this.options.appId} (server config). Skipping.`);
-        return { ran: 0, skipped: ordered.length, failed: 0, message: 'Seeder disabled via admin configuration.' };
-      }
-      if (config) {
-        stopOnFirstFailure = config.stopOnFirstFailure;
-        maxAttempts = Math.max(1, config.maxAttempts);
-        retryDelaySeconds = Math.max(0, config.retryDelaySeconds);
-      }
-    } catch (error) {
-      this.logger.warn('Could not load seeder configuration; using option defaults.', error);
-    }
-
-    // Ledger keyed by task key for this environment.
     const ledger = new Map<string, SeedTaskLedgerDto>();
-    try {
-      const rows = await this.client.getLedger(this.options.appId, this.options.environment);
-      for (const row of rows ?? []) ledger.set(row.taskKey, row);
-    } catch (error) {
-      this.logger.warn('Could not load seed ledger; treating all tasks as pending.', error);
+
+    if (this.options.dryRun) {
+      // A dry-run touches the server not at all — no login (a real auth side effect: audit
+      // rows, LastLoginAt), no config/ledger reads. All tasks are treated as pending; their
+      // own dry-run guards keep them from writing.
+      this.logger.info('Dry-run: skipping authentication and server reads; treating all tasks as pending.');
+    } else {
+      await this.client.ensureAuthenticated();
+
+      // Server config (enable kill-switch + run knobs); only a PERSISTED row overrides the
+      // app's option defaults.
+      try {
+        const config = await this.client.getSeederConfiguration(this.options.appId);
+        if (config && config.enabled === false) {
+          this.logger.info(`Seeder is disabled for app ${this.options.appId} (server config). Skipping.`);
+          return { ran: 0, skipped: ordered.length, failed: 0, message: 'Seeder disabled via admin configuration.' };
+        }
+        // The server returns a TRANSIENT default DTO (empty id) when no row has been persisted
+        // yet — its knob values are the server's defaults, not an operator's choice.
+        if (config && config.id) {
+          stopOnFirstFailure = config.stopOnFirstFailure;
+          maxAttempts = Math.max(1, config.maxAttempts);
+          retryDelaySeconds = Math.max(0, config.retryDelaySeconds);
+        } else {
+          this.logger.debug?.(
+            `No persisted seeder configuration for app ${this.options.appId}; using option defaults.`,
+          );
+        }
+      } catch (error) {
+        // Fail CLOSED: the enabled kill-switch lives in this config, so an unreadable config
+        // must not be treated as "enabled". Seeding is idempotent and retried next startup.
+        this.logger.warn('Could not load seeder configuration; skipping this run (kill-switch state unknown).', error);
+        return {
+          ran: 0,
+          skipped: ordered.length,
+          failed: 0,
+          message: 'Seeder configuration unavailable; run skipped.',
+        };
+      }
+
+      // Ledger keyed by task key for this environment.
+      try {
+        const rows = await this.client.getLedger(this.options.appId, this.options.environment);
+        for (const row of rows ?? []) ledger.set(row.taskKey, row);
+      } catch (error) {
+        this.logger.warn('Could not load seed ledger; treating all tasks as pending.', error);
+      }
     }
 
     const correlationId = randomUUID().replace(/-/g, '');
@@ -125,6 +148,11 @@ export class SeederRunner {
           this.logger.error(`Aborting seeding: task '${task.key}' failed and stopOnFirstFailure is set.`);
           break;
         }
+      } else if (result.status === 'Skipped') {
+        // Ran but declined to do work (dry-run, missing prerequisites) — counting it as "run"
+        // would make an entirely-unseeded pass look healthy in the summary.
+        skipped++;
+        this.logger.info(`Seed task '${task.key}' -> Skipped: ${result.message}`);
       } else {
         ran++;
         this.logger.info(`Seed task '${task.key}' -> ${result.status}: ${result.message}`);
@@ -202,6 +230,14 @@ export class SeederRunner {
     // them would only trip the client's write guard and log misleading warnings.
     if (this.options.dryRun) {
       this.logger.debug?.(`[dry-run] not recording ledger/history for task '${task.key}'.`);
+      return;
+    }
+
+    // A Skipped result means the task's work was NOT performed (missing prerequisites, ...).
+    // Recording nothing keeps the ledger honest (Success@version would suppress the task
+    // forever) AND avoids an append-only history row per startup from a perpetual skip; the
+    // task simply runs again next boot once it can do real work.
+    if (result.status === 'Skipped') {
       return;
     }
 
