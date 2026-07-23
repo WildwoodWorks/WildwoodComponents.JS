@@ -40,6 +40,14 @@ export interface SeederOptions {
   adminEmail?: string;
   /** CompanyAdmin service-account password. */
   adminPassword?: string;
+  /**
+   * Pre-issued admin JWT used INSTEAD of the email/password login when set (it expires — the
+   * seeder cannot refresh it). Lets token-only environments seed without service-account creds.
+   * Mirrors the .NET SeederOptions.BearerToken. (.NET also has PrimaryHandlerFactory for custom
+   * outbound transports; Node needs no analog — undici's autoSelectFamily happy-eyeballs covers
+   * the IPv4-preference case natively.)
+   */
+  bearerToken?: string;
   /** AppId used for the login call (defaults to {@link appId}). */
   loginAppId?: string;
   /** Environment label recorded in the ledger/history (e.g. "Dev", "Production"). Defaults to "Default". */
@@ -62,7 +70,8 @@ export interface SeederOptions {
    * hosts. Uses the optional `undici` package; a warning is logged if it is unavailable.
    */
   allowInsecureLoopback?: boolean;
-  /** Fallback for stopOnFirstFailure when no server config row exists yet. Default true. */
+  /** Fallback for stopOnFirstFailure when no server config row exists yet. Default false —
+   * one failed task must not silently dark the independent rest. */
   stopOnFirstFailureDefault?: boolean;
   /** Fallback max attempts per task when no server config row exists yet. Default 5. */
   maxAttemptsDefault?: number;
@@ -77,6 +86,7 @@ export interface ResolvedSeederOptions {
   apiKey?: string;
   adminEmail?: string;
   adminPassword?: string;
+  bearerToken?: string;
   loginAppId: string;
   environment: string;
   runOnStartup: boolean;
@@ -103,6 +113,7 @@ export function resolveSeederOptions(options: SeederOptions): ResolvedSeederOpti
     // verbatim (it may legitimately contain surrounding characters; matches .NET).
     adminEmail: options.adminEmail?.trim() || undefined,
     adminPassword: options.adminPassword,
+    bearerToken: options.bearerToken?.trim() || undefined,
     loginAppId,
     environment,
     runOnStartup: options.runOnStartup ?? true,
@@ -110,14 +121,17 @@ export function resolveSeederOptions(options: SeederOptions): ResolvedSeederOpti
     resourcesPath: options.resourcesPath ?? '',
     startupDelayMs: options.startupDelayMs ?? 3000,
     timeoutMs: options.timeoutMs ?? 300000,
-    stopOnFirstFailureDefault: options.stopOnFirstFailureDefault ?? true,
+    stopOnFirstFailureDefault: options.stopOnFirstFailureDefault ?? false,
     maxAttemptsDefault: options.maxAttemptsDefault ?? 5,
     retryDelaySecondsDefault: options.retryDelaySecondsDefault ?? 20,
     allowInsecureLoopback: options.allowInsecureLoopback,
   };
 }
 
-/** True when both admin credentials are present. Mirrors the .NET SeederOptions.HasCredentials. */
-export function hasCredentials(options: Pick<ResolvedSeederOptions, 'adminEmail' | 'adminPassword'>): boolean {
-  return !!options.adminEmail?.trim() && !!options.adminPassword?.trim();
+/** True when a pre-issued bearer token OR both admin credentials are present.
+ * Mirrors the .NET SeederOptions.HasCredentials. */
+export function hasCredentials(
+  options: Pick<ResolvedSeederOptions, 'adminEmail' | 'adminPassword' | 'bearerToken'>,
+): boolean {
+  return !!options.bearerToken?.trim() || (!!options.adminEmail?.trim() && !!options.adminPassword?.trim());
 }
