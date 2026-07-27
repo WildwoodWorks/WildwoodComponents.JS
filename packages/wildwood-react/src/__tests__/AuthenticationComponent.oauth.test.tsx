@@ -42,4 +42,35 @@ describe('AuthenticationComponent OAuth', () => {
     expect(screen.queryByText(/or$/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Google/i })).toBeNull();
   });
+
+  it('renders buttonText verbatim as the provider label when configured', async () => {
+    const client = createTestClient();
+    client.auth.getAuthenticationConfiguration = vi.fn().mockResolvedValue(null);
+    client.auth.getCaptchaConfiguration = vi.fn().mockResolvedValue(null);
+    client.auth.getAvailableProviders = vi
+      .fn()
+      .mockResolvedValue([{ ...googleProvider, buttonText: 'Continue with Google' }]);
+
+    render(<AuthenticationComponent appId="test-app-id" />, { wrapper: createWrapper(client) });
+
+    expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sign in with Google' })).toBeNull();
+  });
+
+  it('falls back to "Sign in with {displayName}" without doubling an existing prefix', async () => {
+    const client = createTestClient();
+    client.auth.getAuthenticationConfiguration = vi.fn().mockResolvedValue(null);
+    client.auth.getCaptchaConfiguration = vi.fn().mockResolvedValue(null);
+    client.auth.getAvailableProviders = vi.fn().mockResolvedValue([
+      googleProvider,
+      // Some existing configs store the full label in displayName already.
+      { name: 'Okta', displayName: 'Sign in using Okta', icon: '', isEnabled: true },
+    ]);
+
+    render(<AuthenticationComponent appId="test-app-id" />, { wrapper: createWrapper(client) });
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Google' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Sign in using Okta' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Sign in with Sign in/i })).toBeNull();
+  });
 });
