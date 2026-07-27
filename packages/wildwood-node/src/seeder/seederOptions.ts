@@ -26,19 +26,31 @@ export const consoleSeederLogger: SeederLogger = {
 
 /**
  * Configuration for the seeder runner. Supplied by the consuming server app.
- * The seeder authenticates to WildwoodAPI as a CompanyAdmin service account to
- * seed data and record the ledger/history.
+ * The seeder authenticates to WildwoodAPI with the app's X-API-Key ({@link apiKey},
+ * mint it with the tiers:manage scope); the CompanyAdmin email/password login and
+ * pre-issued bearer token remain as deprecated fallbacks.
  */
 export interface SeederOptions {
   /** WildwoodAPI base URL, e.g. https://api.wildwoodworks.io. Determines which environment's backend is seeded. */
   baseUrl: string;
   /** The app id being seeded. */
   appId: string;
-  /** Optional X-API-Key sent with requests (only a few admin routes require it). */
+  /**
+   * App-scoped X-API-Key — the seeder's PRIMARY credential, sent with every request.
+   * Mint it with the tiers:manage scope; an unscoped key still seeds everything else
+   * while the tier-catalog tasks skip. When set, no user login is performed and the
+   * deprecated adminEmail/adminPassword are ignored.
+   */
   apiKey?: string;
-  /** CompanyAdmin service-account email/username used to log in. */
+  /**
+   * @deprecated Ignored when {@link apiKey} is set; removal in a future major.
+   * CompanyAdmin service-account email/username for the fallback login.
+   */
   adminEmail?: string;
-  /** CompanyAdmin service-account password. */
+  /**
+   * @deprecated Ignored when {@link apiKey} is set; removal in a future major.
+   * CompanyAdmin service-account password for the fallback login.
+   */
   adminPassword?: string;
   /**
    * Pre-issued admin JWT used INSTEAD of the email/password login when set (it expires — the

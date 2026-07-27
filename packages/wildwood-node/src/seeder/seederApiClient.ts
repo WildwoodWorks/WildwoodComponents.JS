@@ -1,8 +1,8 @@
 // Typed HTTP client over the WildwoodAPI surface used by seed tasks to
 // create/reconcile resources and by the runner to read/write the seed ledger and
 // history. Server-side port of WildwoodComponents.Shared/Seeder/SeederApiClient.cs.
-// Bearer auth after login, optional X-API-Key, camelCase JSON, and a dry-run
-// write guard. Uses global fetch (Node 20+), matching AdminClient.
+// X-API-Key-first auth (bearer login is the deprecated fallback), camelCase JSON,
+// and a dry-run write guard. Uses global fetch (Node 20+), matching AdminClient.
 
 import {
   resolveSeederOptions,
@@ -66,7 +66,11 @@ export class SeederApiClient {
   private runSignal?: AbortSignal;
   private dispatcherPromise?: Promise<unknown>;
 
-  /** Optional X-API-Key sent with every request. */
+  /**
+   * App-scoped X-API-Key sent with every request — the seeder's PRIMARY credential
+   * (mint it with the tiers:manage scope). Assignable post-construction; a non-blank
+   * value activates api-key auth mode in {@link ensureAuthenticated}.
+   */
   apiKey?: string;
 
   constructor(options: ResolvedSeederOptions, logger: SeederLogger = consoleSeederLogger) {
@@ -102,6 +106,19 @@ export class SeederApiClient {
       this.logger.info('Seeder using the pre-issued bearer token (no login).');
       return;
     }
+    // The app-scoped X-API-Key is the primary credential — no user login happens in
+    // this mode; the key already rides every request as the X-API-Key header.
+    if (this.apiKey?.trim()) {
+      if (this.options.adminEmail || this.options.adminPassword?.trim()) {
+        this.logger.warn(
+          'Seeder adminEmail/adminPassword are deprecated and ignored because apiKey is set. ' +
+            'Remove them; mint the X-API-Key with the tiers:manage scope instead.',
+        );
+      }
+      this.authenticated = true;
+      this.logger.info('Seeder authenticating via X-API-Key (app-scoped; no user login).');
+      return;
+    }
     // Coalesce concurrent callers onto a single in-flight login.
     if (this.loginInFlight) return this.loginInFlight;
     this.loginInFlight = this.login();
@@ -116,16 +133,25 @@ export class SeederApiClient {
     if (this.authenticated) return;
     if (!this.options.adminEmail || !this.options.adminPassword) {
       throw new Error(
-        'Seeder has no admin credentials. Set adminEmail and adminPassword ' +
-          '(a CompanyAdmin service account without 2FA).',
+        "Seeder has no credentials. Set apiKey to the app's X-API-Key — mint it with the " +
+          'tiers:manage scope so the tier-catalog tasks can manage the catalog. (Deprecated ' +
+          'fallback: adminEmail + adminPassword for a CompanyAdmin service account without 2FA, ' +
+          'or a pre-issued bearerToken.)',
       );
     }
+    this.logger.warn(
+      'Seeder email/password login is deprecated: mint the app X-API-Key with the tiers:manage ' +
+        'scope and set apiKey instead. Credential login will be removed in a future major.',
+    );
 
     const body = {
       Username: this.options.adminEmail,
       Email: this.options.adminEmail,
       Password: this.options.adminPassword,
       AppId: this.options.loginAppId,
+      // Attributes the session as a server login on the API's audit trail instead of
+      // "Unknown platform" (parity with .NET SeederLoginRequest.Platform).
+      Platform: 'server',
     };
     const login = await this.request<SeederLoginResponse>('POST', 'api/auth/login', body, { isLogin: true });
 
