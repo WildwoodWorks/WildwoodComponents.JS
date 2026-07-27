@@ -75,7 +75,23 @@ export class SeederRunner {
       // own dry-run guards keep them from writing.
       this.logger.info('Dry-run: skipping authentication and server reads; treating all tasks as pending.');
     } else {
-      await this.client.ensureAuthenticated();
+      // Auth gate with bounded retries — the backend may still be coming up when the
+      // host boots. Knobs are the OPTION defaults on purpose: the server config can
+      // only be fetched after this gate succeeds.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await this.client.ensureAuthenticated();
+          break;
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          if (attempt >= maxAttempts) throw error;
+          this.logger.warn(
+            `Seeder authentication attempt ${attempt}/${maxAttempts} failed; retrying in ${retryDelaySeconds}s.`,
+            error,
+          );
+          await delay(retryDelaySeconds * 1000, signal);
+        }
+      }
 
       // Server config (enable kill-switch + run knobs); only a PERSISTED row overrides the
       // app's option defaults.
@@ -120,12 +136,32 @@ export class SeederRunner {
     const correlationId = randomUUID().replace(/-/g, '');
     // One run-scoped state bag shared by every task's context.
     const sharedState = new Map<string, unknown>();
+    // Keys that failed (or were skipped because a dependency failed) THIS run — their
+    // dependents must not run against half-seeded prerequisites.
+    const failedKeys = new Set<string>();
     let ran = 0;
     let skipped = 0;
     let failed = 0;
 
     for (const task of ordered) {
       if (signal?.aborted) throw new Error('Seeding cancelled.');
+
+      // Gate BEFORE the ledger check: even an already-seeded dependent poisons its own
+      // dependents when a dependency failed this run. Nothing is recorded for a gated
+      // task — it is indistinguishable from never having run and retries next boot.
+      let failedDep: string | undefined;
+      for (const dep of task.dependsOn) {
+        if (failedKeys.has(dep)) {
+          failedDep = dep;
+          break;
+        }
+      }
+      if (failedDep !== undefined) {
+        skipped++;
+        failedKeys.add(task.key); // transitive: this task's own dependents skip too
+        this.logger.warn(`Seed task '${task.key}' skipped: dependency '${failedDep}' failed this run.`);
+        continue;
+      }
 
       if (!this.shouldRun(task, ledger)) {
         skipped++;
@@ -139,10 +175,12 @@ export class SeederRunner {
         retryDelaySeconds,
         correlationId,
         sharedState,
+        ledger.get(task.key),
         signal,
       );
       if (result.status === 'Failed') {
         failed++;
+        failedKeys.add(task.key);
         this.logger.error(`Seed task '${task.key}' failed: ${result.message}`);
         if (stopOnFirstFailure) {
           this.logger.error(`Aborting seeding: task '${task.key}' failed and stopOnFirstFailure is set.`);
@@ -178,6 +216,7 @@ export class SeederRunner {
     retryDelaySeconds: number,
     correlationId: string,
     sharedState: Map<string, unknown>,
+    priorLedger: SeedTaskLedgerDto | undefined,
     signal?: AbortSignal,
   ): Promise<{ result: SeederTaskResult; error?: unknown }> {
     const startedAt = new Date().toISOString();
@@ -215,7 +254,7 @@ export class SeederRunner {
     }
 
     const completedAt = new Date().toISOString();
-    await this.record(task, result, startedAt, completedAt, correlationId);
+    await this.record(task, result, startedAt, completedAt, correlationId, priorLedger);
     return { result, error: lastError };
   }
 
@@ -225,6 +264,7 @@ export class SeederRunner {
     startedAt: string,
     completedAt: string,
     correlationId: string,
+    priorLedger: SeedTaskLedgerDto | undefined,
   ): Promise<void> {
     // Dry-run performs no writes at all, including the ledger/history — attempting
     // them would only trip the client's write guard and log misleading warnings.
@@ -238,6 +278,19 @@ export class SeederRunner {
     // forever) AND avoids an append-only history row per startup from a perpetual skip; the
     // task simply runs again next boot once it can do real work.
     if (result.status === 'Skipped') {
+      return;
+    }
+
+    // One history row per failure streak: a task still failing at the same version on
+    // every boot must not grow append-only history or churn the ledger row. Any status
+    // change or version change records normally.
+    if (
+      result.status === 'Failed' &&
+      priorLedger &&
+      priorLedger.installedVersion === task.version &&
+      priorLedger.status?.toLowerCase() === 'failed'
+    ) {
+      this.logger.debug?.(`Seed task '${task.key}' still failing at v${task.version}; not re-recording.`);
       return;
     }
 
@@ -347,14 +400,15 @@ export function createSeederRunner(
 
 /**
  * Best-effort startup seeding — the Node analog of the .NET SeederRunnerService
- * BackgroundService. Honors `runOnStartup`, requires baseUrl/appId/credentials,
- * waits `startupDelayMs`, then runs. Never throws: a WildwoodAPI outage or a
- * failing task leaves data unseeded until the next start rather than crashing the
- * host. Returns the run summary, or null when it did not run.
+ * BackgroundService. Honors `runOnStartup`, requires baseUrl/appId and an apiKey
+ * (or the deprecated credential fallbacks), waits `startupDelayMs`, then runs.
+ * Never throws: a WildwoodAPI outage or a failing task leaves data unseeded until
+ * the next start rather than crashing the host. Returns the run summary, or null
+ * when it did not run.
  *
  * Call it (without awaiting, or fire-and-forget) from your server's bootstrap:
  * ```ts
- * void runSeeder({ baseUrl, appId, adminEmail, adminPassword }, [new MyTask()]);
+ * void runSeeder({ baseUrl, appId, apiKey }, [new MyTask()]);
  * ```
  */
 export async function runSeeder(
@@ -374,8 +428,13 @@ export async function runSeeder(
     logger.warn('Seeder not configured (baseUrl/appId missing); skipping.');
     return null;
   }
-  if (!hasCredentials(resolved)) {
-    logger.warn('Seeder has no admin credentials; skipping automatic seeding.');
+  // The app's X-API-Key gates the run (primary path — no user login). Admin
+  // credentials / a pre-issued bearer token remain as the deprecated fallback.
+  if (!resolved.apiKey?.trim() && !hasCredentials(resolved)) {
+    logger.warn(
+      'Seeder has no API key (and no deprecated admin credentials/bearerToken); skipping automatic ' +
+        'seeding. Set apiKey to a key minted with the tiers:manage scope.',
+    );
     return null;
   }
 

@@ -108,7 +108,7 @@ const apps = await admin.getApps();
 Idempotent app-data seeding that runs at server startup. Define seed tasks
 (each a stable-keyed, versioned, idempotent unit — AI flows, tiers, provider
 wiring, ...); the runner topologically orders them by their `dependsOn` edges,
-authenticates to WildwoodAPI as a CompanyAdmin service account, consults the
+authenticates to WildwoodAPI with the app's X-API-Key, consults the
 server-side ledger to skip already-seeded tasks, runs the rest with bounded
 retries, and records ledger + history. It is the server-side counterpart of the
 .NET `WildwoodComponents.Shared/Seeder` component (there is no browser/mobile
@@ -142,8 +142,7 @@ void runSeeder(
   {
     baseUrl: process.env.WILDWOOD_API_URL!,
     appId: process.env.WILDWOOD_APP_ID!,
-    adminEmail: process.env.WILDWOOD_SEEDER_EMAIL, // CompanyAdmin service account (no 2FA)
-    adminPassword: process.env.WILDWOOD_SEEDER_PASSWORD,
+    apiKey: process.env.WILDWOOD_SEEDER_API_KEY, // app X-API-Key, minted with the tiers:manage scope
     environment: process.env.NODE_ENV === 'production' ? 'Production' : 'Dev',
   },
   [seedTiers],
@@ -157,6 +156,19 @@ configuration; a local `runOnStartup: false` hard-gates it without a round trip.
 
 Notes:
 
+- **Authentication:** the app's **X-API-Key** (`apiKey`) is the primary
+  credential — no user login is performed. Mint the key with the
+  `tiers:manage` scope so the tier-catalog tasks can manage the catalog (an
+  unscoped key seeds everything else; tier tasks then 403 and retry next boot).
+  `adminEmail`/`adminPassword` (CompanyAdmin login) and a pre-issued
+  `bearerToken` remain as deprecated fallbacks; a pre-issued token takes
+  precedence over the key when both are set.
+- **Failed dependencies:** a task whose `dependsOn` dependency failed this run
+  is skipped (transitively) and left unrecorded, so it retries on the next boot
+  once the dependency succeeds.
+- **Failure-record bounding:** a task that keeps failing at the same version
+  writes one history row per failure streak — it still re-runs each boot, but
+  repeat failures are not re-recorded until the status or version changes.
 - **Local HTTPS dev backends:** for a loopback `baseUrl` (`https://localhost:…`)
   the client accepts a self-signed cert by default (via the optional `undici`
   package), matching the .NET seeder. Set `allowInsecureLoopback: false` to

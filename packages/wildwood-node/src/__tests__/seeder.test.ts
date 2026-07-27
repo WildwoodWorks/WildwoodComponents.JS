@@ -158,9 +158,9 @@ describe('SeederApiClient', () => {
     expect(createSeederApiClient(baseOptions)).toBeInstanceOf(SeederApiClient);
   });
 
-  it('ensureAuthenticated throws without credentials', async () => {
+  it('ensureAuthenticated throws without credentials, pointing at apiKey first', async () => {
     const client = createSeederApiClient({ baseUrl: 'x', appId: 'a' }, silentLogger);
-    await expect(client.ensureAuthenticated()).rejects.toThrow(/no admin credentials/i);
+    await expect(client.ensureAuthenticated()).rejects.toThrow(/no credentials.*apiKey/i);
   });
 
   it('blocks writes during dry-run before hitting the network', async () => {
@@ -545,5 +545,228 @@ describe('SeederRunner ported fix semantics (.NET parity)', () => {
     );
     await client.ensureAuthenticated(); // must not attempt a network login
     expect(client.token).toBe('pre-issued-jwt');
+  });
+});
+
+// ── Round-3 semantics (.NET PR #12) + API-key-first auth (.NET PR #13) ──
+
+describe('SeederRunner auth gate retries (.NET round 3)', () => {
+  it('retries a failing auth gate with the option-default knobs, then proceeds', async () => {
+    const ran: string[] = [];
+    let calls = 0;
+    const { client } = makeFakeClient({
+      ensureAuthenticated: vi.fn(async () => {
+        calls++;
+        if (calls < 3) throw new Error('backend still starting');
+      }),
+    });
+    const runner = new SeederRunner(
+      client,
+      [makeTask('t', [], ran)],
+      resolveSeederOptions({ ...baseOptions, maxAttemptsDefault: 3, retryDelaySecondsDefault: 0 }),
+      silentLogger,
+    );
+    const summary = await runner.runPending();
+    expect(calls).toBe(3);
+    expect(summary.ran).toBe(1);
+  });
+
+  it('surfaces the auth failure after maxAttempts total attempts', async () => {
+    const { client } = makeFakeClient({
+      ensureAuthenticated: vi.fn(async () => {
+        throw new Error('login 401');
+      }),
+    });
+    const runner = new SeederRunner(
+      client,
+      [makeTask('t', [], [])],
+      resolveSeederOptions({ ...baseOptions, maxAttemptsDefault: 2, retryDelaySecondsDefault: 0 }),
+      silentLogger,
+    );
+    await expect(runner.runPending()).rejects.toThrow(/login 401/);
+    expect(client.ensureAuthenticated).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SeederRunner dependency gating (.NET round 3)', () => {
+  it('skips dependents of a task that failed this run, transitively, recording nothing for them', async () => {
+    const ran: string[] = [];
+    const { client, recordedLedger } = makeFakeClient({}, { stopOnFirstFailure: false });
+    const tasks = [
+      makeTask('a.fails', [], ran, { run: async () => SeederTaskResult.failed('boom') }),
+      makeTask('b.dependent', ['a.fails'], ran),
+      makeTask('c.transitive', ['b.dependent'], ran),
+      makeTask('d.independent', [], ran),
+    ];
+    const runner = new SeederRunner(client, tasks, resolveSeederOptions(baseOptions), silentLogger);
+    const summary = await runner.runPending();
+    expect(ran).toEqual(['d.independent']); // dependents never ran against a half-seeded prerequisite
+    expect(summary).toMatchObject({ ran: 1, skipped: 2, failed: 1 });
+    // Gated tasks leave no ledger/history rows — they retry next boot once the dep succeeds.
+    expect(recordedLedger).toEqual(['a.fails', 'd.independent']);
+    expect(client.recordRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('an already-seeded dependent still poisons its own dependents (gate runs before the ledger check)', async () => {
+    const ran: string[] = [];
+    const seededRow: SeedTaskLedgerDto = {
+      id: 'l1',
+      appId: 'app-1',
+      environment: 'Default',
+      taskKey: 'b.seeded',
+      taskName: 'b.seeded',
+      note: '',
+      installedVersion: 1,
+      status: 'Success',
+      lastRunAt: '2026-07-13T00:00:00Z',
+    };
+    const { client } = makeFakeClient({ getLedger: vi.fn(async () => [seededRow]) }, { stopOnFirstFailure: false });
+    const tasks = [
+      makeTask('a.fails', [], ran, { run: async () => SeederTaskResult.failed('boom') }),
+      makeTask('b.seeded', ['a.fails'], ran, { version: 1 }),
+      makeTask('c.child', ['b.seeded'], ran),
+    ];
+    const runner = new SeederRunner(client, tasks, resolveSeederOptions(baseOptions), silentLogger);
+    const summary = await runner.runPending();
+    expect(ran).toEqual([]);
+    expect(summary).toMatchObject({ ran: 0, skipped: 2, failed: 1 });
+  });
+});
+
+describe('SeederRunner failure-record bounding (.NET round 3)', () => {
+  const failedRow = (version: number): SeedTaskLedgerDto => ({
+    id: 'l1',
+    appId: 'app-1',
+    environment: 'Default',
+    taskKey: 't.fails',
+    taskName: 't.fails',
+    note: '',
+    installedVersion: version,
+    status: 'Failed',
+    lastRunAt: '2026-07-13T00:00:00Z',
+  });
+
+  it('does not re-record a task still failing at the same version (one history row per streak)', async () => {
+    const { client, recordedLedger } = makeFakeClient(
+      { getLedger: vi.fn(async () => [failedRow(1)]) },
+      { stopOnFirstFailure: false },
+    );
+    const task = makeTask('t.fails', [], [], { run: async () => SeederTaskResult.failed('still boom') });
+    const runner = new SeederRunner(client, [task], resolveSeederOptions(baseOptions), silentLogger);
+    const summary = await runner.runPending();
+    expect(summary.failed).toBe(1); // the task still RAN — only the recording is suppressed
+    expect(client.recordRun).not.toHaveBeenCalled();
+    expect(recordedLedger).toEqual([]);
+  });
+
+  it('a version change defeats the dedupe and records a fresh failure', async () => {
+    const { client, recordedLedger } = makeFakeClient(
+      { getLedger: vi.fn(async () => [failedRow(1)]) },
+      { stopOnFirstFailure: false },
+    );
+    const task = makeTask('t.fails', [], [], {
+      version: 2,
+      run: async () => SeederTaskResult.failed('boom at v2'),
+    });
+    const runner = new SeederRunner(client, [task], resolveSeederOptions(baseOptions), silentLogger);
+    await runner.runPending();
+    expect(client.recordRun).toHaveBeenCalledTimes(1);
+    expect(recordedLedger).toEqual(['t.fails']);
+  });
+
+  it('a success after a prior failure records normally', async () => {
+    const { client, recordedLedger } = makeFakeClient(
+      { getLedger: vi.fn(async () => [failedRow(1)]) },
+      { stopOnFirstFailure: false },
+    );
+    const task = makeTask('t.fails', [], [], { run: async () => SeederTaskResult.created('fixed') });
+    const runner = new SeederRunner(client, [task], resolveSeederOptions(baseOptions), silentLogger);
+    const summary = await runner.runPending();
+    expect(summary.ran).toBe(1);
+    expect(client.recordRun).toHaveBeenCalledTimes(1);
+    expect(recordedLedger).toEqual(['t.fails']);
+  });
+});
+
+describe('SeederApiClient API-key-first auth (.NET PR #13)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('apiKey alone authenticates without a login round trip and rides every request', async () => {
+    const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createSeederApiClient(
+      { baseUrl: 'https://api.example.com', appId: 'app-1', apiKey: 'k-123' },
+      silentLogger,
+    );
+    await client.ensureAuthenticated();
+    expect(fetchMock).not.toHaveBeenCalled(); // no api/auth/login
+    expect(client.token).toBeNull();
+    await client.getOrDefault('api/app-tiers/app-1');
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit | undefined)?.headers as Record<string, string>;
+    expect(headers['X-API-Key']).toBe('k-123');
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('a pre-issued bearerToken wins over apiKey', async () => {
+    const client = createSeederApiClient({ baseUrl: 'x', appId: 'a', apiKey: 'k', bearerToken: 'jwt' }, silentLogger);
+    await client.ensureAuthenticated();
+    expect(client.token).toBe('jwt');
+  });
+
+  it('warns that admin credentials are deprecated and ignored when apiKey is set', async () => {
+    const warnings: string[] = [];
+    const logger: SeederLogger = { ...silentLogger, warn: (m) => void warnings.push(m) };
+    const client = createSeederApiClient({ ...baseOptions, apiKey: 'k' }, logger);
+    await client.ensureAuthenticated();
+    expect(warnings.some((w) => /deprecated and ignored/i.test(w))).toBe(true);
+  });
+
+  it('the deprecated credential login sends Platform "server" and warns', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ jwtToken: 'jwt-1', email: 'seeder@example.com' }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const warnings: string[] = [];
+    const logger: SeederLogger = { ...silentLogger, warn: (m) => void warnings.push(m) };
+    const client = createSeederApiClient(baseOptions, logger);
+    await client.ensureAuthenticated();
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit | undefined)?.body as string);
+    expect(body.Platform).toBe('server');
+    expect(warnings.some((w) => /login is deprecated/i.test(w))).toBe(true);
+  });
+
+  it('apiKey does not count toward hasCredentials (parity: .NET left HasCredentials alone)', () => {
+    expect(hasCredentials(resolveSeederOptions({ baseUrl: 'x', appId: 'a', apiKey: 'k' }))).toBe(false);
+  });
+});
+
+describe('runSeeder API-key gate (.NET PR #13)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('proceeds with apiKey alone (no deprecated credentials)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL) => {
+        const u = String(url);
+        if (u.includes('seeder-configuration')) {
+          return new Response(
+            JSON.stringify({ id: '', enabled: true, stopOnFirstFailure: false, maxAttempts: 1, retryDelaySeconds: 0 }),
+            { status: 200 },
+          );
+        }
+        if (u.includes('seeder/ledger')) return new Response('[]', { status: 200 });
+        if (u.includes('seeder/history')) return new Response(JSON.stringify({ id: 'h1' }), { status: 200 });
+        return new Response('{}', { status: 200 });
+      }),
+    );
+    const ran: string[] = [];
+    const summary = await runSeeder(
+      { baseUrl: 'https://api.example.com', appId: 'app-1', apiKey: 'k-123', startupDelayMs: 0 },
+      [makeTask('t', [], ran)],
+      silentLogger,
+    );
+    expect(ran).toEqual(['t']);
+    expect(summary?.ran).toBe(1);
   });
 });
