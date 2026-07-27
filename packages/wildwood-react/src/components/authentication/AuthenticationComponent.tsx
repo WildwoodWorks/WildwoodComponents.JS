@@ -12,6 +12,17 @@ import {
 } from '@wildwood/core';
 import { useAuthenticationLogic } from '@wildwood/react-shared';
 
+/**
+ * ButtonText is the full label; DisplayName is just the provider's name. Some
+ * existing configs store the full label in DisplayName — don't double the prefix.
+ * Mirrors Blazor AuthenticationComponent.GetProviderButtonLabel.
+ */
+function getProviderButtonLabel(provider: { buttonText?: string; displayName: string }): string {
+  if (provider.buttonText?.trim()) return provider.buttonText;
+  if (provider.displayName.toLowerCase().startsWith('sign in')) return provider.displayName;
+  return `Sign in with ${provider.displayName}`;
+}
+
 export interface AuthenticationComponentProps {
   appId?: string;
   title?: string;
@@ -296,7 +307,7 @@ export function AuthenticationComponent({
                       }}
                     >
                       {provider.icon && <i className={provider.icon} />}
-                      Sign in with {provider.displayName}
+                      {getProviderButtonLabel(provider)}
                     </button>
                   ))}
                 </div>

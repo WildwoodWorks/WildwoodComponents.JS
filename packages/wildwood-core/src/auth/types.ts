@@ -103,9 +103,15 @@ export interface TwoFactorSendCodeResponse {
 
 export interface AuthProvider {
   name: string;
+  /** The provider's name as shown to users (e.g. "Microsoft"). Not a full button label. */
   displayName: string;
   icon: string;
   isEnabled: boolean;
+  /**
+   * Optional full button label override (e.g. "Sign in with Google"). When empty,
+   * components render their own label from {@link displayName}.
+   */
+  buttonText?: string;
   clientId?: string;
   redirectUri?: string;
 }

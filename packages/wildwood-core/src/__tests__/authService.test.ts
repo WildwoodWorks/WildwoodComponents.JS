@@ -372,5 +372,24 @@ describe('AuthService', () => {
       expect(providers[0].name).toBe('apple'); // sorted alphabetically
       expect(providers[1].name).toBe('google');
     });
+
+    it('carries buttonText from the provider details onto the mapped provider', async () => {
+      mockGet({
+        authProviders: [
+          {
+            providerName: 'google',
+            displayName: 'Google',
+            icon: 'g',
+            isEnabled: true,
+            buttonText: 'Continue with Google',
+            clientId: 'c1',
+            redirectUri: '',
+          },
+        ],
+      });
+
+      const providers = await auth.getAvailableProviders('app-1');
+      expect(providers[0].buttonText).toBe('Continue with Google');
+    });
   });
 });

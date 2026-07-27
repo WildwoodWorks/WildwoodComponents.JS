@@ -300,7 +300,11 @@ export function AuthenticationComponent({
             >
               <View style={styles.socialButtonContent}>
                 <Text style={styles.socialButtonIcon}>{getProviderIcon(provider.name)}</Text>
-                <Text style={styles.socialButtonText}>{provider.displayName}</Text>
+                {/* buttonText is an operator-configured full label; the bare displayName
+                    stays the mobile fallback (matches the Swift component). */}
+                <Text style={styles.socialButtonText}>
+                  {provider.buttonText?.trim() ? provider.buttonText : provider.displayName}
+                </Text>
               </View>
             </Pressable>
           ))}
