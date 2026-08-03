@@ -13,6 +13,8 @@ export type WildwoodErrorCode =
   | 'ServerError'
   | 'NetworkError'
   | 'Timeout'
+  /** The caller aborted the request via RequestOptions.signal. Distinct from 'Timeout', which the client raises itself. */
+  | 'Cancelled'
   | 'Unknown';
 
 export class WildwoodError extends Error {

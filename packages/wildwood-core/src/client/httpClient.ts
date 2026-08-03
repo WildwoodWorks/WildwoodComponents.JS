@@ -5,6 +5,33 @@
 import type { WildwoodConfig, RequestOptions, ApiResponse, RequestInterceptor, ResponseInterceptor } from './types.js';
 import { WildwoodError } from './errors.js';
 
+/**
+ * HTTP methods that may be replayed without changing the outcome (RFC 9110 §9.2.2).
+ *
+ * PUT and DELETE qualify: both describe an end state, so applying them twice lands where applying
+ * them once did. POST and PATCH do not — each is a fresh instruction to the server.
+ */
+const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);
+
+function isIdempotent(method: string): boolean {
+  return IDEMPOTENT_METHODS.has(method.toUpperCase());
+}
+
+/**
+ * Whether a rejection came from an AbortController.
+ *
+ * Matched by `name`, not by message: the message is browser-specific ("The operation was aborted.",
+ * "The user aborted a request.", "signal is aborted without reason") while the name is `AbortError`
+ * everywhere. Node's fetch rejects with a TypeError whose `cause` is the AbortError, so the cause
+ * is unwrapped one level too.
+ */
+function isAbortError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const { name, cause } = err as { name?: unknown; cause?: unknown };
+  if (name === 'AbortError' || name === 'TimeoutError') return true;
+  return cause !== undefined && cause !== err && isAbortError(cause);
+}
+
 export class HttpClient {
   private requestInterceptors: RequestInterceptor[] = [];
   private responseInterceptors: ResponseInterceptor[] = [];
@@ -85,7 +112,9 @@ export class HttpClient {
             ? err
             : new WildwoodError(err instanceof Error ? err.message : String(err), 0, 'NetworkError');
 
-        // Reactive 401 handling: refresh token and retry once (Blazor parity)
+        // Reactive 401 handling: refresh token and retry once (Blazor parity).
+        // Safe for every method, unlike the retries below: a 401 is refused by auth middleware
+        // before the handler runs, so the request provably had no effect.
         if (lastError.status === 401 && !options?.skipAuth && this.on401Refresh && attempt === 0) {
           const refreshed = await this.on401Refresh();
           if (refreshed) {
@@ -94,8 +123,24 @@ export class HttpClient {
           }
         }
 
+        // Never retried, for any method. A cancel was the caller's explicit instruction, and a
+        // timeout says nothing about whether the server processed the request — only that we
+        // stopped waiting for the answer.
+        if (lastError.code === 'Timeout' || lastError.code === 'Cancelled') throw lastError;
+
         // Only retry on 5xx or network errors, not 4xx
         if (lastError.status && lastError.status < 500) throw lastError;
+
+        // ...and only for methods that are safe to replay. Neither a network error nor a 5xx tells
+        // us whether the server already applied the request, so replaying a POST can duplicate the
+        // effect. That is not hypothetical: with the default 30s timeout and 3 attempts, one slow
+        // feedback submit filed the feedback three times, because the row commits server-side
+        // before the response is produced.
+        //
+        // Callers who know a specific POST is safe to replay can retry it themselves; the client
+        // cannot know that on their behalf.
+        if (!isIdempotent(method)) throw lastError;
+
         if (attempt < maxAttempts - 1) {
           await this.delay(Math.min(1000 * Math.pow(2, attempt), 10000));
         }
@@ -115,7 +160,15 @@ export class HttpClient {
     const controller = new AbortController();
     const signal = options?.signal ? this.combineSignals(options.signal, controller.signal) : controller.signal;
 
-    const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+    // Recorded so the rejection can be told apart from a caller-initiated abort: both surface as
+    // the same DOMException, and only this flag knows which one fired.
+    let timedOut = false;
+    const timer = timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : undefined;
 
     try {
       const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -190,6 +243,20 @@ export class HttpClient {
       });
 
       return { data, status: response.status, headers };
+    } catch (err) {
+      // Translated here rather than left raw, because the browser's own text is both
+      // implementation-specific and useless to a user: Firefox says "The operation was aborted.",
+      // Chrome "signal is aborted without reason". Neither mentions the timeout that actually
+      // fired, so that message ended up in front of people who submitted feedback.
+      if (isAbortError(err)) {
+        // `timedOut` is authoritative for our own timer; the name check covers a runtime that
+        // surfaces a deadline as TimeoutError without going through it.
+        const fromTimeout = timedOut || (err as { name?: unknown }).name === 'TimeoutError';
+        throw fromTimeout
+          ? new WildwoodError(`Request timed out after ${timeoutMs}ms`, 0, 'Timeout')
+          : new WildwoodError('Request was cancelled', 0, 'Cancelled');
+      }
+      throw err;
     } finally {
       if (timer) clearTimeout(timer);
     }

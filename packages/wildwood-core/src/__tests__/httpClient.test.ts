@@ -243,6 +243,111 @@ describe('HttpClient', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Replay safety: aborts, timeouts, and non-idempotent methods
+  //
+  // Regression cover for a duplicate-submission bug. A slow POST hit the 30s timeout, the abort
+  // was classified as a retryable network error (status 0 is falsy, so the `status < 500` guard
+  // never fired), and the request was replayed to exhaustion — filing the same feedback three
+  // times, because the server commits before it finishes responding.
+  // -------------------------------------------------------------------------
+
+  /** Rejects the way a browser does when an AbortController fires mid-flight. */
+  function abortingFetch(): (url: string, init: RequestInit) => Promise<Response> {
+    return (_url, init) =>
+      new Promise((_resolve, reject) => {
+        const signal = init.signal as AbortSignal;
+        const fail = () => reject(new DOMException('The operation was aborted.', 'AbortError'));
+        if (signal.aborted) fail();
+        else signal.addEventListener('abort', fail, { once: true });
+      });
+  }
+
+  const retryConfig = { enableRetry: true, maxRetryAttempts: 3 };
+
+  it('does not retry a POST that timed out', async () => {
+    fetchSpy.mockImplementation(abortingFetch());
+    const client = new HttpClient(createConfig(retryConfig));
+
+    await expect(client.post('api/SystemFeedback', { title: 'Bug' }, { timeout: 0.01 })).rejects.toMatchObject({
+      code: 'Timeout',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a timeout with a usable message rather than the browser abort text', async () => {
+    fetchSpy.mockImplementation(abortingFetch());
+    const client = new HttpClient(createConfig());
+
+    await expect(client.get('api/slow', { timeout: 0.01 })).rejects.toThrow(/timed out after 10ms/);
+  });
+
+  it('does not retry a request the caller cancelled, and reports it as cancelled', async () => {
+    fetchSpy.mockImplementation(abortingFetch());
+    const client = new HttpClient(createConfig(retryConfig));
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(client.get('api/test', { signal: controller.signal })).rejects.toMatchObject({
+      code: 'Cancelled',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a POST that failed with a network error', async () => {
+    fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'));
+    const client = new HttpClient(createConfig(retryConfig));
+
+    await expect(client.post('api/SystemFeedback', { title: 'Bug' })).rejects.toBeInstanceOf(WildwoodError);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a POST on 5xx', async () => {
+    fetchSpy.mockResolvedValue(textResponse('Server Error', 500));
+    const client = new HttpClient(createConfig(retryConfig));
+
+    await expect(client.post('api/SystemFeedback', { title: 'Bug' })).rejects.toBeInstanceOf(WildwoodError);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('still retries idempotent methods on a network error', async () => {
+    fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse({ ok: true }));
+    const client = new HttpClient(createConfig({ enableRetry: true, maxRetryAttempts: 2 }));
+
+    const result = await client.get<{ ok: boolean }>('api/test');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.data).toEqual({ ok: true });
+  });
+
+  it('still retries DELETE on 5xx (idempotent by definition)', async () => {
+    fetchSpy.mockResolvedValueOnce(textResponse('Server Error', 500)).mockResolvedValueOnce(jsonResponse({ ok: true }));
+    const client = new HttpClient(createConfig({ enableRetry: true, maxRetryAttempts: 2 }));
+
+    const result = await client.delete<{ ok: boolean }>('api/thing/1');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.data).toEqual({ ok: true });
+  });
+
+  it('still retries a POST after a 401 refresh (the server never applied it)', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ created: true }));
+
+    const client = new HttpClient(createConfig(retryConfig));
+    client.setOn401Refresh(async () => true);
+
+    const result = await client.post<{ created: boolean }>('api/SystemFeedback', { title: 'Bug' });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.data).toEqual({ created: true });
+  });
+
+  // -------------------------------------------------------------------------
   // Interceptors
   // -------------------------------------------------------------------------
 
