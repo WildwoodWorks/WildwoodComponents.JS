@@ -198,7 +198,6 @@ describe('HttpClient', () => {
       )
       .mockResolvedValueOnce(jsonResponse({ data: 'success' }));
 
-    // enableRetry must be true for the 401 retry loop to have >1 attempt
     const client = new HttpClient(createConfig({ enableRetry: true, maxRetryAttempts: 2 }));
     client.setTokenProvider(async () => 'refreshed-token');
     client.setOn401Refresh(async () => true);
@@ -221,6 +220,75 @@ describe('HttpClient', () => {
     client.setOn401Refresh(async () => false);
 
     await expect(client.get('api/secure')).rejects.toThrow(WildwoodError);
+  });
+
+  // Recovering an expired session is not a retry, so it must not live inside the retry budget.
+  // It used to: with retry disabled (or maxRetryAttempts 1) the loop ran exactly once, so the
+  // refresh was spent and the original 401 thrown without the replay ever happening — the caller
+  // was signed out holding a freshly minted token.
+  it('refreshes and replays a 401 even when retry is disabled', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Unauthorized' }), {
+          status: 401,
+          headers: new Headers({ 'content-type': 'application/json' }),
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: 'success' }));
+
+    const client = new HttpClient(createConfig({ enableRetry: false }));
+    client.setTokenProvider(async () => 'refreshed-token');
+    client.setOn401Refresh(async () => true);
+
+    const result = await client.get<{ data: string }>('api/secure');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.data).toEqual({ data: 'success' });
+  });
+
+  it('attempts the 401 refresh only once per request', async () => {
+    // The refresh reports success but the server keeps 401ing — the replay must not loop.
+    // A fresh Response per call: a single instance would have its body consumed by the first
+    // read, so the second error would silently parse as null.
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ message: 'Unauthorized' }), {
+          status: 401,
+          headers: new Headers({ 'content-type': 'application/json' }),
+        }),
+    );
+    const onRefresh = vi.fn(async () => true);
+
+    const client = new HttpClient(createConfig({ enableRetry: true, maxRetryAttempts: 3 }));
+    client.setOn401Refresh(onRefresh);
+
+    await expect(client.get('api/secure')).rejects.toThrow(WildwoodError);
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not charge the 401 replay to the retry budget', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Unauthorized' }), {
+          status: 401,
+          headers: new Headers({ 'content-type': 'application/json' }),
+        }),
+      )
+      .mockImplementation(
+        async () =>
+          new Response('Server Error', { status: 503, headers: new Headers({ 'content-type': 'text/plain' }) }),
+      );
+
+    const client = new HttpClient(createConfig({ enableRetry: true, maxRetryAttempts: 2 }));
+    client.setOn401Refresh(async () => true);
+
+    await expect(client.get('api/secure')).rejects.toThrow(WildwoodError);
+
+    // 1 (401) + the full 2-attempt budget against the 503. Charging the replay to the budget
+    // would stop this at 2.
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   // -------------------------------------------------------------------------
