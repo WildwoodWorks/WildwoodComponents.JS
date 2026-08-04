@@ -98,11 +98,16 @@ export class HttpClient {
   ): Promise<ApiResponse<T>> {
     const url = this.joinUrl(this.config.baseUrl, path);
     const timeoutMs = (options?.timeout ?? this.config.requestTimeoutSeconds ?? 30) * 1000;
-    const maxAttempts = this.config.enableRetry !== false ? (this.config.maxRetryAttempts ?? 3) : 1;
+    // Clamped the way WildwoodCore's `max(1, ...)` is: a zero, negative, or non-finite value
+    // would otherwise leave the loop below with no reachable exit.
+    const configuredAttempts = this.config.enableRetry !== false ? (this.config.maxRetryAttempts ?? 3) : 1;
+    const maxAttempts = Number.isFinite(configuredAttempts) ? Math.max(1, Math.trunc(configuredAttempts)) : 1;
 
     let lastError: WildwoodError | null = null;
+    let attemptsUsed = 0;
+    let refreshReplayUsed = false;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (;;) {
       try {
         const result = await this.executeRequest<T>(method, url, body, options, timeoutMs);
         return result;
@@ -112,12 +117,19 @@ export class HttpClient {
             ? err
             : new WildwoodError(err instanceof Error ? err.message : String(err), 0, 'NetworkError');
 
-        // Reactive 401 handling: refresh token and retry once (Blazor parity).
+        // Reactive 401 handling: refresh token and replay once (Blazor parity).
         // Safe for every method, unlike the retries below: a 401 is refused by auth middleware
         // before the handler runs, so the request provably had no effect.
-        if (lastError.status === 401 && !options?.skipAuth && this.on401Refresh && attempt === 0) {
+        //
+        // Deliberately outside the retry budget below. Recovering an expired session is not a
+        // retry, and counting it as one meant `enableRetry: false` — or any maxRetryAttempts of
+        // 1 — spent the refresh and then threw the original 401 without ever replaying, leaving
+        // the caller signed out with a fresh token in hand. The `refreshReplayUsed` flag, not
+        // the attempt index, is what keeps this to a single refresh per request.
+        if (!refreshReplayUsed && lastError.status === 401 && !options?.skipAuth && this.on401Refresh) {
           const refreshed = await this.on401Refresh();
           if (refreshed) {
+            refreshReplayUsed = true;
             // Retry with new token - go to next loop iteration
             continue;
           }
@@ -141,9 +153,10 @@ export class HttpClient {
         // cannot know that on their behalf.
         if (!isIdempotent(method)) throw lastError;
 
-        if (attempt < maxAttempts - 1) {
-          await this.delay(Math.min(1000 * Math.pow(2, attempt), 10000));
-        }
+        attemptsUsed++;
+        if (attemptsUsed >= maxAttempts) break;
+
+        await this.delay(Math.min(1000 * Math.pow(2, attemptsUsed - 1), 10000));
       }
     }
 
