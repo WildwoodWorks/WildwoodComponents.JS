@@ -50,9 +50,12 @@ function getHtml2Canvas(): Html2CanvasFn | undefined {
  * - `library-timeout`  the request neither loaded nor errored inside the deadline (a proxy
  *                      that blackholes the request). Distinguished from `library-blocked`
  *                      because "your CSP refused it" would be a false accusation here.
- * - `permission`       the share picker was dismissed, or this document is not permitted to
- *                      call getDisplayMedia at all. The two are indistinguishable — both
- *                      surface as NotAllowedError — so the copy must cover both.
+ * - `permission`       the share picker was dismissed, or this document is not permitted to call
+ *                      getDisplayMedia at all. The two are indistinguishable — both surface as
+ *                      NotAllowedError — and the first is a deliberate cancel, so the widget
+ *                      reports this reason as NOTHING rather than as an error. The cost of that
+ *                      choice: a document blocked by permissions policy, on a host where the
+ *                      library is also unavailable, leaves the button silent.
  * - `wrong-surface`    the user shared a screen or another window instead of this tab, so
  *                      viewport coordinates cannot be mapped onto the frame. See
  *                      {@link viewportScale}.
