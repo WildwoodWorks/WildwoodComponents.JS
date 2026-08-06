@@ -85,7 +85,7 @@ function captureFailureMessage(err: unknown): string | null {
   if (copy === null) return null;
   // `failed` is the catch-all, and the thrower knows more than this table does.
   if (err.reason === 'failed' && err.message) return err.message;
-  return copy ?? CAPTURE_FAILURE_COPY.failed;
+  return copy;
 }
 
 const FEEDBACK_ICON = (

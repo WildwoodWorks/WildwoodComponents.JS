@@ -1,7 +1,9 @@
 // Screenshot capture + annotation for the FeedbackComponent.
-// Ported from WildwoodAdmin/wwwroot/js/feedback-widget.js (ensureHtml2Canvas,
-// compressScreenshot, captureArea, captureFullPage, openAnnotationEditor) to keep
-// the React widget at feature parity with the Razor/Blazor feedback widgets.
+// Originally ported from WildwoodAdmin/wwwroot/js/feedback-widget.js (ensureHtml2Canvas,
+// compressScreenshot, captureArea, captureFullPage, openAnnotationEditor). It has since
+// diverged: area capture here falls back to the browser's Screen Capture API, which the
+// Razor/Blazor widgets do not, so they remain broken under a strict CSP. Anyone syncing the
+// two should port this direction, not the other.
 //
 // html2canvas is NOT a bundled dependency — it is loaded lazily the first time the
 // user requests a screenshot. It is an OPTIMISATION, never a precondition: a host that
@@ -132,6 +134,10 @@ export function ensureHtml2Canvas(): Promise<Html2CanvasFn> {
 /** Inject the <script> and settle exactly once. Extracted so its synchronous throws are catchable. */
 function startLoad(resolve: (fn: Html2CanvasFn) => void, reject: (err: unknown) => void): void {
   const script = document.createElement('script');
+  // Assigned before the timer is armed, because this is the line that can throw synchronously
+  // (a `require-trusted-types-for 'script'` policy). Arming first would leave a stray 8s timer
+  // behind on that path, firing into an already-rejected promise.
+  script.src = html2canvasSrc();
   // Settle exactly once and always: a script request that is blackholed by a proxy fires
   // NEITHER onload nor onerror, and an unsettled promise here strands the caller — the
   // widget hides itself for the duration of a capture, so it would stay invisible until
@@ -157,7 +163,6 @@ function startLoad(resolve: (fn: Html2CanvasFn) => void, reject: (err: unknown) 
     });
   }, HTML2CANVAS_LOAD_TIMEOUT_MS);
 
-  script.src = html2canvasSrc();
   script.onload = () =>
     finish(() => {
       const fn = getHtml2Canvas();
@@ -501,20 +506,6 @@ function settledWithin<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 /**
- * How many captured-frame pixels make up one CSS pixel of the viewport.
- *
- * The frame arrives in device pixels, so this absorbs devicePixelRatio AND browser zoom
- * without either having to be read directly (`devicePixelRatio` alone gets zoom wrong on
- * several platforms). Deriving it from the frame we actually received is the only measure
- * that stays true.
- *
- * Throws when the two axes disagree, which means the shared surface is NOT this tab's
- * viewport — the share picker lets the user hand over a whole screen or another window
- * despite `preferCurrentTab`. Cropping viewport coordinates out of a screen frame would
- * silently return a picture of the wrong region, which is worse than refusing: the user
- * would attach it to a bug report believing it shows what they selected.
- */
-/**
  * Refuse a frame that is not this tab, as early as possible.
  *
  * The share picker lets the user hand over a whole screen or another window despite
@@ -533,6 +524,19 @@ function assertTabSurface(shot: DisplayFrame): void {
   }
 }
 
+/**
+ * How many captured-frame pixels make up one CSS pixel of the viewport.
+ *
+ * The frame arrives in device pixels, so this absorbs devicePixelRatio AND browser zoom without
+ * either having to be read directly (`devicePixelRatio` alone gets zoom wrong on several
+ * platforms). Deriving it from the frame we actually received is the only measure that stays true.
+ *
+ * Also throws when the two axes disagree, which means the shared surface is not this tab's
+ * viewport. That is the fallback for browsers which do not report `displaySurface` — see
+ * {@link assertTabSurface} — because cropping viewport coordinates out of a screen frame would
+ * silently return a picture of the wrong region, and the user would attach it to a bug report
+ * believing it shows what they selected.
+ */
 function viewportScale(shot: DisplayFrame): number {
   const { canvas } = shot;
   if (canvas.width < 1 || canvas.height < 1 || shot.innerWidth < 1 || shot.innerHeight < 1) {
