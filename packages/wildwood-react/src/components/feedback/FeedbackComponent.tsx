@@ -5,7 +5,12 @@ import type { FeedbackAttachment, FeedbackDuplicateCheck } from '@wildwood/core'
 import { useFeedback } from '../../hooks/useFeedback.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { collectBrowserContext, installConsoleCapture } from './feedbackBrowserContext.js';
-import { captureArea, captureFullPage } from './feedbackScreenshot.js';
+import {
+  captureArea,
+  captureFullPage,
+  ScreenshotCaptureError,
+  type CaptureFailureReason,
+} from './feedbackScreenshot.js';
 
 export interface FeedbackComponentProps {
   /** App to submit feedback for. Falls back to the WildwoodProvider config appId. */
@@ -36,6 +41,51 @@ const POSITION_KEY = 'ww-feedback-widget-pos';
 
 function humanizeType(t: string): string {
   return t.replace(/([A-Z])/g, ' $1').trim();
+}
+
+/** What to tell the user about each way a capture can fail. `null` means say nothing at all. */
+const CAPTURE_FAILURE_COPY: Record<CaptureFailureReason, string | null> = {
+  // The user declined the browser's share prompt — or the page is not permitted to ask. The two
+  // are indistinguishable (both are NotAllowedError), and by far the common one is a deliberate
+  // "no". Reporting a decision back as an error would be nagging, so this stays silent, exactly
+  // like pressing Escape out of the selection overlay.
+  permission: null,
+  // Both capture routes are out and the library's failure is the one worth reporting. Naming the
+  // likely policy matters — a CSP that omits the CDN is fixable by whoever runs the site
+  // (self-host the library and point __WW_HTML2CANVAS_SRC__ at it) and by nobody else. It is
+  // only LIKELY, though: `script.onerror` fires for an unreachable network just as it does for a
+  // refusal, and the two are indistinguishable from script. Nor does reaching this copy prove
+  // the browser cannot capture the screen — on the full-page route any native failure lands
+  // here, including one that came after the user successfully picked a tab. So the copy claims
+  // neither.
+  'library-blocked':
+    "Couldn't take a screenshot — the screenshot library isn't available. It may be blocked by this site's security policy, unreachable, or not the library it claims to be.",
+  'library-timeout': 'Timed out loading the screenshot library. Check your connection and try again.',
+  'wrong-surface': 'Please choose "This Tab" when the browser asks what to share — a whole screen cannot be cropped.',
+  // Unreachable through this widget today: both entry points prefer the library's error when the
+  // native path reports `unsupported`, and `ensureHtml2Canvas`'s own `unsupported` sits behind a
+  // `typeof document === 'undefined'` guard both callers make first. The key is still required —
+  // the Record is exhaustive over CaptureFailureReason, which is what makes a NEW reason a
+  // compile error here rather than a silent fallback to generic copy.
+  unsupported: "This browser can't take screenshots.",
+  // Carries a specific message from the capture itself (an empty frame, a selection that fell
+  // outside what was captured); `captureFailureMessage` prefers that over this fallback.
+  failed: 'Failed to capture screenshot.',
+};
+
+/**
+ * Turn a capture rejection into what the user should see, or null to show nothing.
+ *
+ * The widget used to render one string — "Failed to capture screenshot." — for every cause,
+ * including causes the user or the site owner could have acted on, and including a cancel.
+ */
+function captureFailureMessage(err: unknown): string | null {
+  if (!(err instanceof ScreenshotCaptureError)) return CAPTURE_FAILURE_COPY.failed;
+  const copy = CAPTURE_FAILURE_COPY[err.reason];
+  if (copy === null) return null;
+  // `failed` is the catch-all, and the thrower knows more than this table does.
+  if (err.reason === 'failed' && err.message) return err.message;
+  return copy;
 }
 
 const FEEDBACK_ICON = (
@@ -318,8 +368,12 @@ export function FeedbackComponent({
       await new Promise((resolve) => setTimeout(resolve, 60));
       const data = await factory();
       if (data) setScreenshot(data);
-    } catch {
-      setStatus({ kind: 'error', text: 'Failed to capture screenshot.' });
+    } catch (err) {
+      const text = captureFailureMessage(err);
+      // A cancel is not a failure. Declining the share picker resolves as a rejection rather
+      // than as null, so it arrives here — but the user chose it, and reporting it as an error
+      // would nag them for making a decision.
+      if (text) setStatus({ kind: 'error', text });
     } finally {
       setCapturing(false);
     }
