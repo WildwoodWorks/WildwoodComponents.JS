@@ -10,3 +10,5 @@ Thumbs.db
 coverage/
 .vite/
 docs/api/
+test-results/
+playwright-report/
