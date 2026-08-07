@@ -1,21 +1,24 @@
 // Screenshot capture + annotation for the FeedbackComponent.
 // Originally ported from WildwoodAdmin/wwwroot/js/feedback-widget.js (ensureHtml2Canvas,
-// compressScreenshot, captureArea, captureFullPage, openAnnotationEditor). It has since
-// diverged: area capture here falls back to the browser's Screen Capture API, which the
-// Razor/Blazor widgets do not, so they remain broken under a strict CSP. Anyone syncing the
-// two should port this direction, not the other.
+// compressScreenshot, captureArea, captureFullPage, openAnnotationEditor).
 //
-// html2canvas is NOT a bundled dependency — it is loaded lazily the first time the
-// user requests a screenshot. It is an OPTIMISATION, never a precondition: a host that
-// forbids third-party scripts (a `script-src 'self'` CSP is enough) can still capture,
-// because both buttons fall back to the browser's own Screen Capture API. Preferring
-// html2canvas where it IS available is worth the attempt — it needs no share-permission
-// prompt and renders the DOM exactly.
+// html2canvas is a BUNDLED DEPENDENCY, loaded with a dynamic import the first time a user
+// asks for a screenshot. That single fact is what makes capture work behind a strict
+// Content-Security-Policy: a bundler emits the dynamic import as a chunk served from the
+// application's OWN origin, which `script-src 'self'` permits, where the public CDN this
+// module used to depend on is refused outright. Being dynamic, it also code-splits — an app
+// that never opens the feedback widget never downloads it.
 //
-// The source URL defaults to a public CDN, but a privacy-conscious or CSP-restricted
-// host can self-host the library and serve it same-origin (no third-party request) by
-// setting `globalThis.__WW_HTML2CANVAS_SRC__ = '/vendor/html2canvas.min.js'` before the
-// first screenshot. A host that pre-registers `window.html2canvas` skips the fetch entirely.
+// Resolution order, most to least preferred:
+//   1. `globalThis.html2canvas` pre-registered by the host — nothing is fetched.
+//   2. `globalThis.__WW_HTML2CANVAS_SRC__` — a host serving its own copy from a URL it picks.
+//   3. The bundled dependency (the normal path).
+//   4. The CDN — last, and only useful to consumers who load this SDK from a CDN themselves
+//      and so have no bundler to resolve step 3.
+//
+// The browser's own Screen Capture API (getDisplayMedia) remains available underneath all of
+// this, but it is a LAST RESORT and not a peer: it puts a share-permission prompt in front of
+// the user, which is a bad trade for something html2canvas does silently.
 //
 // The capture overlay and annotation editor are built directly on document.body
 // (outside React) because they must sit above the page during selection/markup;
@@ -30,16 +33,38 @@ const DEFAULT_HTML2CANVAS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2can
  */
 const HTML2CANVAS_LOAD_TIMEOUT_MS = 8000;
 
+/** The host's chosen URL for the library, if it named one. Single source of truth for both uses. */
+function srcOverride(): string | undefined {
+  const override = (globalThis as { __WW_HTML2CANVAS_SRC__?: string }).__WW_HTML2CANVAS_SRC__;
+  return typeof override === 'string' && override.length > 0 ? override : undefined;
+}
+
 /** Resolve where html2canvas is loaded from, honoring a host's self-hosted override. */
 function html2canvasSrc(): string {
-  const override = (globalThis as { __WW_HTML2CANVAS_SRC__?: string }).__WW_HTML2CANVAS_SRC__;
-  return typeof override === 'string' && override ? override : DEFAULT_HTML2CANVAS_CDN;
+  return srcOverride() ?? DEFAULT_HTML2CANVAS_CDN;
 }
 
 type Html2CanvasFn = (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
 
 function getHtml2Canvas(): Html2CanvasFn | undefined {
   return (globalThis as unknown as { html2canvas?: Html2CanvasFn }).html2canvas;
+}
+
+/**
+ * Load the bundled copy. Returns undefined — never throws — when the import cannot be
+ * resolved, so the <script> paths below still get their turn.
+ *
+ * A consumer that loads this SDK straight from a CDN, with no bundler to resolve the
+ * specifier, is the case that lands here: for them this is a dead end and the CDN fallback
+ * is the real path. For everyone else this is the path, and nothing leaves the origin.
+ */
+async function importBundledHtml2Canvas(): Promise<Html2CanvasFn | undefined> {
+  try {
+    const mod = (await import('html2canvas')) as unknown as { default?: Html2CanvasFn };
+    return typeof mod?.default === 'function' ? mod.default : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -101,27 +126,37 @@ export function ensureHtml2Canvas(): Promise<Html2CanvasFn> {
   if (existing) return Promise.resolve(existing);
   if (loadPromise) return loadPromise;
 
-  const attempt = new Promise<Html2CanvasFn>((resolve, reject) => {
+  const attempt = (async (): Promise<Html2CanvasFn> => {
     if (typeof document === 'undefined') {
-      reject(new ScreenshotCaptureError('unsupported', 'Screenshot capture is only available in the browser'));
-      return;
+      throw new ScreenshotCaptureError('unsupported', 'Screenshot capture is only available in the browser');
     }
-    // Assigning script.src can THROW synchronously under `require-trusted-types-for 'script'`,
-    // a policy that travels with the same strict CSPs that block the CDN in the first place.
-    // Without this guard the executor would leak a bare TypeError past the typed contract.
-    try {
-      startLoad(resolve, reject);
-    } catch (err) {
-      reject(
-        new ScreenshotCaptureError(
-          'library-blocked',
-          'Could not request the screenshot library from ' +
-            html2canvasSrc() +
-            (err instanceof Error ? ': ' + err.message : ''),
-        ),
-      );
+
+    // The bundled dependency, unless the host named its own URL. A host that sets
+    // `__WW_HTML2CANVAS_SRC__` has said where it wants the library to come from, and honouring
+    // that is the whole point of the setting, so the <script> path still wins there.
+    if (!srcOverride()) {
+      const bundled = await importBundledHtml2Canvas();
+      if (bundled) return bundled;
     }
-  });
+
+    return await new Promise<Html2CanvasFn>((resolve, reject) => {
+      // Assigning script.src can THROW synchronously under `require-trusted-types-for 'script'`,
+      // a policy that travels with the same strict CSPs that block the CDN in the first place.
+      // Without this guard the executor would leak a bare TypeError past the typed contract.
+      try {
+        startLoad(resolve, reject);
+      } catch (err) {
+        reject(
+          new ScreenshotCaptureError(
+            'library-blocked',
+            'Could not request the screenshot library from ' +
+              html2canvasSrc() +
+              (err instanceof Error ? ': ' + err.message : ''),
+          ),
+        );
+      }
+    });
+  })();
 
   loadPromise = attempt;
   const clearIfCurrent = () => {
