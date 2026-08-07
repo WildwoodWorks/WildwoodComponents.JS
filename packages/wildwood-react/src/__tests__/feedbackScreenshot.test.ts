@@ -24,9 +24,13 @@ type Html2CanvasLike = (element: HTMLElement, options?: Record<string, unknown>)
  * case. Mocking it also keeps the real html2canvas — which cannot render in jsdom — out of the
  * suite entirely.
  */
-const bundled = vi.hoisted(() => ({ fn: null as Html2CanvasLike | null }));
+const bundled = vi.hoisted(() => ({ fn: null as Html2CanvasLike | null, reads: 0 }));
 vi.mock('html2canvas', () => ({
   get default() {
+    // Counted, because "how many times was the bundled copy consulted?" is what distinguishes
+    // the capture path serving itself from `ensureHtml2Canvas` rescuing it after the fact.
+    // The source reads this exactly once per resolution attempt.
+    bundled.reads += 1;
     return bundled.fn ?? undefined;
   },
 }));
@@ -199,6 +203,7 @@ beforeEach(() => {
   // Default to "no bundled copy resolvable", so every scenario written before the dependency
   // existed still exercises the path it was written for. Tests about the bundled path opt in.
   bundled.fn = null;
+  bundled.reads = 0;
   delete (globalThis as { __WW_HTML2CANVAS_SRC__?: string }).__WW_HTML2CANVAS_SRC__;
   document.body.innerHTML = '';
 });
@@ -432,6 +437,45 @@ describe('captureArea', () => {
     await expect(capture).resolves.toBe(JPEG_URL);
     expect(html2canvas).toHaveBeenCalledTimes(1);
   });
+
+  it('NEVER asks to share the screen when the bundled library is available', async () => {
+    // The regression this run exists to prevent. On a CSP host the CDN is refused, and before
+    // the library was bundled that left getDisplayMedia as the only route — so every capture
+    // raised a share prompt, and dismissing it produced nothing at all. With a local copy the
+    // prompt must not appear under any circumstance.
+    //
+    // Two assertions, pinning two different things:
+    //   · getDisplayMedia is never called — kills any reordering that reaches for the native
+    //     capture before consulting html2canvas.
+    //   · the bundled copy is consulted EXACTLY ONCE — kills removal of captureArea's local
+    //     fast path. Without that assertion the test is not load-bearing for the fast path at
+    //     all: `ensureHtml2Canvas` retries the bundled import itself, so deleting the fast path
+    //     merely resolves the library one layer down and the prompt still never appears. A
+    //     second read is that rescue happening.
+    // Neither assertion pins the grace-period TIMING, since a mocked import resolves instantly.
+    // What the ordering actually buys is a slow local chunk not being abandoned for a prompt,
+    // and that is timing only the browser test in e2e/ can control.
+    const { draws } = installCanvasStub();
+    const { getDisplayMedia } = installDisplayMedia('browser');
+    blockScriptLoads(); // the CDN is refused, exactly as under `script-src 'self'`
+    const html2canvas = vi.fn().mockResolvedValue(document.createElement('canvas'));
+    bundled.fn = html2canvas as unknown as Html2CanvasLike;
+
+    const capture = captureArea();
+    await dragAndSkip([100, 50], [300, 250]);
+
+    await expect(capture).resolves.toBe(JPEG_URL);
+    expect(getDisplayMedia).not.toHaveBeenCalled();
+    expect(html2canvas).toHaveBeenCalledTimes(1);
+    expect(bundled.reads).toBe(1);
+    // Rendered by the library, so nothing was cropped out of a captured video frame.
+    expect(draws.filter((d) => d.length === 9)).toHaveLength(0);
+  });
+
+  // A bundled chunk that STALLS (rather than resolving or failing) is covered by the browser
+  // test in e2e/, where the server can simply never answer the chunk request. Simulating it here
+  // needs vi.resetModules + doMock gymnastics that end up loading the real html2canvas anyway —
+  // a fragile test is worse than a test in the right place.
 
   it('treats Escape as a cancel, not a failure', async () => {
     installCanvasStub();

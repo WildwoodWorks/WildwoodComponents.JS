@@ -96,7 +96,10 @@ async function importBundledHtml2Canvas(): Promise<Html2CanvasFn | undefined> {
     const mod = (await settledWithin(import('html2canvas'), BUNDLED_IMPORT_TIMEOUT_MS)) as {
       default?: Html2CanvasFn;
     } | null;
-    return typeof mod?.default === 'function' ? mod.default : undefined;
+    // Read once, deliberately: `default` is a live binding, and reading it twice would make
+    // "how often was the bundled copy consulted?" ambiguous to anything observing it.
+    const fn = mod?.default;
+    return typeof fn === 'function' ? fn : undefined;
   } catch {
     return undefined;
   }
