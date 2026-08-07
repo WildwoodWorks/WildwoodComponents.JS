@@ -13,7 +13,12 @@
  * simulated, since a refused script fires `error` exactly as an unreachable one does.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ensureHtml2Canvas, captureArea, ScreenshotCaptureError } from '../components/feedback/feedbackScreenshot.js';
+import {
+  ensureHtml2Canvas,
+  captureArea,
+  captureFullPage,
+  ScreenshotCaptureError,
+} from '../components/feedback/feedbackScreenshot.js';
 
 type Html2CanvasLike = (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
 
@@ -489,5 +494,26 @@ describe('captureArea', () => {
 
     await expect(capture).resolves.toBeNull();
     expect(document.querySelector('.ww-feedback-capture-overlay')).toBeNull();
+  });
+});
+
+describe('captureFullPage', () => {
+  it('also refuses to prompt when the library is here', async () => {
+    // Full Page prompted FIRST until the final review of this run caught it — so on a CSP host
+    // every click asked to share the screen, and the module header calling getDisplayMedia "a
+    // last resort" was true of area capture only.
+    installCanvasStub();
+    const { getDisplayMedia } = installDisplayMedia('browser');
+    blockScriptLoads();
+    const html2canvas = vi.fn().mockResolvedValue(document.createElement('canvas'));
+    bundled.fn = html2canvas as unknown as Html2CanvasLike;
+
+    const capture = captureFullPage();
+    const skip = await waitForElement('.ann-cancel-btn');
+    skip.click();
+
+    await expect(capture).resolves.toBe(JPEG_URL);
+    expect(getDisplayMedia).not.toHaveBeenCalled();
+    expect(bundled.reads).toBe(1);
   });
 });

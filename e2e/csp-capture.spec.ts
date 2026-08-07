@@ -8,10 +8,10 @@
  * from an origin whose response headers carry the exact policy the SiteDataBridge admin sends,
  * and driven in Chromium.
  *
- * `getDisplayMedia` is DELETED in the first two tests. That is the point: before html2canvas was
- * a bundled dependency the CDN was refused and the browser's Screen Capture API was the only
- * route left, so every capture raised a share prompt and dismissing it produced nothing. If these
- * two tests pass with no screen-capture API present at all, that route is genuinely gone.
+ * `getDisplayMedia` is DELETED in every test here. That is the point: before html2canvas was a
+ * bundled dependency the CDN was refused and the browser's Screen Capture API was the only route
+ * left, so every capture raised a share prompt and dismissing it produced nothing. If these tests
+ * pass with no screen-capture API present at all, that route is genuinely gone.
  */
 import { test, expect, type Page } from '@playwright/test';
 import http from 'node:http';

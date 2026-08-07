@@ -724,14 +724,7 @@ export function captureArea(qualityPct = 80, maxSizeKb = 500): Promise<string | 
             height: rect.height,
             useCORS: true,
             logging: false,
-          }).catch((err: unknown) => {
-            throw err instanceof ScreenshotCaptureError
-              ? err
-              : new ScreenshotCaptureError(
-                  'failed',
-                  err instanceof Error ? err.message : 'The screenshot library could not render this page',
-                );
-          })
+          }).catch(asCaptureError)
         : null,
     );
 
@@ -888,21 +881,34 @@ function selectRegion(): Promise<ViewportRect | null> {
   });
 }
 
-/** html2canvas fallback for full-page capture. Renders the viewport, not the whole document. */
+/** Render the viewport (not the whole document) with a library instance already in hand. */
+function renderViewportWithLibrary(html2canvas: Html2CanvasFn): Promise<HTMLCanvasElement> {
+  return html2canvas(document.body, {
+    useCORS: true,
+    logging: false,
+    scale: 1,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    scrollX: -window.scrollX,
+    scrollY: -window.scrollY,
+    windowWidth: window.innerWidth,
+    windowHeight: window.innerHeight,
+  }).catch(asCaptureError);
+}
+
+/** html2canvas throws plain Errors; both entry points document a typed one. */
+function asCaptureError(err: unknown): never {
+  throw err instanceof ScreenshotCaptureError
+    ? err
+    : new ScreenshotCaptureError(
+        'failed',
+        err instanceof Error ? err.message : 'The screenshot library could not render this page',
+      );
+}
+
+/** html2canvas fallback for full-page capture, fetching the library if it is not here yet. */
 function captureFullPageWithLibrary(): Promise<HTMLCanvasElement> {
-  return ensureHtml2Canvas().then((html2canvas) =>
-    html2canvas(document.body, {
-      useCORS: true,
-      logging: false,
-      scale: 1,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      scrollX: -window.scrollX,
-      scrollY: -window.scrollY,
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
-    }),
-  );
+  return ensureHtml2Canvas().then(renderViewportWithLibrary);
 }
 
 interface DisplayMediaNavigator {
@@ -949,9 +955,9 @@ const DISPLAY_FRAME_TIMEOUT_MS = 10000;
 /**
  * Grab a single frame of the shared surface with the browser's own Screen Capture API.
  *
- * This is the path that needs NO third-party script, which is why it is the one that keeps
- * working under a `script-src 'self'` CSP. Both buttons now share it: full page uses the frame
- * whole, area capture crops it.
+ * The fallback for when html2canvas cannot be had at all. Both buttons can reach it — full page
+ * uses the frame whole, area capture crops it — but neither should in normal operation, because
+ * it costs the user a screen-share prompt.
  *
  * MUST be called while the user's click still counts as transient activation — the browser
  * refuses getDisplayMedia otherwise.
@@ -1028,8 +1034,18 @@ function captureDisplayFrame(): Promise<DisplayFrame> {
 }
 
 /**
- * Full-page capture: prefer the native Screen Capture API (getDisplayMedia), then
- * fall back to html2canvas. Both paths feed the annotation editor.
+ * Full-page capture: render the viewport with html2canvas when it is here, and only reach for the
+ * native Screen Capture API when it is not. Both paths feed the annotation editor.
+ *
+ * This used to prompt FIRST — and that ordering is most of why the bug was reported twice. On a
+ * host whose CSP refuses the CDN, the prompt was the only route, so every "Full Page" click asked
+ * to share the screen and a dismissal produced silence. A local library makes the prompt
+ * unnecessary, and asking for a screen share you do not need is not a neutral default.
+ *
+ * The trade is deliberate and worth stating: `getDisplayMedia` captures truly rendered pixels —
+ * cross-origin iframes, video, plugin content — where html2canvas re-renders the DOM and cannot.
+ * For a screenshot attached to a feedback report, a silent capture of the page the user is looking
+ * at beats a pixel-exact one they had to grant a permission for.
  *
  * Rejects with a {@link ScreenshotCaptureError} when both paths fail. It previously swallowed
  * that into `null`, which the caller reads as "the user cancelled" — so a widget on a host
@@ -1037,6 +1053,13 @@ function captureDisplayFrame(): Promise<DisplayFrame> {
  */
 export function captureFullPage(qualityPct = 80, maxSizeKb = 500): Promise<string | null> {
   if (typeof document === 'undefined') return Promise.resolve(null);
+  return loadLocalHtml2Canvas()
+    .then((local) => (local ? renderViewportWithLibrary(local) : captureNativeFullPage()))
+    .then((canvas) => openAnnotationEditor(canvas, qualityPct, maxSizeKb));
+}
+
+/** The no-local-library path: the native frame, falling back to fetching the library. */
+function captureNativeFullPage(): Promise<HTMLCanvasElement> {
   return captureDisplayFrame()
     .then((shot) => shot.canvas)
     .catch((nativeErr: unknown) =>
@@ -1052,6 +1075,5 @@ export function captureFullPage(qualityPct = 80, maxSizeKb = 500): Promise<strin
               libraryErr instanceof Error ? libraryErr.message : 'The screenshot library could not render this page',
             );
       }),
-    )
-    .then((canvas) => openAnnotationEditor(canvas, qualityPct, maxSizeKb));
+    );
 }

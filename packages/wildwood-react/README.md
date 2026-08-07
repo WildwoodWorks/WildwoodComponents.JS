@@ -83,6 +83,26 @@ function MyApp() {
 - `DisclaimerComponent` — Disclaimer display and acceptance
 - `FeedbackComponent` — Floating feedback widget (screenshot, attachments, duplicate detection)
 
+### Screenshots and Content-Security-Policy
+
+`FeedbackComponent`'s screenshot capture uses [html2canvas](https://html2canvas.hertzen.com/),
+which ships as a dependency of this package and is loaded with a dynamic `import()`. Your bundler
+therefore code-splits it and serves it from your own origin — so it works under a strict
+`script-src 'self'` policy, and applications that never render the widget never download it.
+
+Two escape hatches, in precedence order, if you need the library to come from somewhere else:
+
+```js
+window.html2canvas = myCopy;                              // pre-register it; nothing is fetched
+window.__WW_HTML2CANVAS_SRC__ = '/vendor/html2canvas.js'; // or name a URL to load it from
+```
+
+Consumers loading this SDK from a CDN, with no bundler to resolve the dependency, fall back to a
+public CDN copy — which a strict CSP will refuse. Set one of the above in that case.
+
+If html2canvas cannot be loaded at all, capture falls back to the browser's Screen Capture API,
+which asks the user for a screen-share permission. That is a last resort, never the normal path.
+
 ## CSS Themes
 
 Import the theme stylesheet to use Wildwood's CSS variable system:

@@ -17,14 +17,9 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: {
-        browserName: 'chromium',
-        launchOptions: {
-          // The third test needs getDisplayMedia to resolve without a picker; the first two
-          // delete the API outright, so this affects only that test.
-          args: ['--auto-accept-this-tab-capture'],
-        },
-      },
+      // No screen-capture launch flags: every test in this spec deletes `navigator.mediaDevices`,
+      // because the guarantee under test is that capture works with no such API at all.
+      use: { browserName: 'chromium' },
     },
   ],
 });
