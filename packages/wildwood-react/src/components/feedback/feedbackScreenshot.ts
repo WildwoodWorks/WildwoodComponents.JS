@@ -51,8 +51,39 @@ function getHtml2Canvas(): Html2CanvasFn | undefined {
 }
 
 /**
- * Load the bundled copy. Returns undefined — never throws — when the import cannot be
- * resolved, so the <script> paths below still get their turn.
+ * How long to wait for the bundled chunk before giving up on it.
+ *
+ * The import cannot be REFUSED by a Content-Security-Policy — that is the whole point of
+ * bundling — but it is still a network fetch: a bundler code-splits it, so the first screenshot
+ * downloads a chunk. A degraded connection, a stalling proxy, or a server hiccup can therefore
+ * leave it neither resolved nor rejected, exactly the failure the `<script>` path already guards
+ * against with {@link HTML2CANVAS_LOAD_TIMEOUT_MS}. Unbounded, that would either hang the capture
+ * outright or silently spend the transient user activation the native fallback still needs.
+ *
+ * Generous against a same-origin chunk (tens of milliseconds in practice), small against the ~5s
+ * activation window opened by the click.
+ */
+const BUNDLED_IMPORT_TIMEOUT_MS = 2000;
+
+/**
+ * The library, if it can be had without a THIRD-PARTY fetch: already registered by the host, or
+ * the bundled dependency. Never rejects, and always settles — see
+ * {@link BUNDLED_IMPORT_TIMEOUT_MS} for why "always settles" needs saying.
+ *
+ * The capture paths ask this before anything else, because an answer here costs no permission
+ * prompt.
+ */
+async function loadLocalHtml2Canvas(): Promise<Html2CanvasFn | undefined> {
+  const existing = getHtml2Canvas();
+  if (existing) return existing;
+  // A host that named its own URL wants that URL fetched; that is a network load, not this.
+  if (srcOverride()) return undefined;
+  return importBundledHtml2Canvas();
+}
+
+/**
+ * Load the bundled copy. Returns undefined — never throws, never hangs — when the import cannot
+ * be resolved or does not arrive in time, so the <script> paths below still get their turn.
  *
  * A consumer that loads this SDK straight from a CDN, with no bundler to resolve the
  * specifier, is the case that lands here: for them this is a dead end and the CDN fallback
@@ -60,7 +91,11 @@ function getHtml2Canvas(): Html2CanvasFn | undefined {
  */
 async function importBundledHtml2Canvas(): Promise<Html2CanvasFn | undefined> {
   try {
-    const mod = (await import('html2canvas')) as unknown as { default?: Html2CanvasFn };
+    // A chunk that arrives after the deadline is not wasted: the module cache means the next
+    // attempt gets it immediately.
+    const mod = (await settledWithin(import('html2canvas'), BUNDLED_IMPORT_TIMEOUT_MS)) as {
+      default?: Html2CanvasFn;
+    } | null;
     return typeof mod?.default === 'function' ? mod.default : undefined;
   } catch {
     return undefined;
@@ -516,10 +551,15 @@ interface ViewportRect {
 }
 
 /**
- * How long captureArea waits for html2canvas before committing to the native capture. Kept far
- * inside the ~5s transient-activation window opened by the click on the capture button — see
- * {@link captureArea}. Long enough that a CDN fetch on an ordinary connection still wins, short
- * enough that a request which merely hangs cannot spend the activation.
+ * How long captureArea waits for a library coming over the NETWORK before committing to the
+ * native capture. Kept far inside the ~5s transient-activation window opened by the click on the
+ * capture button — see {@link captureArea}. Long enough that a CDN fetch on an ordinary
+ * connection still wins, short enough that a request which merely hangs cannot spend the
+ * activation.
+ *
+ * The bundled import gets its own, much longer bound ({@link BUNDLED_IMPORT_TIMEOUT_MS}) rather
+ * than this one: it resolves from the app's own origin and cannot be refused, so racing it this
+ * tightly would push users into a screen-share prompt purely because a local chunk took a moment.
  */
 const LIBRARY_GRACE_MS = 750;
 
@@ -670,13 +710,6 @@ function cropFrame(shot: DisplayFrame, rect: ViewportRect): HTMLCanvasElement {
 export function captureArea(qualityPct = 80, maxSizeKb = 500): Promise<string | null> {
   if (typeof document === 'undefined') return Promise.resolve(null);
 
-  // Kick the fetch off before anything blocks on it, and give it only a moment: the answer is
-  // needed NOW (see above), and on a host that refuses the CDN `onerror` fires immediately.
-  const library = ensureHtml2Canvas().then(
-    (fn) => ({ fn }),
-    (err: unknown) => ({ err }),
-  );
-
   /** html2canvas renders the whole document, so viewport coordinates need the scroll offset. */
   const withLibrary = (fn: Html2CanvasFn): Promise<HTMLCanvasElement | null> =>
     selectRegion().then((rect) =>
@@ -699,37 +732,50 @@ export function captureArea(qualityPct = 80, maxSizeKb = 500): Promise<string | 
         : null,
     );
 
-  return settledWithin(library, LIBRARY_GRACE_MS)
-    .then((lib) => {
-      // Preferred where available: no share prompt at all, and it renders the DOM directly, so
-      // it can be deferred until a region is actually chosen.
-      if (lib && 'fn' in lib) return withLibrary(lib.fn);
-      // Library unavailable (CSP, offline, blocked) or merely still in flight. The browser's own
-      // Screen Capture API needs no third-party script — it is what already makes "Full Page"
-      // work on these hosts — so take one viewport frame now and cut the selection out of it.
-      return captureDisplayFrame().then(
-        (shot) => {
-          // Before the drag, not after it: a screen or window share can never be cropped to
-          // viewport coordinates, and finding that out costs the user nothing here.
-          assertTabSurface(shot);
-          return selectRegion().then((rect) => (rect ? cropFrame(shot, rect) : null));
-        },
-        (nativeErr: unknown) =>
-          // The native path is out. Now — and only now — it is worth waiting for the library:
-          // the grace period expiring means "not ready yet", NOT "will never arrive", and on a
-          // platform with no getDisplayMedia at all (iOS Safari) it is the only path there ever
-          // was. Abandoning it here would reject a capture that is still perfectly able to
-          // succeed — which is what the pre-fix code, for all its faults, got right.
-          library.then((late) => {
-            if ('fn' in late) return withLibrary(late.fn);
-            // Nothing here can capture. Lead with the library's cause when the native path never
-            // existed: "this browser cannot capture the screen" is true but useless, while "the
-            // library was blocked" is something the host can act on. Matches captureFullPage.
-            throw nativeErr instanceof ScreenshotCaptureError && nativeErr.reason === 'unsupported'
-              ? late.err
-              : nativeErr;
-          }),
+  return loadLocalHtml2Canvas()
+    .then((local) => {
+      // The normal path, and the one that makes this feature usable: the library is already here
+      // or resolves from this origin, so the user drags a rectangle and gets a screenshot — no
+      // permission prompt, no screen sharing, exactly what the Blazor widget does. Awaiting this
+      // is bounded (BUNDLED_IMPORT_TIMEOUT_MS), so a stalled chunk cannot hang the capture or
+      // quietly spend the activation the fallback below still needs.
+      if (local) return withLibrary(local);
+
+      // No local copy: either the host named its own URL, or this SDK is being loaded without a
+      // bundler to resolve the dependency. Now — and only now — a NETWORK fetch is the only way
+      // to get the library, so it has to be raced against the activation window.
+      const library = ensureHtml2Canvas().then(
+        (fn) => ({ fn }),
+        (err: unknown) => ({ err }),
       );
+      return settledWithin(library, LIBRARY_GRACE_MS).then((lib) => {
+        if (lib && 'fn' in lib) return withLibrary(lib.fn);
+        // The fetch failed or is still in flight. The browser's own Screen Capture API needs no
+        // script at all, so take one viewport frame now and cut the selection out of it.
+        return captureDisplayFrame().then(
+          (shot) => {
+            // Before the drag, not after it: a screen or window share can never be cropped to
+            // viewport coordinates, and finding that out costs the user nothing here.
+            assertTabSurface(shot);
+            return selectRegion().then((rect) => (rect ? cropFrame(shot, rect) : null));
+          },
+          (nativeErr: unknown) =>
+            // The native path is out. Now — and only now — it is worth waiting for the library:
+            // the grace period expiring means "not ready yet", NOT "will never arrive", and on a
+            // platform with no getDisplayMedia at all (iOS Safari) it is the only path there ever
+            // was. Abandoning it here would reject a capture that is still perfectly able to
+            // succeed — which is what the pre-fix code, for all its faults, got right.
+            library.then((late) => {
+              if ('fn' in late) return withLibrary(late.fn);
+              // Nothing here can capture. Lead with the library's cause when the native path never
+              // existed: "this browser cannot capture the screen" is true but useless, while "the
+              // library was blocked" is something the host can act on. Matches captureFullPage.
+              throw nativeErr instanceof ScreenshotCaptureError && nativeErr.reason === 'unsupported'
+                ? late.err
+                : nativeErr;
+            }),
+        );
+      });
     })
     .then((canvas) => (canvas ? openAnnotationEditor(canvas, qualityPct, maxSizeKb) : null));
 }
