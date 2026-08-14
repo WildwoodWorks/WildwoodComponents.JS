@@ -65,6 +65,25 @@ export class AppTierService {
   }
 
   /**
+   * Get an app's add-ons without requiring authentication.
+   * For use on public-facing pages — the add-on twin of getTiers()/getPublicTiers(), so a
+   * pricing page can list the à-la-carte packs alongside the tiers.
+   *
+   * Returns only Active add-ons, each with its pricing options.
+   *
+   * Errors PROPAGATE here, unlike the authenticated add-on getters below, which swallow and
+   * return []. That is deliberate and matches getTiers(): a public page has to be able to tell
+   * "this app sells no packs" from "the catalog failed to load", because the honest thing to
+   * show a visitor differs — and an empty array cannot express the second.
+   */
+  async getPublicAddOns(appId: string): Promise<AppTierAddOnModel[]> {
+    const { data } = await this.http.get<AppTierAddOnModel[]>(`api/app-tier-addons/${appId}/public`, {
+      skipAuth: true,
+    });
+    return data ?? [];
+  }
+
+  /**
    * Get available add-ons for an app (user-facing).
    */
   async getAvailableAddOns(appId: string): Promise<AppTierAddOnModel[]> {
