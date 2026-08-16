@@ -486,12 +486,14 @@
 }
 
 .ww-password-input-container .ww-form-control {
-    padding-right: 2.5rem;
+    padding-right: 3rem;
 }
 
+/* Matches the Blazor .password-toggle treatment: flat monochrome icon,
+   vertically centered on the input. */
 .ww-password-toggle {
     position: absolute;
-    right: 0.5rem;
+    right: 1rem;
     top: 50%;
     transform: translateY(-50%);
     background: none;
@@ -499,12 +501,19 @@
     cursor: pointer;
     color: var(--ww-text-muted, #6c757d);
     padding: 0.25rem;
+    line-height: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.ww-password-toggle svg {
+    display: block;
 }
 
 .ww-password-toggle:hover {
-    color: var(--ww-text-primary, #212529);
+    color: var(--ww-primary, #0d6efd);
 }
 
 /* Responsive form */

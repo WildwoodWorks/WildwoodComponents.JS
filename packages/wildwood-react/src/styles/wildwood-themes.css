@@ -408,25 +408,34 @@
     padding-right: 3rem;
 }
 
+/* Matches the Blazor .password-toggle treatment: flat monochrome icon,
+   vertically centered on the input. */
 .ww-password-toggle {
     position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 3rem;
+    right: 1rem;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    width: auto;
     display: flex;
     align-items: center;
     justify-content: center;
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--ww-text-secondary, #6c757d);
+    color: var(--ww-text-muted, #6c757d);
     font-size: 1rem;
-    padding: 0;
+    line-height: 0;
+    padding: 0.25rem;
+    transition: color 0.2s;
+}
+
+.ww-password-toggle svg {
+    display: block;
 }
 
 .ww-password-toggle:hover {
-    color: var(--ww-text-primary, #212529);
+    color: var(--ww-primary, #0d6efd);
 }
 
 /* Checkbox */
