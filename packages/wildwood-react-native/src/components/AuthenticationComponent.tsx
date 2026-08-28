@@ -639,7 +639,9 @@ const createStyles = (theme: WildwoodTheme) =>
       paddingHorizontal: 14,
       paddingVertical: 12,
       fontSize: 16,
-      backgroundColor: theme.bgSecondary,
+      // `inputBg`, not `bgSecondary`: the web has a dedicated --ww-input-bg, and an app porting
+      // its palette by token name expects setting it to change the field, not the page.
+      backgroundColor: theme.inputBg,
       color: theme.textPrimary,
     },
     codeInput: {
@@ -661,12 +663,12 @@ const createStyles = (theme: WildwoodTheme) =>
       marginLeft: 8,
     },
     showPasswordText: {
-      color: theme.primary,
+      color: theme.primaryDark,
       fontSize: 14,
       fontWeight: '600',
     },
     primaryButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 14,
       alignItems: 'center',
@@ -688,7 +690,7 @@ const createStyles = (theme: WildwoodTheme) =>
       marginTop: 8,
     },
     linkText: {
-      color: theme.primary,
+      color: theme.primaryDark,
       fontSize: 14,
     },
     footer: {
@@ -785,7 +787,7 @@ const createStyles = (theme: WildwoodTheme) =>
       color: theme.textMuted,
     },
     twoFaMethodTextActive: {
-      color: theme.primary,
+      color: theme.primaryDark,
     },
     checkboxRow: {
       flexDirection: 'row',
@@ -803,7 +805,7 @@ const createStyles = (theme: WildwoodTheme) =>
       marginRight: 10,
     },
     checkboxChecked: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderColor: theme.primary,
     },
     checkmark: {

@@ -397,11 +397,12 @@ const createStyles = (theme: WildwoodTheme) =>
       paddingHorizontal: 2,
     },
     toggleTrackOn: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
     },
     toggleThumb: {
       width: 20,
       height: 20,
+      // Half the thumb, paired with toggleTrack's 12. Geometry, not a token — see that comment.
       borderRadius: 10,
       backgroundColor: theme.bgPrimary,
       shadowColor: '#000',
@@ -468,7 +469,7 @@ const createStyles = (theme: WildwoodTheme) =>
 
     // Badge
     badgeContainer: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadiusSm,
       paddingHorizontal: 8,
       paddingVertical: 4,
@@ -481,7 +482,7 @@ const createStyles = (theme: WildwoodTheme) =>
       fontWeight: '600',
     },
     preSelectedBadgeContainer: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadiusSm,
       paddingHorizontal: 8,
       paddingVertical: 4,
@@ -507,7 +508,7 @@ const createStyles = (theme: WildwoodTheme) =>
     tierPrice: {
       fontSize: 24,
       fontWeight: '700',
-      color: theme.primary,
+      color: theme.primaryDark,
     },
     tierBillingFrequency: {
       fontSize: 14,
@@ -572,7 +573,7 @@ const createStyles = (theme: WildwoodTheme) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       backgroundColor: theme.bgSecondary,
-      borderRadius: 6,
+      borderRadius: theme.borderRadius,
       paddingHorizontal: 10,
       paddingVertical: 6,
       marginBottom: 4,
@@ -580,7 +581,7 @@ const createStyles = (theme: WildwoodTheme) =>
     limitValue: {
       fontSize: 13,
       fontWeight: '700',
-      color: theme.primary,
+      color: theme.primaryDark,
     },
     limitName: {
       fontSize: 13,
@@ -620,14 +621,14 @@ const createStyles = (theme: WildwoodTheme) =>
       minHeight: 48,
     },
     contactButtonText: {
-      color: theme.primary,
+      color: theme.primaryDark,
       fontSize: 16,
       fontWeight: '600',
     },
 
     // Select button
     selectButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 14,
       alignItems: 'center',

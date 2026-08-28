@@ -38,13 +38,26 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
   const [serviceTheme, setServiceTheme] = useState<ThemeName>(() => client.theme.theme);
 
   useEffect(() => {
+    let cancelled = false;
     client.session.initialize();
-    // Restores the stored preference; the themeChanged handler below picks the result up.
-    client.theme.initialize();
-    setServiceTheme(client.theme.theme);
 
+    /* AWAIT the restore. ThemeService.initialize() reads storage asynchronously and does NOT emit
+       themeChanged when it lands — it only sets a DOM attribute, which is inert here — so reading
+       `client.theme.theme` synchronously after the call returns the pre-restore default and the
+       stored preference never reaches the UI. */
+    client.theme
+      .initialize()
+      .then(() => {
+        if (!cancelled) setServiceTheme(client.theme.theme);
+      })
+      .catch(() => {
+        /* Storage unavailable: keep the default rather than failing the whole provider. */
+      });
+
+    // setTheme() DOES emit, so later switches arrive here.
     const unsubscribe = client.events.on('themeChanged', (name) => setServiceTheme(name));
     return () => {
+      cancelled = true;
       unsubscribe();
       client.session.dispose();
     };

@@ -22,7 +22,16 @@ import type { ThemeName } from '@wildwood/core';
  *
  * Gradients are the one web token with no React Native equivalent without an extra dependency
  * (react-native-linear-gradient / expo-linear-gradient), so `--ww-gradient-*` is intentionally
- * absent; components use the flat `primary`/`primaryDark` pair those gradients interpolate.
+ * absent. Components use `primaryDark` — the end those gradients darken toward — wherever the web
+ * would have painted `--ww-gradient-button`, i.e. filled primary surfaces and primary-coloured
+ * text on a light background. That is a contrast decision as much as a fidelity one: the default
+ * theme's `primary` (#D4882C) carries white at only 2.85:1, below even the 3:1 large-text floor,
+ * where `primaryDark` (#B8720F) reaches 3.85:1. `primary` itself is still used for borders and
+ * accents, where it is not carrying text.
+ *
+ * A theme whose ramp runs the other way (a very dark `primary` with a lighter `primaryDark`) will
+ * therefore paint buttons in the LIGHTER of the two — order the ramp dark-to-light as the token
+ * names say.
  */
 
 export interface WildwoodTheme {

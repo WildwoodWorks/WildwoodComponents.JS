@@ -317,7 +317,7 @@ const createStyles = (theme: WildwoodTheme) =>
       marginBottom: 16,
     },
     retryButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 12,
       paddingHorizontal: 24,
@@ -394,12 +394,12 @@ const createStyles = (theme: WildwoodTheme) =>
       marginBottom: 12,
     },
     readFullButtonText: {
-      color: theme.primary,
+      color: theme.primaryDark,
       fontSize: 13,
       fontWeight: '500',
     },
     acceptButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 12,
       alignItems: 'center',
@@ -415,7 +415,7 @@ const createStyles = (theme: WildwoodTheme) =>
       opacity: 0.6,
     },
     acceptAllButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 14,
       alignItems: 'center',
@@ -512,7 +512,7 @@ const createStyles = (theme: WildwoodTheme) =>
       alignItems: 'flex-end',
     },
     modalCloseButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.primaryDark,
       borderRadius: theme.borderRadius,
       paddingVertical: 10,
       paddingHorizontal: 24,
