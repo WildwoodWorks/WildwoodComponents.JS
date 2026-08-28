@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Alert, Modal } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { sanitizeHtml, type PendingDisclaimerModel } from '@wildwood/core';
 import { useDisclaimer } from '../hooks/useDisclaimer';
+import { useWildwoodTheme } from '../styles/ThemeContext';
+import type { WildwoodTheme } from '../styles/theme';
 
 export interface DisclaimerComponentProps {
   /** Called after all disclaimers have been accepted */
@@ -50,6 +52,8 @@ export function DisclaimerComponent({
   onLoaded,
   style,
 }: DisclaimerComponentProps) {
+  const theme = useWildwoodTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { disclaimers, loading, getPendingDisclaimers, acceptDisclaimer, acceptAllDisclaimers } = useDisclaimer(appId);
 
   const [error, setError] = useState<string | null>(null);
@@ -274,244 +278,248 @@ export function DisclaimerComponent({
   );
 }
 
-const styles = StyleSheet.create({
+/* Built from the active theme rather than at module scope, so the token vocabulary the web
+   exposes as `--ww-*` reaches this component too. `#000` stays literal: it is a shadow, not a
+   themeable colour. */
+const createStyles = (theme: WildwoodTheme) =>
+  StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
-  },
-  successIcon: {
-    fontSize: 48,
-    color: '#22C55E',
-    marginBottom: 12,
-  },
-  successText: {
-    fontSize: 16,
-    color: '#166534',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#B91C1C',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    flex: 1,
-    marginRight: 8,
-  },
-  versionBadge: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  versionBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  contentArea: {
-    maxHeight: 200,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  contentText: {
-    fontSize: 13,
-    color: '#555',
-    lineHeight: 20,
-  },
-  updateNotice: {
-    backgroundColor: '#EFF6FF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  updateNoticeText: {
-    fontSize: 13,
-    color: '#1E40AF',
-  },
-  readFullButton: {
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  readFullButtonText: {
-    color: '#007AFF',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  acceptButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  acceptAllButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    minHeight: 48,
-  },
-  acceptAllButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: '100%',
-    maxHeight: '85%',
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    flex: 1,
-    marginRight: 8,
-  },
-  modalCloseIcon: {
-    fontSize: 24,
-    color: '#6B7280',
-    lineHeight: 24,
-  },
-  modalMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  modalChangeNotes: {
-    backgroundColor: '#EFF6FF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  changeNotesText: {
-    fontSize: 13,
-    color: '#1E40AF',
-  },
-  changeNotesLabel: {
-    fontWeight: '600',
-  },
-  modalScrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  modalContentText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 22,
-  },
-  modalFooter: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'flex-end',
-  },
-  modalCloseButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-  },
-  modalCloseButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});
+      flex: 1,
+    },
+    contentContainer: {
+      padding: 16,
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      color: theme.textMuted,
+    },
+    successIcon: {
+      fontSize: 48,
+      color: theme.success,
+      marginBottom: 12,
+    },
+    successText: {
+      fontSize: 16,
+      color: theme.successText,
+      textAlign: 'center',
+    },
+    errorText: {
+      fontSize: 15,
+      color: theme.dangerText,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+    },
+    retryButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    card: {
+      backgroundColor: theme.bgPrimary,
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: theme.borderRadiusLg,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      flex: 1,
+      marginRight: 8,
+    },
+    versionBadge: {
+      backgroundColor: theme.borderColor,
+      borderRadius: theme.borderRadiusLg,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    versionBadgeText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.textPrimary,
+    },
+    contentArea: {
+      maxHeight: 200,
+      backgroundColor: theme.bgSecondary,
+      borderRadius: theme.borderRadius,
+      padding: 12,
+      marginBottom: 12,
+    },
+    contentText: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      lineHeight: 20,
+    },
+    updateNotice: {
+      backgroundColor: theme.infoBg,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: theme.borderRadiusSm,
+      marginBottom: 12,
+    },
+    updateNoticeText: {
+      fontSize: 13,
+      color: theme.infoText,
+    },
+    readFullButton: {
+      borderWidth: 1,
+      borderColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 8,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    readFullButtonText: {
+      color: theme.primary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    acceptButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 44,
+    },
+    acceptButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    acceptAllButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
+      minHeight: 48,
+    },
+    acceptAllButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    modalContainer: {
+      backgroundColor: theme.bgPrimary,
+      borderRadius: theme.borderRadiusLg,
+      width: '100%',
+      maxHeight: '85%',
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderColor,
+    },
+    modalTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      flex: 1,
+      marginRight: 8,
+    },
+    modalCloseIcon: {
+      fontSize: 24,
+      color: theme.textMuted,
+      lineHeight: 24,
+    },
+    modalMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderColor,
+    },
+    metaText: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    modalChangeNotes: {
+      backgroundColor: theme.infoBg,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+      marginHorizontal: 16,
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: theme.borderRadiusSm,
+    },
+    changeNotesText: {
+      fontSize: 13,
+      color: theme.infoText,
+    },
+    changeNotesLabel: {
+      fontWeight: '600',
+    },
+    modalScrollContent: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    modalContentText: {
+      fontSize: 14,
+      color: theme.textPrimary,
+      lineHeight: 22,
+    },
+    modalFooter: {
+      borderTopWidth: 1,
+      borderTopColor: theme.borderColor,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      alignItems: 'flex-end',
+    },
+    modalCloseButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 10,
+      paddingHorizontal: 24,
+    },
+    modalCloseButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });

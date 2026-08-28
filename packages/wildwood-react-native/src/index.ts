@@ -142,8 +142,9 @@ export { TierCardFooter } from './components/tier/TierCardFooter';
 export type { TierCardFooterProps } from './components/tier/TierCardFooter';
 
 // Styles
-export { defaultTheme, themes } from './styles/theme';
+export { defaultTheme, themes, woodlandWarm, coolBlue, fallColors, resolveTheme } from './styles/theme';
 export type { WildwoodTheme } from './styles/theme';
+export { useWildwoodTheme } from './styles/ThemeContext';
 
 // Re-export core types that React Native consumers commonly need
 export type {

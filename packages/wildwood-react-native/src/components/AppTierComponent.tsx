@@ -9,6 +9,8 @@ import {
   computeAnnualDiscount,
 } from '@wildwood/core';
 import { useAppTier } from '../hooks/useAppTier';
+import { useWildwoodTheme } from '../styles/ThemeContext';
+import type { WildwoodTheme } from '../styles/theme';
 
 export interface AppTierComponentProps {
   autoLoad?: boolean;
@@ -36,6 +38,8 @@ export function AppTierComponent({
   onTierChanged,
   style,
 }: AppTierComponentProps) {
+  const theme = useWildwoodTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier, selfSubscribe } =
     useAppTier();
   const [changeError, setChangeError] = useState<string | null>(null);
@@ -297,339 +301,343 @@ export function AppTierComponent({
   );
 }
 
-const styles = StyleSheet.create({
+/* Built from the active theme rather than at module scope, so the token vocabulary the web
+   exposes as `--ww-*` reaches this component too. `#000` stays literal: it is a shadow, not a
+   themeable colour. */
+const createStyles = (theme: WildwoodTheme) =>
+  StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-  },
+      flex: 1,
+    },
+    contentContainer: {
+      padding: 16,
+    },
 
-  // Alerts
-  alertError: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-  },
-  alertErrorText: {
-    color: '#991B1B',
-    fontSize: 14,
-  },
-  alertSuccess: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#22C55E',
-  },
-  alertSuccessText: {
-    color: '#166534',
-    fontSize: 14,
-  },
+    // Alerts
+    alertError: {
+      backgroundColor: theme.dangerBg,
+      borderRadius: theme.borderRadius,
+      padding: 12,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.danger,
+    },
+    alertErrorText: {
+      color: theme.dangerText,
+      fontSize: 14,
+    },
+    alertSuccess: {
+      backgroundColor: theme.successBg,
+      borderRadius: theme.borderRadius,
+      padding: 12,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.success,
+    },
+    alertSuccessText: {
+      color: theme.successText,
+      fontSize: 14,
+    },
 
-  // Current tier
-  currentTier: {
-    marginBottom: 16,
-  },
-  currentTierLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-  },
-  currentTierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  currentTierName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  currentTierExpiry: {
-    fontSize: 14,
-    color: '#666',
-  },
+    // Current tier
+    currentTier: {
+      marginBottom: 16,
+    },
+    currentTierLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginBottom: 6,
+    },
+    currentTierBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+    },
+    currentTierName: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    currentTierExpiry: {
+      fontSize: 14,
+      color: theme.textMuted,
+    },
 
-  // Billing toggle
-  billingToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    gap: 10,
-  },
-  billingLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#999',
-  },
-  billingLabelActive: {
-    color: '#1a1a1a',
-    fontWeight: '600',
-  },
-  billingAnnualLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  toggleTrack: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#ddd',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  toggleTrackOn: {
-    backgroundColor: '#007AFF',
-  },
-  toggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  toggleThumbOn: {
-    alignSelf: 'flex-end',
-  },
-  discountBadge: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  discountBadgeText: {
-    color: '#166534',
-    fontSize: 11,
-    fontWeight: '600',
-  },
+    // Billing toggle
+    billingToggleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+      gap: 10,
+    },
+    billingLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textMuted,
+    },
+    billingLabelActive: {
+      color: theme.textPrimary,
+      fontWeight: '600',
+    },
+    billingAnnualLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    toggleTrack: {
+      width: 44,
+      height: 24,
+      borderRadius: theme.borderRadiusLg,
+      backgroundColor: theme.borderColor,
+      justifyContent: 'center',
+      paddingHorizontal: 2,
+    },
+    toggleTrackOn: {
+      backgroundColor: theme.primary,
+    },
+    toggleThumb: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: theme.bgPrimary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.15,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    toggleThumbOn: {
+      alignSelf: 'flex-end',
+    },
+    discountBadge: {
+      backgroundColor: theme.successBg,
+      borderRadius: theme.borderRadiusSm,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      alignSelf: 'flex-start',
+      marginTop: 4,
+    },
+    discountBadgeText: {
+      color: theme.successText,
+      fontSize: 11,
+      fontWeight: '600',
+    },
 
-  // Loading
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
-  },
+    // Loading
+    loadingContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 40,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      color: theme.textMuted,
+    },
 
-  // Tier grid
-  tierGrid: {
-    gap: 16,
-  },
+    // Tier grid
+    tierGrid: {
+      gap: 16,
+    },
 
-  // Tier card
-  tierCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  tierCardCurrent: {
-    borderColor: '#22C55E',
-    borderWidth: 2,
-  },
-  tierCardPreSelected: {
-    borderColor: '#007AFF',
-    borderWidth: 2,
-  },
+    // Tier card
+    tierCard: {
+      backgroundColor: theme.bgPrimary,
+      borderRadius: theme.borderRadiusLg,
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    tierCardCurrent: {
+      borderColor: theme.success,
+      borderWidth: 2,
+    },
+    tierCardPreSelected: {
+      borderColor: theme.primary,
+      borderWidth: 2,
+    },
 
-  // Badge
-  badgeContainer: {
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  preSelectedBadgeContainer: {
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  preSelectedBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+    // Badge
+    badgeContainer: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadiusSm,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+      marginBottom: 8,
+    },
+    badgeText: {
+      color: theme.btnPrimaryText,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    preSelectedBadgeContainer: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadiusSm,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+      marginBottom: 8,
+    },
+    preSelectedBadgeText: {
+      color: theme.btnPrimaryText,
+      fontSize: 12,
+      fontWeight: '600',
+    },
 
-  // Tier header
-  tierHeader: {
-    marginBottom: 12,
-  },
-  tierName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  tierPrice: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  tierBillingFrequency: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#666',
-  },
+    // Tier header
+    tierHeader: {
+      marginBottom: 12,
+    },
+    tierName: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      marginBottom: 4,
+    },
+    tierPrice: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    tierBillingFrequency: {
+      fontSize: 14,
+      fontWeight: '400',
+      color: theme.textMuted,
+    },
 
-  // Tier description
-  tierDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
+    // Tier description
+    tierDescription: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 12,
+      lineHeight: 20,
+    },
 
-  // Features list
-  tierFeatures: {
-    marginBottom: 16,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-  },
-  featureIcon: {
-    color: '#22C55E',
-    fontSize: 16,
-    fontWeight: '700',
-    marginRight: 8,
-    lineHeight: 20,
-  },
-  featureIconDisabled: {
-    color: '#999',
-  },
-  featureText: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    lineHeight: 20,
-  },
-  featureTextDisabled: {
-    color: '#999',
-  },
+    // Features list
+    tierFeatures: {
+      marginBottom: 16,
+    },
+    featureRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 6,
+    },
+    featureIcon: {
+      color: theme.success,
+      fontSize: 16,
+      fontWeight: '700',
+      marginRight: 8,
+      lineHeight: 20,
+    },
+    featureIconDisabled: {
+      color: theme.textMuted,
+    },
+    featureText: {
+      fontSize: 14,
+      color: theme.textPrimary,
+      flex: 1,
+      lineHeight: 20,
+    },
+    featureTextDisabled: {
+      color: theme.textMuted,
+    },
 
-  // Limits
-  tierLimits: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
-    marginBottom: 12,
-  },
-  limitsHeading: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: '#999',
-    marginBottom: 6,
-  },
-  limitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 4,
-  },
-  limitValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  limitName: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 8,
-  },
+    // Limits
+    tierLimits: {
+      borderTopWidth: 1,
+      borderTopColor: theme.borderColor,
+      paddingTop: 12,
+      marginBottom: 12,
+    },
+    limitsHeading: {
+      fontSize: 11,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      color: theme.textMuted,
+      marginBottom: 6,
+    },
+    limitRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: theme.bgSecondary,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      marginBottom: 4,
+    },
+    limitValue: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    limitName: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'right',
+      flex: 1,
+      marginLeft: 8,
+    },
 
-  // Tier footer
-  tierFooter: {
-    marginTop: 4,
-  },
+    // Tier footer
+    tierFooter: {
+      marginTop: 4,
+    },
 
-  // Current plan badge
-  currentPlanBadge: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  currentPlanBadgeText: {
-    color: '#166534',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+    // Current plan badge
+    currentPlanBadge: {
+      backgroundColor: theme.successBg,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    currentPlanBadgeText: {
+      color: theme.successText,
+      fontSize: 14,
+      fontWeight: '600',
+    },
 
-  // Contact button
-  contactButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  contactButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+    // Contact button
+    contactButton: {
+      backgroundColor: theme.bgPrimary,
+      borderRadius: theme.borderRadius,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    contactButtonText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
 
-  // Select button
-  selectButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  selectButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+    // Select button
+    selectButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    selectButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
