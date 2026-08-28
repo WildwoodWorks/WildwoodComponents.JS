@@ -112,14 +112,55 @@ import { captureScreen } from 'react-native-view-shot';
 
 ## Theme System
 
-Uses `StyleSheet`-based themes instead of CSS:
+`StyleSheet`-based instead of CSS, but the token names mirror the web package's `--ww-*` custom
+properties one-for-one, camelCased — `--ww-primary-dark` is `primaryDark`, `--ww-danger-bg` is
+`dangerBg`. An app that has themed `@wildwood/react` by redefining `--ww-*` on `:root` can port the
+same palette here by name.
+
+React Native has no cascade, so the tokens travel through context rather than inheritance. Pass a
+partial override to the provider; it layers over the default exactly as redefining a subset of CSS
+variables does, leaving every other token intact:
 
 ```tsx
-import { defaultTheme, themes } from '@wildwood/react-native';
+import { WildwoodProvider } from '@wildwood/react-native';
 
-// Access theme colors
-const { colors, spacing, typography } = defaultTheme;
+// Module scope, NOT inline: a fresh object literal each render defeats the provider's
+// memoisation and rebuilds every component's StyleSheet.
+const appTheme = { primary: '#0b1f3a', accent: '#c9a227' };
+
+<WildwoodProvider config={config} theme={appTheme}>
+  {children}
+</WildwoodProvider>
 ```
+
+Or select a built-in by the same name the web uses in `[data-theme]` — `'woodland-warm'` (default),
+`'cool-blue'`, `'fall-colors'`:
+
+```tsx
+<WildwoodProvider config={config} theme="cool-blue">
+```
+
+Omit `theme` entirely and the provider follows `ThemeService` instead, so a stored user preference
+applies on launch and `useTheme().setTheme(name)` restyles live. An explicit `theme` prop wins over
+that — use it when the app ships one brand palette a user preference should not override.
+
+Components read the active theme with `useWildwoodTheme()`:
+
+```tsx
+import { useWildwoodTheme, type WildwoodTheme } from '@wildwood/react-native';
+
+const theme = useWildwoodTheme();
+const styles = useMemo(() => createStyles(theme), [theme]);
+```
+
+`WildwoodTheme` is a flat set of semantic tokens (`primary`, `textMuted`, `dangerBg`,
+`borderRadius`, …) — see `src/styles/theme.ts` for the full list. Gradients are deliberately
+absent: `--ww-gradient-*` has no React Native equivalent without an extra dependency, so components
+use the flat `primary`/`primaryDark` pair those gradients interpolate.
+
+Not every component participates yet. Authentication, AppTier, UsageDashboard and Disclaimer read
+the theme; the rest still hardcode their colours and can be converted to the same
+`createStyles(theme)` shape.
 
 ## License
 

@@ -136,7 +136,7 @@ export function DisclaimerComponent({
   if (isLoading && pendingList.length === 0) {
     return (
       <View style={[styles.centered, style]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Loading disclaimers...</Text>
       </View>
     );
@@ -201,7 +201,7 @@ export function DisclaimerComponent({
             disabled={accepting || loading}
           >
             {accepting ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={theme.btnPrimaryText} size="small" />
             ) : (
               <Text style={styles.acceptButtonText}>Accept</Text>
             )}
@@ -216,7 +216,7 @@ export function DisclaimerComponent({
           disabled={accepting || loading}
         >
           {accepting ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={theme.btnPrimaryText} size="small" />
           ) : (
             <Text style={styles.acceptAllButtonText}>Accept All ({pendingList.length})</Text>
           )}

@@ -12,9 +12,12 @@ import type { ThemeName } from '@wildwood/core';
  * and every component inherits, here the tokens travel through context: pass `theme` to
  * WildwoodProvider and components read it with `useWildwoodTheme()`.
  *
- * HOW TO OVERRIDE:
- *   <WildwoodProvider config={config} theme={{ primary: '#0b1f3a', accent: '#c9a227' }}>
- * or pick a built-in by name:
+ * HOW TO OVERRIDE — hoist the object, do not inline it. An object literal in JSX is a new identity
+ * on every render, which defeats the provider's memoisation and rebuilds every component's
+ * StyleSheet each time the parent re-renders:
+ *   const appTheme = { primary: '#0b1f3a', accent: '#c9a227' };   // module scope
+ *   <WildwoodProvider config={config} theme={appTheme}>
+ * or pick a built-in by name (a string is stable, so inlining that is fine):
  *   <WildwoodProvider config={config} theme="cool-blue">
  *
  * Gradients are the one web token with no React Native equivalent without an extra dependency
@@ -160,6 +163,17 @@ export const woodlandWarm: WildwoodTheme = {
 /* ========================================
    COOL BLUE THEME
    ======================================== */
+/* Copied token-for-token from [data-theme="cool-blue"] in the web package's
+   wildwood-themes.css, with two documented departures:
+
+   - `--ww-text-muted` is NOT carried over. On the web these variant themes recolour the DARK
+     chrome (sidebar, login card), so muted text there is light-on-dark (#B8D4E8). React Native's
+     components have no such chrome — they use `textMuted` for secondary text on the white
+     `bgPrimary`, where a light value renders at roughly 1.4:1 and disappears. The default's dark
+     muted is kept instead. `--ww-text-light` IS carried, because that token means light-on-dark in
+     both clients.
+   - `--ww-focus-shadow` maps onto `focusRing`: this token set has no separate shadow colour, and
+     the two are the same translucent ring. */
 export const coolBlue: Partial<WildwoodTheme> = {
   primary: '#3B7EA1',
   primaryDark: '#2C5F7A',
@@ -174,37 +188,43 @@ export const coolBlue: Partial<WildwoodTheme> = {
   loginCardBg: 'rgba(58, 74, 85, 0.95)',
   loginCardBorder: 'rgba(107, 163, 199, 0.5)',
   textLight: '#E8F4FA',
-  textMuted: '#B8D4E8',
   textDark: '#2D3A42',
   borderAccent: '#6BA3C7',
+  borderSubtle: 'rgba(107, 163, 199, 0.2)',
+  hoverBg: 'rgba(59, 126, 161, 0.2)',
+  cardFooterBg: '#E8F4FA',
+  cardFooterBorder: '#B8D4E8',
   focusBorder: '#6BA3C7',
-  focusRing: 'rgba(59, 126, 161, 0.25)',
-  hoverBg: 'rgba(107, 163, 199, 0.2)',
+  focusRing: 'rgba(107, 163, 199, 0.25)',
 };
 
 /* ========================================
    FALL COLORS THEME
    ======================================== */
+/* Copied token-for-token from [data-theme="fall-colors"], with the same two departures as
+   cool-blue above (`--ww-text-muted` omitted, `--ww-focus-shadow` mapped onto `focusRing`). */
 export const fallColors: Partial<WildwoodTheme> = {
-  primary: '#C1440E',
-  primaryDark: '#8B3103',
-  primaryLight: '#E85D24',
-  accent: '#E8A33C',
-  accentLight: '#F5C77E',
-  accentHover: '#F5B041',
-  bgDark: '#3E2723',
-  bgMedium: '#4E342E',
-  bgLight: '#5D4037',
-  loginOverlay: 'rgba(62, 39, 35, 0.8)',
-  loginCardBg: 'rgba(78, 52, 46, 0.95)',
-  loginCardBorder: 'rgba(232, 163, 60, 0.5)',
-  textLight: '#FFF3E0',
-  textMuted: '#D7CCC8',
-  textDark: '#3E2723',
-  borderAccent: '#E8A33C',
-  focusBorder: '#E8A33C',
-  focusRing: 'rgba(193, 68, 14, 0.25)',
-  hoverBg: 'rgba(232, 163, 60, 0.2)',
+  primary: '#B8452A',
+  primaryDark: '#8B3420',
+  primaryLight: '#D4613D',
+  accent: '#D97B3D',
+  accentLight: '#F5C16E',
+  accentHover: '#E89849',
+  bgDark: '#4A2E2A',
+  bgMedium: '#5D3B35',
+  bgLight: '#6B4A42',
+  loginOverlay: 'rgba(74, 46, 42, 0.78)',
+  loginCardBg: 'rgba(93, 59, 53, 0.95)',
+  loginCardBorder: 'rgba(217, 123, 61, 0.5)',
+  textLight: '#FFF5E8',
+  textDark: '#4A2E2A',
+  borderAccent: '#D97B3D',
+  borderSubtle: 'rgba(245, 193, 110, 0.18)',
+  hoverBg: 'rgba(217, 123, 61, 0.22)',
+  cardFooterBg: '#FFF5E8',
+  cardFooterBorder: '#E8D8C8',
+  focusBorder: '#D97B3D',
+  focusRing: 'rgba(217, 123, 61, 0.28)',
 };
 
 /** The theme applied when a consumer supplies none — matches the web's `:root` defaults. */
@@ -228,6 +248,20 @@ export const themes: Record<string, Partial<WildwoodTheme>> = {
  */
 export function resolveTheme(theme?: ThemeName | Partial<WildwoodTheme>): WildwoodTheme {
   if (!theme) return defaultTheme;
-  const overrides = typeof theme === 'string' ? (themes[theme] ?? {}) : theme;
+  if (typeof theme !== 'string') return { ...defaultTheme, ...theme };
+
+  const overrides = themes[theme];
+  if (!overrides) {
+    /* core's ThemeName widens to `string`, so a typo or a retired name typechecks and would
+       otherwise resolve to the default with nothing to show for it. */
+    // Guarded: __DEV__ is a React Native global and is absent under Node (tests, SSR).
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.warn(
+        `[wildwood] Unknown theme "${theme}". Known themes: ${Object.keys(themes).join(', ')}. ` +
+          'Falling back to the default.',
+      );
+    }
+    return defaultTheme;
+  }
   return { ...defaultTheme, ...overrides };
 }

@@ -150,7 +150,7 @@ export function AppTierComponent({
       {/* Loading state */}
       {loading && tiers.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={theme.primary} />
           <Text style={styles.loadingText}>Loading tiers...</Text>
         </View>
       ) : (
@@ -275,7 +275,7 @@ export function AppTierComponent({
                       disabled={loading}
                     >
                       {loading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={theme.btnPrimaryText} size="small" />
                       ) : (
                         <Text style={styles.selectButtonText}>
                           {isPreSelected
@@ -389,7 +389,9 @@ const createStyles = (theme: WildwoodTheme) =>
     toggleTrack: {
       width: 44,
       height: 24,
-      borderRadius: theme.borderRadiusLg,
+      // Half the height — a pill, matched to the thumb's radius 10. Not a theme token: the shape is
+      // geometric, and theming it leaves a circular thumb inside a rounded rectangle.
+      borderRadius: 12,
       backgroundColor: theme.borderColor,
       justifyContent: 'center',
       paddingHorizontal: 2,

@@ -45,7 +45,7 @@ export function UsageDashboardComponent({
   if (loading && limitStatuses.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Loading usage data...</Text>
       </View>
     );

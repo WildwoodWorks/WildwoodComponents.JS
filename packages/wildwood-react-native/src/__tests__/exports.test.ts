@@ -48,6 +48,22 @@ describe('@wildwood/react-native styles', () => {
 
   it('resolveTheme accepts a built-in theme name', () => {
     expect(resolveTheme('cool-blue').primary).toBe('#3B7EA1');
+    expect(resolveTheme('fall-colors').primary).toBe('#B8452A');
     expect(resolveTheme(undefined)).toEqual(defaultTheme);
+  });
+
+  it('resolveTheme falls back to the default for an unknown name', () => {
+    // core's ThemeName widens to `string`, so a typo typechecks — it must not silently produce a
+    // half-applied theme.
+    expect(resolveTheme('no-such-theme')).toEqual(defaultTheme);
+  });
+
+  it('the variant themes keep a readable muted text on light surfaces', () => {
+    // The web sets --ww-text-muted light in these themes because they recolour its DARK chrome.
+    // React Native uses textMuted on the white bgPrimary, so carrying that over would render
+    // secondary text at ~1.4:1. The variants must inherit the default's dark muted instead.
+    for (const name of ['cool-blue', 'fall-colors']) {
+      expect(resolveTheme(name).textMuted).toBe(defaultTheme.textMuted);
+    }
   });
 });
