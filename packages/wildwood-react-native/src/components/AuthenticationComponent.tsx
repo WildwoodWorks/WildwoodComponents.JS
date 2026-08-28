@@ -2,7 +2,7 @@
 // Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
 // State management and handlers delegated to useAuthenticationLogic from @wildwood/react-shared
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import {
   type PendingDisclaimerModel,
 } from '@wildwood/core';
 import { useAuthenticationLogic } from '@wildwood/react-shared';
+import { useWildwoodTheme } from '../styles/ThemeContext';
+import type { WildwoodTheme } from '../styles/theme';
 
 export interface AuthenticationComponentProps {
   appId?: string;
@@ -49,6 +51,10 @@ export function AuthenticationComponent({
   onAuthenticationError,
   onProviderSignIn,
 }: AuthenticationComponentProps) {
+  const theme = useWildwoodTheme();
+  // Memoised on the theme: StyleSheet.create is not free, and this component re-renders on every
+  // keystroke in the login form.
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [oauthLoading, setOauthLoading] = useState(false);
   const {
     // State
@@ -190,7 +196,7 @@ export function AuthenticationComponent({
   const renderSubmitButton = (label: string, _loadingLabel: string, onPress: () => void) => (
     <Pressable style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={onPress} disabled={loading}>
       {loading ? (
-        <ActivityIndicator color="#fff" size="small" />
+        <ActivityIndicator color={theme.btnPrimaryText} size="small" />
       ) : (
         <Text style={styles.primaryButtonText}>{label}</Text>
       )}
@@ -582,269 +588,275 @@ export function AuthenticationComponent({
   );
 }
 
-const styles = StyleSheet.create({
+/* Built from the active theme rather than at module scope, so the token vocabulary the web
+   exposes as `--ww-*` reaches these components too. `#000` stays literal: it is a shadow, not a
+   themeable colour. */
+const createStyles = (theme: WildwoodTheme) =>
+  StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#1a1a1a',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#fafafa',
-    color: '#1a1a1a',
-  },
-  codeInput: {
-    textAlign: 'center',
-    fontSize: 24,
-    letterSpacing: 8,
-    fontWeight: '600',
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passwordInput: {
-    flex: 1,
-  },
-  showPasswordBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginLeft: 8,
-  },
-  showPasswordText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    minHeight: 48,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  linkButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  linkText: {
-    color: '#007AFF',
-    fontSize: 14,
-  },
-  footer: {
-    marginTop: 8,
-  },
-  alertError: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-  },
-  alertErrorText: {
-    color: '#991B1B',
-    fontSize: 14,
-  },
-  alertSuccess: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#22C55E',
-  },
-  alertSuccessText: {
-    color: '#166534',
-    fontSize: 14,
-  },
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      padding: 16,
+    },
+    card: {
+      backgroundColor: theme.bgPrimary,
+      borderRadius: theme.borderRadiusLg,
+      padding: 24,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginBottom: 20,
+      color: theme.textPrimary,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 20,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginBottom: 6,
+      marginTop: 12,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: theme.borderRadius,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      // `inputBg`, not `bgSecondary`: the web has a dedicated --ww-input-bg, and an app porting
+      // its palette by token name expects setting it to change the field, not the page.
+      backgroundColor: theme.inputBg,
+      color: theme.textPrimary,
+    },
+    codeInput: {
+      textAlign: 'center',
+      fontSize: 24,
+      letterSpacing: 8,
+      fontWeight: '600',
+    },
+    passwordRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    passwordInput: {
+      flex: 1,
+    },
+    showPasswordBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      marginLeft: 8,
+    },
+    showPasswordText: {
+      color: theme.primaryDark,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    primaryButton: {
+      backgroundColor: theme.primaryDark,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 20,
+      minHeight: 48,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    primaryButtonText: {
+      color: theme.btnPrimaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    linkButton: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      marginTop: 8,
+    },
+    linkText: {
+      color: theme.primaryDark,
+      fontSize: 14,
+    },
+    footer: {
+      marginTop: 8,
+    },
+    alertError: {
+      backgroundColor: theme.dangerBg,
+      borderRadius: theme.borderRadius,
+      padding: 12,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.danger,
+    },
+    alertErrorText: {
+      color: theme.dangerText,
+      fontSize: 14,
+    },
+    alertSuccess: {
+      backgroundColor: theme.successBg,
+      borderRadius: theme.borderRadius,
+      padding: 12,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.success,
+    },
+    alertSuccessText: {
+      color: theme.successText,
+      fontSize: 14,
+    },
 
-  // Social/OAuth
-  socialSection: {
-    marginTop: 20,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: '#999',
-    fontSize: 13,
-  },
-  socialButton: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-    backgroundColor: '#fff',
-  },
-  socialButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  socialButtonIcon: {
-    fontSize: 18,
-  },
-  socialButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-  },
+    // Social/OAuth
+    socialSection: {
+      marginTop: 20,
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 12,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.borderColor,
+    },
+    dividerText: {
+      marginHorizontal: 12,
+      color: theme.textMuted,
+      fontSize: 13,
+    },
+    socialButton: {
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 8,
+      backgroundColor: theme.bgPrimary,
+    },
+    socialButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    socialButtonIcon: {
+      fontSize: 18,
+    },
+    socialButtonText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.textPrimary,
+    },
 
-  // 2FA
-  twoFaMethodRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
-  },
-  twoFaMethodButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  twoFaMethodActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#EFF6FF',
-  },
-  twoFaMethodText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#666',
-  },
-  twoFaMethodTextActive: {
-    color: '#007AFF',
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  checkboxChecked: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#333',
-  },
+    // 2FA
+    twoFaMethodRow: {
+      flexDirection: 'row',
+      marginBottom: 16,
+      gap: 8,
+    },
+    twoFaMethodButton: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    twoFaMethodActive: {
+      borderColor: theme.primary,
+      backgroundColor: theme.infoBg,
+    },
+    twoFaMethodText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.textMuted,
+    },
+    twoFaMethodTextActive: {
+      color: theme.primaryDark,
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: theme.borderRadiusSm,
+      borderWidth: 2,
+      borderColor: theme.borderColor,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    checkboxChecked: {
+      backgroundColor: theme.primaryDark,
+      borderColor: theme.primary,
+    },
+    checkmark: {
+      color: theme.btnPrimaryText,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    checkboxLabel: {
+      fontSize: 14,
+      color: theme.textPrimary,
+    },
 
-  // Password reset
-  passwordRequirements: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 8,
-    lineHeight: 18,
-  },
+    // Password reset
+    passwordRequirements: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 8,
+      lineHeight: 18,
+    },
 
-  // Disclaimers
-  disclaimerItem: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-  },
-  disclaimerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 8,
-  },
-  disclaimerChangeNotes: {
-    fontSize: 13,
-    color: '#D97706',
-    backgroundColor: '#FFFBEB',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  disclaimerContent: {
-    maxHeight: 200,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 4,
-    padding: 12,
-  },
-  disclaimerText: {
-    fontSize: 13,
-    color: '#555',
-    lineHeight: 20,
-  },
-});
+    // Disclaimers
+    disclaimerItem: {
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: theme.borderRadius,
+      padding: 16,
+      marginBottom: 12,
+    },
+    disclaimerTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginBottom: 8,
+    },
+    disclaimerChangeNotes: {
+      fontSize: 13,
+      color: theme.warningText,
+      backgroundColor: theme.warningBg,
+      padding: 8,
+      borderRadius: theme.borderRadiusSm,
+      marginBottom: 8,
+    },
+    disclaimerContent: {
+      maxHeight: 200,
+      backgroundColor: theme.bgSecondary,
+      borderRadius: theme.borderRadiusSm,
+      padding: 12,
+    },
+    disclaimerText: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      lineHeight: 20,
+    },
+  });

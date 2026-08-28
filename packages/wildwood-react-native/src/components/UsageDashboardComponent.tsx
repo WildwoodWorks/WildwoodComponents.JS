@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useUsageDashboard } from '../hooks/useUsageDashboard';
+import { useWildwoodTheme } from '../styles/ThemeContext';
+import type { WildwoodTheme } from '../styles/theme';
 
 export interface UsageDashboardComponentProps {
   title?: string;
@@ -11,10 +14,17 @@ export interface UsageDashboardComponentProps {
   style?: ViewStyle;
 }
 
-function getBarColor(percent: number, isExceeded: boolean, warningThreshold: number): string {
-  if (isExceeded) return '#EF4444';
-  if (percent >= warningThreshold) return '#F59E0B';
-  return '#22C55E';
+/* The usage bar's traffic-light colours come from the theme like everything else — takes the theme
+   rather than closing over one so it stays a pure function. */
+function getBarColor(
+  percent: number,
+  isExceeded: boolean,
+  warningThreshold: number,
+  theme: WildwoodTheme,
+): string {
+  if (isExceeded) return theme.danger;
+  if (percent >= warningThreshold) return theme.warning;
+  return theme.success;
 }
 
 export function UsageDashboardComponent({
@@ -25,6 +35,8 @@ export function UsageDashboardComponent({
   onUpgradeClick,
   style,
 }: UsageDashboardComponentProps) {
+  const theme = useWildwoodTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { limitStatuses, subscription, loading, error, refresh } = useUsageDashboard();
 
   const anyAtWarning = limitStatuses.some((s) => s.usagePercent >= warningThreshold || s.isExceeded);
@@ -33,7 +45,7 @@ export function UsageDashboardComponent({
   if (loading && limitStatuses.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Loading usage data...</Text>
       </View>
     );
@@ -83,7 +95,7 @@ export function UsageDashboardComponent({
         <View style={styles.limitsContainer}>
           {limitStatuses.map((status) => {
             const percent = status.isUnlimited ? 0 : Math.min(status.usagePercent, 100);
-            const barColor = getBarColor(status.usagePercent, status.isExceeded, warningThreshold);
+            const barColor = getBarColor(status.usagePercent, status.isExceeded, warningThreshold, theme);
 
             return (
               <View key={status.limitCode} style={styles.limitItem}>
@@ -105,7 +117,7 @@ export function UsageDashboardComponent({
                       styles.barFill,
                       {
                         width: `${status.isUnlimited ? 100 : percent}%`,
-                        backgroundColor: status.isUnlimited ? '#93C5FD' : barColor,
+                        backgroundColor: status.isUnlimited ? theme.infoLight : barColor,
                       },
                     ]}
                   />
@@ -142,39 +154,43 @@ export function UsageDashboardComponent({
   );
 }
 
-const styles = StyleSheet.create({
+/* Built from the active theme rather than at module scope, so the token vocabulary the web
+   exposes as `--ww-*` reaches this component too. `#000` stays literal: it is a shadow, not a
+   themeable colour. */
+const createStyles = (theme: WildwoodTheme) =>
+  StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
-  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#666' },
-  errorContainer: { padding: 16, backgroundColor: '#FEE2E2', borderRadius: 8, margin: 16, alignItems: 'center' },
-  errorText: { color: '#991B1B', fontSize: 14, marginBottom: 12 },
-  retryButton: { borderWidth: 1, borderColor: '#991B1B', borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 },
-  retryButtonText: { color: '#991B1B', fontSize: 14, fontWeight: '600' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  headerText: { flex: 1 },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a1a1a', marginBottom: 2 },
-  subtitle: { fontSize: 14, color: '#666' },
-  tierBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  tierBadgePrimary: { backgroundColor: '#DBEAFE' },
-  tierBadgeSecondary: { backgroundColor: '#F3F4F6' },
-  tierBadgeText: { fontSize: 13, fontWeight: '600' },
-  tierBadgeTextPrimary: { color: '#1D4ED8' },
-  tierBadgeTextSecondary: { color: '#6B7280' },
-  emptyState: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { color: '#999', fontSize: 14 },
-  limitsContainer: { gap: 16 },
-  limitItem: { backgroundColor: '#fff', borderRadius: 10, padding: 16, borderWidth: 1, borderColor: '#eee' },
-  limitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  limitLabel: { fontSize: 14, fontWeight: '600', color: '#333', flex: 1 },
-  limitValue: { fontSize: 13, color: '#666' },
-  barTrack: { height: 8, backgroundColor: '#f0f0f0', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 4 },
-  overageText: { color: '#D97706', fontSize: 12, marginTop: 6 },
-  blockedText: { color: '#EF4444', fontSize: 12, marginTop: 6, fontWeight: '600' },
-  statusMessage: { color: '#999', fontSize: 12, marginTop: 4 },
-  upgradeCta: { marginTop: 20, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 16, alignItems: 'center' },
-  upgradeMessage: { color: '#92400E', fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  upgradeButton: { backgroundColor: '#007AFF', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24 },
-  upgradeButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
+    content: { padding: 16 },
+    loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+    loadingText: { marginTop: 12, fontSize: 14, color: theme.textMuted },
+    errorContainer: { padding: 16, backgroundColor: theme.dangerBg, borderRadius: theme.borderRadius, margin: 16, alignItems: 'center' },
+    errorText: { color: theme.dangerText, fontSize: 14, marginBottom: 12 },
+    retryButton: { borderWidth: 1, borderColor: theme.dangerText, borderRadius: theme.borderRadius, paddingHorizontal: 16, paddingVertical: 8 },
+    retryButtonText: { color: theme.dangerText, fontSize: 14, fontWeight: '600' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+    headerText: { flex: 1 },
+    title: { fontSize: 20, fontWeight: '700', color: theme.textPrimary, marginBottom: 2 },
+    subtitle: { fontSize: 14, color: theme.textMuted },
+    tierBadge: { borderRadius: theme.borderRadius, paddingHorizontal: 10, paddingVertical: 4 },
+    tierBadgePrimary: { backgroundColor: theme.infoBg },
+    tierBadgeSecondary: { backgroundColor: theme.bgTertiary },
+    tierBadgeText: { fontSize: 13, fontWeight: '600' },
+    tierBadgeTextPrimary: { color: theme.infoText },
+    tierBadgeTextSecondary: { color: theme.textMuted },
+    emptyState: { paddingVertical: 24, alignItems: 'center' },
+    emptyText: { color: theme.textMuted, fontSize: 14 },
+    limitsContainer: { gap: 16 },
+    limitItem: { backgroundColor: theme.bgPrimary, borderRadius: theme.borderRadiusLg, padding: 16, borderWidth: 1, borderColor: theme.borderColor },
+    limitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    limitLabel: { fontSize: 14, fontWeight: '600', color: theme.textPrimary, flex: 1 },
+    limitValue: { fontSize: 13, color: theme.textMuted },
+    barTrack: { height: 8, backgroundColor: theme.bgTertiary, borderRadius: theme.borderRadiusSm, overflow: 'hidden' },
+    barFill: { height: '100%', borderRadius: theme.borderRadiusSm },
+    overageText: { color: theme.warningText, fontSize: 12, marginTop: 6 },
+    blockedText: { color: theme.danger, fontSize: 12, marginTop: 6, fontWeight: '600' },
+    statusMessage: { color: theme.textMuted, fontSize: 12, marginTop: 4 },
+    upgradeCta: { marginTop: 20, backgroundColor: theme.warningBg, borderRadius: theme.borderRadiusLg, padding: 16, alignItems: 'center' },
+    upgradeMessage: { color: theme.warningText, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+    upgradeButton: { backgroundColor: theme.primaryDark, borderRadius: theme.borderRadius, paddingVertical: 12, paddingHorizontal: 24 },
+    upgradeButtonText: { color: theme.btnPrimaryText, fontSize: 16, fontWeight: '600' },
+  });
