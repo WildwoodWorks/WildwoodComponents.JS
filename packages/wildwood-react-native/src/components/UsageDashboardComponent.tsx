@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
+import type { AppTierLimitStatusModel, UserTierSubscriptionModel } from '@wildwood/core';
 import { useUsageDashboard } from '../hooks/useUsageDashboard';
+import type { UseUsageDashboardOptions } from '../hooks/useUsageDashboard';
 import { useWildwoodTheme } from '../styles/ThemeContext';
 import type { WildwoodTheme } from '../styles/theme';
 
@@ -12,16 +14,27 @@ export interface UsageDashboardComponentProps {
   warningThreshold?: number;
   onUpgradeClick?: () => void;
   style?: ViewStyle;
+  /**
+   * Override limit statuses instead of fetching from the Wildwood API.
+   * When provided, the internal useUsageDashboard() hook is still called
+   * but its limitStatuses are replaced with this value.
+   */
+  limitStatuses?: AppTierLimitStatusModel[];
+  /**
+   * Override subscription instead of fetching from the Wildwood API.
+   * When provided, replaces the internal hook's subscription data.
+   */
+  subscription?: UserTierSubscriptionModel | null;
+  /**
+   * Options passed to the internal useUsageDashboard() hook.
+   * Use this to configure refreshInterval or onMergeUsage callback.
+   */
+  usageDashboardOptions?: UseUsageDashboardOptions;
 }
 
 /* The usage bar's traffic-light colours come from the theme like everything else — takes the theme
    rather than closing over one so it stays a pure function. */
-function getBarColor(
-  percent: number,
-  isExceeded: boolean,
-  warningThreshold: number,
-  theme: WildwoodTheme,
-): string {
+function getBarColor(percent: number, isExceeded: boolean, warningThreshold: number, theme: WildwoodTheme): string {
   if (isExceeded) return theme.danger;
   if (percent >= warningThreshold) return theme.warning;
   return theme.success;
@@ -34,10 +47,17 @@ export function UsageDashboardComponent({
   warningThreshold = 80,
   onUpgradeClick,
   style,
+  limitStatuses: limitStatusesOverride,
+  subscription: subscriptionOverride,
+  usageDashboardOptions,
 }: UsageDashboardComponentProps) {
   const theme = useWildwoodTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const { limitStatuses, subscription, loading, error, refresh } = useUsageDashboard();
+  const hook = useUsageDashboard(usageDashboardOptions);
+
+  const limitStatuses = limitStatusesOverride ?? hook.limitStatuses;
+  const subscription = subscriptionOverride !== undefined ? subscriptionOverride : hook.subscription;
+  const { loading, error, refresh } = hook;
 
   const anyAtWarning = limitStatuses.some((s) => s.usagePercent >= warningThreshold || s.isExceeded);
   const anyOverage = limitStatuses.some((s) => s.isExceeded && !s.isHardBlocked);
@@ -159,13 +179,25 @@ export function UsageDashboardComponent({
    themeable colour. */
 const createStyles = (theme: WildwoodTheme) =>
   StyleSheet.create({
-  container: { flex: 1 },
+    container: { flex: 1 },
     content: { padding: 16 },
     loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
     loadingText: { marginTop: 12, fontSize: 14, color: theme.textMuted },
-    errorContainer: { padding: 16, backgroundColor: theme.dangerBg, borderRadius: theme.borderRadius, margin: 16, alignItems: 'center' },
+    errorContainer: {
+      padding: 16,
+      backgroundColor: theme.dangerBg,
+      borderRadius: theme.borderRadius,
+      margin: 16,
+      alignItems: 'center',
+    },
     errorText: { color: theme.dangerText, fontSize: 14, marginBottom: 12 },
-    retryButton: { borderWidth: 1, borderColor: theme.dangerText, borderRadius: theme.borderRadius, paddingHorizontal: 16, paddingVertical: 8 },
+    retryButton: {
+      borderWidth: 1,
+      borderColor: theme.dangerText,
+      borderRadius: theme.borderRadius,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
     retryButtonText: { color: theme.dangerText, fontSize: 14, fontWeight: '600' },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     headerText: { flex: 1 },
@@ -180,7 +212,13 @@ const createStyles = (theme: WildwoodTheme) =>
     emptyState: { paddingVertical: 24, alignItems: 'center' },
     emptyText: { color: theme.textMuted, fontSize: 14 },
     limitsContainer: { gap: 16 },
-    limitItem: { backgroundColor: theme.bgPrimary, borderRadius: theme.borderRadiusLg, padding: 16, borderWidth: 1, borderColor: theme.borderColor },
+    limitItem: {
+      backgroundColor: theme.bgPrimary,
+      borderRadius: theme.borderRadiusLg,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+    },
     limitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     limitLabel: { fontSize: 14, fontWeight: '600', color: theme.textPrimary, flex: 1 },
     limitValue: { fontSize: 13, color: theme.textMuted },
@@ -189,8 +227,19 @@ const createStyles = (theme: WildwoodTheme) =>
     overageText: { color: theme.warningText, fontSize: 12, marginTop: 6 },
     blockedText: { color: theme.danger, fontSize: 12, marginTop: 6, fontWeight: '600' },
     statusMessage: { color: theme.textMuted, fontSize: 12, marginTop: 4 },
-    upgradeCta: { marginTop: 20, backgroundColor: theme.warningBg, borderRadius: theme.borderRadiusLg, padding: 16, alignItems: 'center' },
+    upgradeCta: {
+      marginTop: 20,
+      backgroundColor: theme.warningBg,
+      borderRadius: theme.borderRadiusLg,
+      padding: 16,
+      alignItems: 'center',
+    },
     upgradeMessage: { color: theme.warningText, fontSize: 14, textAlign: 'center', marginBottom: 12 },
-    upgradeButton: { backgroundColor: theme.primaryDark, borderRadius: theme.borderRadius, paddingVertical: 12, paddingHorizontal: 24 },
+    upgradeButton: {
+      backgroundColor: theme.primaryDark,
+      borderRadius: theme.borderRadius,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+    },
     upgradeButtonText: { color: theme.btnPrimaryText, fontSize: 16, fontWeight: '600' },
   });

@@ -90,6 +90,8 @@ export { FeedbackComponent } from './components/feedback/FeedbackComponent';
 export type { FeedbackComponentProps } from './components/feedback/FeedbackComponent';
 export { AppTierComponent } from './components/AppTierComponent';
 export type { AppTierComponentProps } from './components/AppTierComponent';
+// The payment seam shared by AppTierComponent and SubscriptionAdminComponent
+export type { PaymentRequiredArgs, OnPaymentRequired } from './components/subscription/paymentSeam';
 export { AIChatComponent } from './components/AIChatComponent';
 export type { AIChatComponentProps, AIChatSettings, FilePickerResult } from './components/AIChatComponent';
 export { SecureMessagingComponent } from './components/SecureMessagingComponent';
