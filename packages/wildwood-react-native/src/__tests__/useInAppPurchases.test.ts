@@ -8,6 +8,11 @@ type CreateIapSession = typeof import('../hooks/useInAppPurchases').createIapSes
 
 const PRODUCTS = [{ productId: 'com.app.pro.monthly', tierId: 'tier-pro', pricingId: 'price-monthly' }];
 
+const TWO_PRODUCTS = [
+  ...PRODUCTS,
+  { productId: 'com.app.plus.monthly', tierId: 'tier-plus', pricingId: 'price-monthly' },
+];
+
 /** Scriptable expo-iap double. `emit` plays the purchase listener the store would have fired. */
 function createStoreDouble(overrides: Record<string, unknown> = {}) {
   const purchaseListeners: Array<(p: unknown) => void> = [];
@@ -83,6 +88,31 @@ describe('useInAppPurchases - expo-iap not installed', () => {
     await expect(session.restorePurchases()).resolves.toEqual({
       restored: 0,
       error: expect.stringMatching(/expo-iap is not installed/i),
+    });
+  });
+});
+
+describe('useInAppPurchases - store connection failure', () => {
+  it('reports the store as unreachable rather than as a missing package', async () => {
+    // expo-iap IS installed; the store refuses the connection (no network, sandbox down, …).
+    const store = createStoreDouble({ initConnection: vi.fn(async () => false) });
+    vi.doMock('expo-iap', () => store.mod);
+    const createIapSession = await loadSession();
+
+    const validate = vi.fn<(p: StorePurchase) => Promise<PaymentCompletionResult>>();
+    const session = createIapSession({ products: PRODUCTS, validate });
+    await session.init();
+
+    expect(session.getState().available).toBe(false);
+
+    await expect(session.purchaseTier('tier-pro')).resolves.toBeNull();
+    expect(session.getState().error).toMatch(/could not connect to the store/i);
+    expect(session.getState().error).not.toMatch(/not installed/i);
+    expect(validate).not.toHaveBeenCalled();
+
+    await expect(session.restorePurchases()).resolves.toEqual({
+      restored: 0,
+      error: expect.stringMatching(/could not connect to the store/i),
     });
   });
 });
@@ -214,6 +244,124 @@ describe('useInAppPurchases - purchase flow', () => {
     expect(session.getState().purchaseState).toBe('pending');
     expect(validate).not.toHaveBeenCalled();
     expect(store.mod.finishTransaction).not.toHaveBeenCalled();
+  });
+
+  it('fails the purchase when validation succeeds without a transaction id', async () => {
+    const store = createStoreDouble();
+    vi.doMock('expo-iap', () => store.mod);
+    const createIapSession = await loadSession();
+
+    // Success with nothing to pass to changeTier/selfSubscribe: the tier could never be applied.
+    const validate = vi.fn(async (): Promise<PaymentCompletionResult> => ({ success: true }));
+    const session = createIapSession({ products: PRODUCTS, validate });
+    await session.init();
+
+    const purchasing = session.purchaseTier('tier-pro');
+    await flush();
+    store.emitPurchase({ productId: 'com.app.pro.monthly', purchaseToken: 'jws', id: 'store-txn-1' });
+
+    await expect(purchasing).resolves.toBeNull();
+    expect(session.getState().purchaseState).toBe('failed');
+    expect(session.getState().error).toMatch(/no transaction id/i);
+    // Left unfinished, so the store re-delivers it and a later validation can still record it.
+    expect(store.mod.finishTransaction).not.toHaveBeenCalled();
+  });
+
+  it('re-processes the same transaction on a retry after validation failed', async () => {
+    const store = createStoreDouble();
+    vi.doMock('expo-iap', () => store.mod);
+    const createIapSession = await loadSession();
+
+    const validate = vi
+      .fn<(p: StorePurchase) => Promise<PaymentCompletionResult>>()
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({ success: true, transactionId: 'ww-retry' });
+
+    const session = createIapSession({ products: PRODUCTS, validate });
+    await session.init();
+
+    // The purchase the store delivers both times: same id, still unfinished.
+    const delivered = { productId: 'com.app.pro.monthly', purchaseToken: 'jws', id: 'store-txn-1' };
+
+    const first = session.purchaseTier('tier-pro');
+    await flush();
+    store.emitPurchase(delivered);
+    await expect(first).resolves.toBeNull();
+    expect(session.getState().purchaseState).toBe('failed');
+    expect(store.mod.finishTransaction).not.toHaveBeenCalled();
+
+    // Same session: the shopper taps Buy again and StoreKit re-delivers the unfinished transaction.
+    const second = session.purchaseTier('tier-pro');
+    await flush();
+    expect(session.getState().purchaseState).toBe('purchasing');
+    store.emitPurchase(delivered);
+
+    await expect(second).resolves.toBe('ww-retry');
+    expect(validate).toHaveBeenCalledTimes(2);
+    expect(session.getState().purchaseState).toBe('success');
+    expect(store.mod.finishTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('completes an Ask to Buy purchase when the approval re-delivers the same token', async () => {
+    const store = createStoreDouble();
+    vi.doMock('expo-iap', () => store.mod);
+    const createIapSession = await loadSession();
+
+    const validate = vi.fn(async (): Promise<PaymentCompletionResult> => ({ success: true, transactionId: 'ww-ask' }));
+    const session = createIapSession({ products: PRODUCTS, validate });
+    await session.init();
+
+    const purchasing = session.purchaseTier('tier-pro');
+    await flush();
+    store.emitPurchase({ productId: 'com.app.pro.monthly', purchaseToken: 'play-token', purchaseStateAndroid: 2 });
+
+    await expect(purchasing).resolves.toBeNull();
+    expect(session.getState().purchaseState).toBe('pending');
+    expect(validate).not.toHaveBeenCalled();
+
+    // The parent approves and Play delivers the SAME purchaseToken, now purchased.
+    store.emitPurchase({ productId: 'com.app.pro.monthly', purchaseToken: 'play-token', purchaseStateAndroid: 1 });
+    await flush();
+
+    expect(validate).toHaveBeenCalledWith(expect.objectContaining({ purchaseToken: 'play-token' }));
+    expect(session.getState().purchaseState).toBe('success');
+    expect(store.mod.finishTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not settle the in-flight purchase with another product's transaction", async () => {
+    const store = createStoreDouble();
+    vi.doMock('expo-iap', () => store.mod);
+    const createIapSession = await loadSession();
+
+    const validate = vi.fn(
+      async (p: StorePurchase): Promise<PaymentCompletionResult> => ({
+        success: true,
+        transactionId: p.productId === 'com.app.pro.monthly' ? 'ww-pro' : 'ww-plus',
+      }),
+    );
+    const session = createIapSession({ products: TWO_PRODUCTS, validate });
+    await session.init();
+
+    const purchasing = session.purchaseTier('tier-pro', 'price-monthly');
+    let settledWith: string | null | undefined;
+    void purchasing.then((value) => {
+      settledWith = value;
+    });
+    await flush();
+
+    // An unfinished purchase for the OTHER tier is re-delivered mid-flow.
+    store.emitPurchase({ productId: 'com.app.plus.monthly', purchaseToken: 'jws-plus', id: 'store-txn-plus' });
+    await flush();
+
+    // It is still validated and finished — it is a real, mapped entitlement — but it is not ours.
+    expect(validate).toHaveBeenCalledWith(expect.objectContaining({ productId: 'com.app.plus.monthly' }));
+    expect(store.mod.finishTransaction).toHaveBeenCalledTimes(1);
+    expect(settledWith).toBeUndefined();
+    expect(session.getState().purchaseState).toBe('purchasing');
+
+    store.emitPurchase({ productId: 'com.app.pro.monthly', purchaseToken: 'jws-pro', id: 'store-txn-pro' });
+    await expect(purchasing).resolves.toBe('ww-pro');
+    expect(session.getState().purchaseState).toBe('success');
   });
 
   it('refuses a second purchase while one is in flight', async () => {

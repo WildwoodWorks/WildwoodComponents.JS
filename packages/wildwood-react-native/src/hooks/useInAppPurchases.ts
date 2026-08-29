@@ -259,8 +259,11 @@ export function createIapSession(options: IapSessionOptions): IapSession {
   let subscriptions: Array<{ remove?: () => void }> = [];
   let inFlight: InFlightPurchase | null = null;
   let busy = false;
-  /** Store transaction ids already handled, so a listener event and a resolved requestPurchase
-      for the same purchase are not processed twice. */
+  /** Why the store is unusable, once init has decided. Null while usable (or not yet decided). */
+  let unavailableReason: string | null = null;
+  /** Store transaction ids currently being handled, so a listener event and a resolved
+      requestPurchase for the same purchase are not processed twice. A key is retained only for a
+      purchase that reached a terminal, validated state — see processPurchase. */
   const handled = new Set<string>();
   /** Product metadata keyed by store product id. */
   let storeProducts = new Map<string, StoreRecord>();
@@ -354,9 +357,17 @@ export function createIapSession(options: IapSessionOptions): IapSession {
 
   type PurchaseOutcome =
     | { kind: 'ignored' }
-    | { kind: 'pending' }
-    | { kind: 'failed'; message: string }
-    | { kind: 'validated'; transactionId: string | null };
+    | { kind: 'pending'; productId: string }
+    | { kind: 'failed'; productId: string; message: string }
+    | { kind: 'validated'; productId: string; transactionId: string | null };
+
+  /**
+   * True when an event for `productId` owns the purchase UI: it is the product the shopper is
+   * buying right now, or nothing is being bought (a re-delivery outside any purchaseTier call).
+   */
+  function drivesPurchaseUi(productId: string): boolean {
+    return inFlight === null || inFlight.productId === productId;
+  }
 
   /**
    * Turns one store purchase into a validated Wildwood transaction. Shared by the purchase listener
@@ -371,24 +382,38 @@ export function createIapSession(options: IapSessionOptions): IapSession {
     // A product this app did not map (or another library's purchase) is not ours to finish.
     if (!mapping) return { kind: 'ignored' };
 
-    const storeTransactionId = extractStoreTransactionId(purchase);
-    if (!isRestore) {
-      // requestPurchase may resolve with the same purchase the listener already delivered.
-      const dedupeKey = storeTransactionId ?? extractPurchaseToken(purchase) ?? productId;
-      if (handled.has(dedupeKey)) return { kind: 'ignored' };
-      handled.add(dedupeKey);
-    }
+    if (isRestore) return validateAndFinish(purchase, productId, true);
 
+    // requestPurchase may resolve with the same purchase the listener already delivered.
+    const dedupeKey = extractStoreTransactionId(purchase) ?? extractPurchaseToken(purchase) ?? productId;
+    if (handled.has(dedupeKey)) return { kind: 'ignored' };
+    handled.add(dedupeKey);
+    const outcome = await validateAndFinish(purchase, productId, false);
+    // Only a VALIDATED purchase is finished and done with. A failed validation deliberately leaves
+    // the transaction unfinished, and a pending (Ask to Buy) one has not been paid for yet — the
+    // store will deliver both again, often with the same id/token, and that delivery has to be
+    // processed rather than swallowed as a duplicate.
+    if (outcome.kind !== 'validated') handled.delete(dedupeKey);
+    return outcome;
+  }
+
+  /** The half of processPurchase that talks to the server; the caller owns dedupe. */
+  async function validateAndFinish(
+    purchase: StoreRecord,
+    productId: string,
+    isRestore: boolean,
+  ): Promise<PurchaseOutcome> {
     // Ask to Buy / slow card: the store will deliver it later. Do NOT finish or validate.
-    if (isPendingPurchase(purchase)) return { kind: 'pending' };
+    if (isPendingPurchase(purchase)) return { kind: 'pending', productId };
 
     const purchaseToken = extractPurchaseToken(purchase);
     if (!purchaseToken) {
-      return { kind: 'failed', message: 'The store returned a purchase with no receipt to validate.' };
+      return { kind: 'failed', productId, message: 'The store returned a purchase with no receipt to validate.' };
     }
 
-    if (!isRestore) setState({ purchaseState: 'validating', error: null });
+    if (!isRestore && drivesPurchaseUi(productId)) setState({ purchaseState: 'validating', error: null });
 
+    const storeTransactionId = extractStoreTransactionId(purchase);
     const storePurchase: StorePurchase = {
       providerType: storeProviderType(),
       productId,
@@ -402,23 +427,41 @@ export function createIapSession(options: IapSessionOptions): IapSession {
       result = await options.validate(storePurchase);
     } catch (err) {
       // An unvalidated purchase must stay UNFINISHED so the store re-delivers it next launch.
-      return { kind: 'failed', message: err instanceof Error ? err.message : 'Could not validate the purchase.' };
+      return {
+        kind: 'failed',
+        productId,
+        message: err instanceof Error ? err.message : 'Could not validate the purchase.',
+      };
     }
     if (!result.success) {
-      return { kind: 'failed', message: result.errorMessage ?? 'The store purchase could not be validated.' };
+      return {
+        kind: 'failed',
+        productId,
+        message: result.errorMessage ?? 'The store purchase could not be validated.',
+      };
+    }
+
+    const transactionId = str(result.transactionId) ?? null;
+    if (transactionId === null && !isRestore) {
+      // There is nothing to hand to changeTier / selfSubscribe, so the tier could never be applied —
+      // reporting success here would tell the shopper "purchase complete" over an unchanged tier.
+      // Treat it as a failure and leave the transaction unfinished so the store re-delivers it.
+      return { kind: 'failed', productId, message: 'Validation succeeded but returned no transaction id.' };
     }
 
     // Only now — the entitlement is recorded server-side, so the store can stop re-delivering it.
     await finish(purchase);
-    return { kind: 'validated', transactionId: result.transactionId ?? null };
+    return { kind: 'validated', productId, transactionId };
   }
 
   /** The purchase-flow wrapper: drives purchaseState and settles the pending purchaseTier promise. */
   async function handlePurchaseEvent(raw: unknown): Promise<void> {
     const outcome = await processPurchase(raw, false);
+    if (outcome.kind === 'ignored') return;
+    // A re-delivered purchase for a DIFFERENT product is still finished and validated above, but it
+    // must not settle the tier the shopper is buying right now with someone else's transaction.
+    if (!drivesPurchaseUi(outcome.productId)) return;
     switch (outcome.kind) {
-      case 'ignored':
-        return;
       case 'pending':
         setState({ purchaseState: 'pending', error: null });
         settle(null);
@@ -461,6 +504,7 @@ export function createIapSession(options: IapSessionOptions): IapSession {
     if (disposed) return;
     if (!loaded) {
       // Not installed: stay inert and silent until the app actually attempts a purchase.
+      unavailableReason = IAP_NOT_INSTALLED_MESSAGE;
       setState({ available: false });
       return;
     }
@@ -489,10 +533,14 @@ export function createIapSession(options: IapSessionOptions): IapSession {
           }),
         );
       }
+      unavailableReason = null;
       setState({ available: true });
       await fetchStoreProducts();
     } catch {
+      // expo-iap IS installed — it was the store connection that failed. Saying "not installed"
+      // here would send the app chasing an install/rebuild that would change nothing.
       mod = null;
+      unavailableReason = STORE_UNAVAILABLE_MESSAGE;
       setState({ available: false });
     }
   }
@@ -515,7 +563,7 @@ export function createIapSession(options: IapSessionOptions): IapSession {
     async purchaseTier(tierId, pricingId) {
       await ready();
       if (!mod || !state.available) {
-        setState({ purchaseState: 'failed', error: IAP_NOT_INSTALLED_MESSAGE });
+        setState({ purchaseState: 'failed', error: unavailableReason ?? IAP_NOT_INSTALLED_MESSAGE });
         return null;
       }
       const mapping = findMapping(tierId, pricingId);
@@ -578,7 +626,7 @@ export function createIapSession(options: IapSessionOptions): IapSession {
     async restorePurchases() {
       await ready();
       if (!mod || !state.available) {
-        return { restored: 0, error: IAP_NOT_INSTALLED_MESSAGE };
+        return { restored: 0, error: unavailableReason ?? IAP_NOT_INSTALLED_MESSAGE };
       }
       if (busy) {
         return { restored: 0, error: 'A purchase is already in progress.' };

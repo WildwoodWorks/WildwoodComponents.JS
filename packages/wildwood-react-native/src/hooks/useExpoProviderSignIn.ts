@@ -287,15 +287,21 @@ function errorMessageFrom(result: ModuleBag, providerLabel: string): string {
   return detail ? `${providerLabel} sign-in failed: ${detail}` : `${providerLabel} sign-in failed.`;
 }
 
-/** A nonce is mandatory for an implicit id_token at both Google and Microsoft. */
+/**
+ * A nonce is mandatory for an implicit id_token at both Google and Microsoft.
+ *
+ * It is best-effort entropy, not a client-side security control: this client never verifies the
+ * nonce claim in the returned id_token. Wildwood's server is the trust authority — it validates the
+ * id_token's signature, issuer, and audience before it will mint a session from it.
+ */
 function randomNonce(): string {
   const bytes = new Uint8Array(16);
   const webCrypto = (globalThis as { crypto?: { getRandomValues?: (array: Uint8Array) => unknown } }).crypto;
   if (typeof webCrypto?.getRandomValues === 'function') {
     webCrypto.getRandomValues(bytes);
   } else {
-    // No CSPRNG in this runtime. The nonce only has to be unguessable-enough per request, and the
-    // authorization response is bound to it by the provider either way.
+    // No CSPRNG in this runtime; Math.random is not one either. It still satisfies the provider's
+    // "send a per-request nonce" requirement, which is all this value is relied on for.
     for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
   }
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
