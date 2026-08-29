@@ -7,6 +7,7 @@ import type {
   AppFeatureCheckResultModel,
   AppTierLimitStatusModel,
   AppTierChangeResultModel,
+  TierChangePreviewModel,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -22,8 +23,24 @@ export interface UseAppTierReturn {
   getLimitStatus: (limitKey: string) => Promise<AppTierLimitStatusModel>;
   /** Record one unit of usage against a limit. Returns the updated status, or null on failure. */
   incrementUsage: (limitKey: string) => Promise<AppTierLimitStatusModel | null>;
-  changeTier: (tierId: string, pricingModelId?: string, immediate?: boolean) => Promise<AppTierChangeResultModel>;
-  selfSubscribe: (appTierId: string, appTierPricingId?: string) => Promise<AppTierChangeResultModel>;
+  /**
+   * Prices a prospective tier change without applying it — proration, credit, and whether
+   * payment is required. Call before {@link UseAppTierReturn.changeTier} to show a confirmation.
+   */
+  previewTierChange: (tierId: string, pricingModelId?: string) => Promise<TierChangePreviewModel>;
+  /** Pass paymentTransactionId when the upgrade was already paid for out-of-band (e.g. a validated store purchase). */
+  changeTier: (
+    tierId: string,
+    pricingModelId?: string,
+    immediate?: boolean,
+    paymentTransactionId?: string,
+  ) => Promise<AppTierChangeResultModel>;
+  /** Pass paymentTransactionId when the subscription was already paid for out-of-band (e.g. a validated store purchase). */
+  selfSubscribe: (
+    appTierId: string,
+    appTierPricingId?: string,
+    paymentTransactionId?: string,
+  ) => Promise<AppTierChangeResultModel>;
 }
 
 export function useAppTier(): UseAppTierReturn {
@@ -93,12 +110,28 @@ export function useAppTier(): UseAppTierReturn {
     [client, appId],
   );
 
-  const changeTier = useCallback(
-    async (newTierId: string, newPricingId?: string, immediate?: boolean) => {
+  const previewTierChange = useCallback(
+    async (newTierId: string, newPricingId?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await client.appTier.changeTier(appId, newTierId, newPricingId, immediate);
+        return await client.appTier.previewTierChange(appId, newTierId, newPricingId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Tier change preview failed');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client, appId],
+  );
+
+  const changeTier = useCallback(
+    async (newTierId: string, newPricingId?: string, immediate?: boolean, paymentTransactionId?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.appTier.changeTier(appId, newTierId, newPricingId, immediate, paymentTransactionId);
         await getUserSubscription();
         return result;
       } catch (err) {
@@ -112,11 +145,11 @@ export function useAppTier(): UseAppTierReturn {
   );
 
   const selfSubscribe = useCallback(
-    async (appTierId: string, appTierPricingId?: string) => {
+    async (appTierId: string, appTierPricingId?: string, paymentTransactionId?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await client.appTier.selfSubscribe(appId, appTierId, appTierPricingId);
+        const result = await client.appTier.selfSubscribe(appId, appTierId, appTierPricingId, paymentTransactionId);
         await getUserSubscription();
         return result;
       } catch (err) {
@@ -140,6 +173,7 @@ export function useAppTier(): UseAppTierReturn {
     checkFeature,
     getLimitStatus,
     incrementUsage,
+    previewTierChange,
     changeTier,
     selfSubscribe,
   };

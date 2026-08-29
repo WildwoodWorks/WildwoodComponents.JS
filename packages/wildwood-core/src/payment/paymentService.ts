@@ -10,6 +10,7 @@ import type {
   PaymentCompletionResult,
   SavedPaymentMethodDto,
 } from './types.js';
+import type { StorePurchase } from './iapTypes.js';
 
 export class PaymentService {
   constructor(private http: HttpClient) {}
@@ -48,6 +49,10 @@ export class PaymentService {
     return data;
   }
 
+  /**
+   * @deprecated Use {@link PaymentService.validateStorePurchase} instead - it carries the
+   * product id, restore flag and store transaction id the server needs for in-app purchases.
+   */
   async validateAppStoreReceipt(
     appId: string,
     receiptData: string,
@@ -62,6 +67,28 @@ export class PaymentService {
       appId,
       receiptData,
       providerType,
+    });
+    return data;
+  }
+
+  /**
+   * Validates a native App Store / Play Store purchase and records it as a Wildwood payment
+   * transaction. The returned `transactionId` is the Wildwood transaction id, which callers
+   * pass as `paymentTransactionId` to `appTier.changeTier` / `appTier.selfSubscribe`.
+   */
+  async validateStorePurchase(appId: string, purchase: StorePurchase): Promise<PaymentCompletionResult> {
+    // Use provider-specific endpoint (matches .NET PaymentProviderService)
+    const endpoint =
+      purchase.providerType === 10 /* AppleAppStore */
+        ? 'api/payment/validate-apple-receipt'
+        : 'api/payment/validate-google-receipt';
+    const { data } = await this.http.post<PaymentCompletionResult>(endpoint, {
+      appId,
+      providerType: purchase.providerType,
+      productId: purchase.productId,
+      purchaseToken: purchase.purchaseToken,
+      transactionId: purchase.transactionId,
+      isRestore: purchase.isRestore,
     });
     return data;
   }

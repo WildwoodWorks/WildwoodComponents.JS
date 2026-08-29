@@ -58,6 +58,20 @@ export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures';
 export type { UseFeaturesReturn } from './hooks/useFeatures';
+export { useExpoProviderSignIn } from './hooks/useExpoProviderSignIn';
+export type {
+  ExpoProviderSignInConfig,
+  ExpoGoogleSignInConfig,
+  ExpoMicrosoftSignInConfig,
+  ExpoProviderSignInCallback,
+} from './hooks/useExpoProviderSignIn';
+export { useInAppPurchases } from './hooks/useInAppPurchases';
+export type {
+  UseInAppPurchasesOptions,
+  UseInAppPurchasesReturn,
+  IapDisplayProduct,
+  IapPurchaseState,
+} from './hooks/useInAppPurchases';
 
 // Components
 export { AuthenticationComponent } from './components/AuthenticationComponent';
@@ -83,6 +97,8 @@ export { FeedbackComponent } from './components/feedback/FeedbackComponent';
 export type { FeedbackComponentProps } from './components/feedback/FeedbackComponent';
 export { AppTierComponent } from './components/AppTierComponent';
 export type { AppTierComponentProps } from './components/AppTierComponent';
+// The payment seam shared by AppTierComponent and SubscriptionAdminComponent
+export type { PaymentRequiredArgs, OnPaymentRequired } from './components/subscription/paymentSeam';
 export { AIChatComponent } from './components/AIChatComponent';
 export type { AIChatComponentProps, AIChatSettings, FilePickerResult } from './components/AIChatComponent';
 export { SecureMessagingComponent } from './components/SecureMessagingComponent';
@@ -91,6 +107,8 @@ export { PaymentComponent } from './components/PaymentComponent';
 export type { PaymentComponentProps } from './components/PaymentComponent';
 export { PaymentFormComponent } from './components/PaymentFormComponent';
 export type { PaymentFormComponentProps } from './components/PaymentFormComponent';
+export { InAppPurchaseSheet } from './components/InAppPurchaseSheet';
+export type { InAppPurchaseSheetProps } from './components/InAppPurchaseSheet';
 export { TokenRegistrationComponent } from './components/TokenRegistrationComponent';
 export type { TokenRegistrationComponentProps } from './components/TokenRegistrationComponent';
 export { AIProxyComponent } from './components/AIProxyComponent';
@@ -182,6 +200,9 @@ export type {
   AppFeatureDefinitionModel,
   RegistrationFormData,
   PaymentCompletionResult,
+  IapProductMapping,
+  StorePurchase,
+  StoreProviderType,
   FeedbackWidgetConfig,
   SubmitFeedbackInput,
   SystemFeedback,

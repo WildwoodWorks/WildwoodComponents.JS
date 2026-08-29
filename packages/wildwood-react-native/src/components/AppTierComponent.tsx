@@ -8,7 +8,10 @@ import {
   getSelectedPricing,
   computeAnnualDiscount,
 } from '@wildwood/core';
+import type { AppTierModel } from '@wildwood/core';
 import { useAppTier } from '../hooks/useAppTier';
+import { runTierChangeWithPayment } from './subscription/paymentSeam';
+import type { OnPaymentRequired } from './subscription/paymentSeam';
 import { useWildwoodTheme } from '../styles/ThemeContext';
 import type { WildwoodTheme } from '../styles/theme';
 
@@ -22,6 +25,13 @@ export interface AppTierComponentProps {
   currency?: string;
   /** When true, use selfSubscribe endpoint instead of admin changeTier */
   selfService?: boolean;
+  /**
+   * Called when the server wants payment before applying a tier change (free -> paid, or an
+   * upgrade to a higher-priced tier). Resolve with a payment transaction id to complete the
+   * change, or `null`/`undefined` to cancel it. Without this callback the change is still
+   * attempted and the payment refusal surfaces in the error banner.
+   */
+  onPaymentRequired?: OnPaymentRequired;
   onTierChanged?: (tierId: string) => void;
   style?: ViewStyle;
 }
@@ -35,16 +45,29 @@ export function AppTierComponent({
   enterpriseContactUrl,
   currency = 'USD',
   selfService = false,
+  onPaymentRequired,
   onTierChanged,
   style,
 }: AppTierComponentProps) {
   const theme = useWildwoodTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier, selfSubscribe } =
-    useAppTier();
+  const {
+    tiers,
+    userSubscription,
+    loading,
+    error,
+    getTiers,
+    getUserSubscription,
+    previewTierChange,
+    changeTier,
+    selfSubscribe,
+  } = useAppTier();
   const [changeError, setChangeError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [billingAnnual, setBillingAnnual] = useState(false);
+  // The hook's `loading` goes quiet while the host collects payment, so the buttons need their
+  // own busy flag or a second tier could be started mid-payment.
+  const [changing, setChanging] = useState(false);
 
   const showToggle = showBillingToggle && hasAnnualPricing(tiers);
 
@@ -67,27 +90,41 @@ export function AppTierComponent({
   }, [autoLoad, getTiers, getUserSubscription]);
 
   const handleChangeTier = useCallback(
-    async (tierId: string) => {
+    async (tier: AppTierModel) => {
       setChangeError(null);
       setSuccessMessage('');
+      setChanging(true);
       try {
-        const result = selfService ? await selfSubscribe(tierId) : await changeTier(tierId);
-        if (result.success) {
+        const outcome = await runTierChangeWithPayment({
+          tier,
+          previewTierChange: (tierId) => previewTierChange(tierId),
+          applyChange: (paymentTransactionId) =>
+            selfService
+              ? selfSubscribe(tier.id, undefined, paymentTransactionId)
+              : changeTier(tier.id, undefined, undefined, paymentTransactionId),
+          onPaymentRequired,
+        });
+        if (outcome.status === 'changed') {
           setSuccessMessage('Tier changed successfully');
-          onTierChanged?.(tierId);
-        } else {
-          setChangeError(result.errorMessage ?? 'Tier change failed');
+          onTierChanged?.(tier.id);
+        } else if (outcome.status === 'failed') {
+          setChangeError(outcome.errorMessage);
         }
+        // 'cancelled': the host's payment sheet was dismissed — leave the UI untouched.
       } catch (err) {
         setChangeError(err instanceof Error ? err.message : 'Tier change failed');
+      } finally {
+        setChanging(false);
       }
     },
-    [changeTier, selfSubscribe, selfService, onTierChanged],
+    [previewTierChange, changeTier, selfSubscribe, selfService, onPaymentRequired, onTierChanged],
   );
 
   const handleContactPress = useCallback((url: string) => {
     Linking.openURL(url).catch((err) => console.warn('Failed to open URL:', err));
   }, []);
+
+  const busy = loading || changing;
 
   return (
     <ScrollView style={[styles.container, style]} contentContainerStyle={styles.contentContainer}>
@@ -258,23 +295,16 @@ export function AppTierComponent({
                       <Text style={styles.contactButtonText}>Contact Sales</Text>
                     </Pressable>
                   ) : enterprise ? (
-                    <Pressable
-                      style={styles.contactButton}
-                      onPress={() => handleChangeTier(tier.id)}
-                      disabled={loading}
-                    >
+                    <Pressable style={styles.contactButton} onPress={() => handleChangeTier(tier)} disabled={busy}>
                       <Text style={styles.contactButtonText}>Contact Sales</Text>
                     </Pressable>
                   ) : tier.showSubscribeButton !== false ? (
                     <Pressable
-                      style={[
-                        isPreSelected ? styles.selectButton : styles.selectButton,
-                        loading && styles.buttonDisabled,
-                      ]}
-                      onPress={() => handleChangeTier(tier.id)}
-                      disabled={loading}
+                      style={[isPreSelected ? styles.selectButton : styles.selectButton, busy && styles.buttonDisabled]}
+                      onPress={() => handleChangeTier(tier)}
+                      disabled={busy}
                     >
-                      {loading ? (
+                      {busy ? (
                         <ActivityIndicator color={theme.btnPrimaryText} size="small" />
                       ) : (
                         <Text style={styles.selectButtonText}>
@@ -306,7 +336,7 @@ export function AppTierComponent({
    themeable colour. */
 const createStyles = (theme: WildwoodTheme) =>
   StyleSheet.create({
-  container: {
+    container: {
       flex: 1,
     },
     contentContainer: {

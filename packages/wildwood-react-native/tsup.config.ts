@@ -14,5 +14,11 @@ export default defineConfig({
     '@wildwood/core',
     '@wildwood/react-shared',
     '@react-native-async-storage/async-storage',
+    // Optional peer: loaded lazily by useInAppPurchases, never bundled.
+    'expo-iap',
+    // Optional peers: loaded lazily by useExpoProviderSignIn, never bundled.
+    'expo-auth-session',
+    'expo-web-browser',
+    'expo-apple-authentication',
   ],
 });

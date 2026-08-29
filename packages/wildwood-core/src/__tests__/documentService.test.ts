@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { DocumentService } from '../documents/documentService.js';
 import { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type { WildwoodConfig } from '../client/types.js';
@@ -29,6 +29,30 @@ function jsonResponse(body: unknown, status = 200) {
     headers: { 'content-type': 'application/json' },
   });
 }
+
+/**
+ * Records the exact arguments handed to FormData.append (still calling through),
+ * so the RN descriptor path can be asserted on directly — Node's FormData
+ * stringifies non-Blob parts, where RN's would serialize them as a file.
+ */
+const formDataSpies: { mockRestore(): void }[] = [];
+function captureFormDataAppends(passThrough = true): () => unknown[][] {
+  const calls: unknown[][] = [];
+  const original = FormData.prototype.append;
+  const spy = vi.spyOn(FormData.prototype, 'append').mockImplementation(function (
+    this: FormData,
+    ...args: Parameters<FormData['append']>
+  ) {
+    calls.push(args);
+    if (passThrough) original.apply(this, args);
+  });
+  formDataSpies.push(spy);
+  return () => calls;
+}
+
+afterEach(() => {
+  while (formDataSpies.length) formDataSpies.pop()?.mockRestore();
+});
 
 describe('DocumentService', () => {
   it('lists documents with auth headers and requestedAppId', async () => {
@@ -62,6 +86,78 @@ describe('DocumentService', () => {
     expect(init.body).toBeInstanceOf(FormData);
     // The runtime must set the multipart boundary itself.
     expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+  });
+
+  it('keeps the File name as the default when no fileName is given', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(doc));
+    const { service } = makeService();
+
+    await service.upload(new File(['%PDF-1.7'], 'from-file.pdf', { type: 'application/pdf' }), undefined, {
+      fetchImpl,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    const part = (init.body as FormData).get('file') as File;
+    expect(part.name).toBe('from-file.pdf');
+  });
+
+  it('appends a React Native {uri,name,type} descriptor to FormData as-is', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(doc));
+    const { service } = makeService();
+    const descriptor = { uri: 'file:///var/mobile/rfp.pdf', name: 'rfp.pdf', type: 'application/pdf' };
+    const appended = captureFormDataAppends();
+
+    const created = await service.upload(descriptor, undefined, { fetchImpl });
+
+    expect(created.id).toBe('doc-1');
+    // RN's FormData serializes the descriptor into a file part itself, so the
+    // object must reach append() untouched — and with no third `filename` arg,
+    // which RN's polyfill ignores.
+    expect(appended()).toEqual([['file', descriptor]]);
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it('overrides the descriptor name when a fileName is supplied', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(doc));
+    const { service } = makeService();
+    const descriptor = { uri: 'file:///tmp/a.pdf', name: 'a.pdf', type: 'application/pdf' };
+    const appended = captureFormDataAppends();
+
+    await service.upload(descriptor, 'renamed.pdf', { fetchImpl });
+
+    expect(appended()).toEqual([['file', { uri: 'file:///tmp/a.pdf', name: 'renamed.pdf', type: 'application/pdf' }]]);
+    // The caller's descriptor is not mutated.
+    expect(descriptor.name).toBe('a.pdf');
+  });
+
+  it('does not throw where the File global is undefined (React Native runtimes)', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(doc));
+    const { service } = makeService();
+    // Node's own FormData.append reaches for the File global internally, so the
+    // spy does not call through here — this covers upload()'s guard only.
+    const appended = captureFormDataAppends(false);
+    const originalFile = globalThis.File;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).File;
+    try {
+      const blob = new Blob(['%PDF-1.7']);
+      const created = await service.upload(blob, undefined, { fetchImpl });
+      expect(created.id).toBe('doc-1');
+
+      const descriptor = { uri: 'file:///tmp/a.pdf', name: 'a.pdf', type: 'application/pdf' };
+      const rn = await service.upload(descriptor, undefined, { fetchImpl });
+      expect(rn.id).toBe('doc-1');
+
+      // Blob with no File global falls back to the "document" default name.
+      expect(appended()).toEqual([
+        ['file', blob, 'document'],
+        ['file', descriptor],
+      ]);
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).File = originalFile;
+    }
   });
 
   it('surfaces the server error detail on a failed upload', async () => {

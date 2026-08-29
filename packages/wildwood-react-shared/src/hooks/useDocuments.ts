@@ -5,7 +5,7 @@
 // (text extraction runs server-side on a background worker).
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AppDocumentModel, AppDocumentTextResult } from '@wildwood/core';
+import type { AppDocumentModel, AppDocumentTextResult, UploadableFile } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
 export interface UseDocumentsOptions {
@@ -24,8 +24,11 @@ export interface UseDocumentsReturn {
   uploading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  /** Uploads and refreshes; returns the created document or null on failure (error is set). */
-  upload: (file: Blob, fileName?: string) => Promise<AppDocumentModel | null>;
+  /**
+   * Uploads and refreshes; returns the created document or null on failure (error is set).
+   * Takes a web Blob/File or a React Native `{ uri, name, type }` descriptor.
+   */
+  upload: (file: UploadableFile, fileName?: string) => Promise<AppDocumentModel | null>;
   remove: (documentId: string) => Promise<boolean>;
   /** Extracted text (text null while parsing / after failure — check status/error). */
   getText: (documentId: string) => Promise<AppDocumentTextResult | null>;
@@ -72,7 +75,7 @@ export function useDocuments(options?: UseDocumentsOptions): UseDocumentsReturn 
   }, [documents, pollIntervalMs, refresh]);
 
   const upload = useCallback(
-    async (file: Blob, fileName?: string): Promise<AppDocumentModel | null> => {
+    async (file: UploadableFile, fileName?: string): Promise<AppDocumentModel | null> => {
       setUploading(true);
       setError(null);
       try {

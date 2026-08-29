@@ -1,4 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+// Absolute, so the aliases resolve from modules nested under src/ too - a relative alias is only
+// resolved against the project root and breaks for imports made deeper in the graph.
+const mock = (name: string) => fileURLToPath(new URL(`./src/__mocks__/${name}.ts`, import.meta.url));
 
 export default defineConfig({
   test: {
@@ -14,7 +19,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'react-native': './src/__mocks__/react-native.ts',
+      'react-native': mock('react-native'),
+      // expo-iap is an optional peer and is not installed here. The alias gives the lazy
+      // `import('expo-iap')` something resolvable so tests can vi.mock the specifier.
+      'expo-iap': mock('expo-iap'),
     },
   },
 });

@@ -24,8 +24,26 @@
   "peerDependencies": {
     "@wildwood/core": "workspace:*",
     "@wildwood/react-shared": "workspace:*",
+    "expo-apple-authentication": ">=6.0.0",
+    "expo-auth-session": ">=5.0.0",
+    "expo-iap": ">=2.0.0",
+    "expo-web-browser": ">=12.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-native": ">=0.72.0"
+  },
+  "peerDependenciesMeta": {
+    "expo-apple-authentication": {
+      "optional": true
+    },
+    "expo-auth-session": {
+      "optional": true
+    },
+    "expo-iap": {
+      "optional": true
+    },
+    "expo-web-browser": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@wildwood/core": "workspace:*",

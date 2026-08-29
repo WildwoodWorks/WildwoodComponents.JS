@@ -9,6 +9,7 @@ import type {
   PaymentCompletionResult,
   SavedPaymentMethodDto,
   PaymentProviderType,
+  StorePurchase,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
@@ -26,7 +27,14 @@ export interface UsePaymentReturn {
   ) => Promise<PaymentCompletionResult>;
   getPaymentStatus: (transactionId: string) => Promise<PaymentCompletionResult>;
   requestRefund: (transactionId: string, amount?: number, reason?: string) => Promise<PaymentCompletionResult>;
+  /** @deprecated Use {@link UsePaymentReturn.validateStorePurchase} — it carries the product id, restore flag and store transaction id. */
   validateAppStoreReceipt: (receiptData: string, providerType: PaymentProviderType) => Promise<PaymentCompletionResult>;
+  /**
+   * Validates a native App Store / Play Store purchase. The result's `transactionId` is the
+   * Wildwood transaction id to pass as `paymentTransactionId` to `useAppTier`'s
+   * changeTier / selfSubscribe.
+   */
+  validateStorePurchase: (purchase: StorePurchase) => Promise<PaymentCompletionResult>;
   linkTransactionToUser: (externalTransactionId: string, userId: string, companyClientId?: string) => Promise<boolean>;
   getSavedPaymentMethods: (customerId: string) => Promise<SavedPaymentMethodDto[]>;
   deleteSavedPaymentMethod: (methodId: string) => Promise<boolean>;
@@ -117,6 +125,13 @@ export function usePayment(): UsePaymentReturn {
     [client, appId],
   );
 
+  const validateStorePurchase = useCallback(
+    async (purchase: StorePurchase) => {
+      return client.payment.validateStorePurchase(appId, purchase);
+    },
+    [client, appId],
+  );
+
   const linkTransactionToUser = useCallback(
     async (externalTransactionId: string, userId: string, companyClientId?: string) => {
       return client.payment.linkTransactionToUser(externalTransactionId, userId, companyClientId);
@@ -158,6 +173,7 @@ export function usePayment(): UsePaymentReturn {
     getPaymentStatus,
     requestRefund,
     validateAppStoreReceipt,
+    validateStorePurchase,
     linkTransactionToUser,
     getSavedPaymentMethods,
     deleteSavedPaymentMethod,

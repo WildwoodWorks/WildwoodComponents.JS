@@ -94,7 +94,7 @@ export type {
 
 // Documents (tenant document storage + text extraction)
 export { DocumentService } from './documents/documentService.js';
-export type { DocumentRequestOptions } from './documents/documentService.js';
+export type { DocumentRequestOptions, UploadableFile, ReactNativeFileDescriptor } from './documents/documentService.js';
 export type { AppDocumentModel, AppDocumentStatus, AppDocumentTextResult } from './documents/types.js';
 
 // Messaging
@@ -137,6 +137,12 @@ export type {
   BillingAddress,
   PaymentResult,
 } from './payment/types.js';
+export type {
+  IapProductMapping,
+  StoreProviderType,
+  StorePurchase,
+  StorePurchaseValidationResult,
+} from './payment/iapTypes.js';
 
 // Payment Script Loader
 export {

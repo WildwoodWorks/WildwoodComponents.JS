@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PaymentService } from '../payment/paymentService.js';
+import { PaymentProviderType } from '../payment/types.js';
 import type { HttpClient } from '../client/httpClient.js';
 
 const ok = (data: unknown) => ({ data, status: 200, headers: {} });
@@ -78,5 +79,79 @@ describe('PaymentService', () => {
 
     expect(http.post).toHaveBeenCalledWith('api/payment/methods/pm-9/default');
     expect(result).toBe(true);
+  });
+
+  describe('validateStorePurchase', () => {
+    it('routes an Apple purchase to the apple endpoint with the full body', async () => {
+      const http = makeHttp();
+      http.post.mockResolvedValueOnce(ok({ success: true, transactionId: 'ww-txn-1' }));
+      const svc = new PaymentService(http);
+
+      await svc.validateStorePurchase('app-1', {
+        providerType: PaymentProviderType.AppleAppStore,
+        productId: 'com.wildwood.pro.monthly',
+        purchaseToken: 'signed-jws',
+      });
+
+      expect(http.post).toHaveBeenCalledWith('api/payment/validate-apple-receipt', {
+        appId: 'app-1',
+        providerType: PaymentProviderType.AppleAppStore,
+        productId: 'com.wildwood.pro.monthly',
+        purchaseToken: 'signed-jws',
+        transactionId: undefined,
+        isRestore: undefined,
+      });
+    });
+
+    it('routes a Google purchase to the google endpoint', async () => {
+      const http = makeHttp();
+      http.post.mockResolvedValueOnce(ok({ success: true }));
+      const svc = new PaymentService(http);
+
+      await svc.validateStorePurchase('app-1', {
+        providerType: PaymentProviderType.GooglePlayStore,
+        productId: 'pro_monthly',
+        purchaseToken: 'play-token',
+      });
+
+      const [url, body] = http.post.mock.calls[0] as [string, Record<string, unknown>];
+      expect(url).toBe('api/payment/validate-google-receipt');
+      expect(body.providerType).toBe(PaymentProviderType.GooglePlayStore);
+      expect(body.purchaseToken).toBe('play-token');
+    });
+
+    it('passes the validation result through', async () => {
+      const http = makeHttp();
+      http.post.mockResolvedValueOnce(ok({ success: true, transactionId: 'ww-txn-9', status: 'Completed' }));
+      const svc = new PaymentService(http);
+
+      const res = await svc.validateStorePurchase('app-1', {
+        providerType: PaymentProviderType.AppleAppStore,
+        productId: 'pro',
+        purchaseToken: 'jws',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.transactionId).toBe('ww-txn-9');
+      expect(res.status).toBe('Completed');
+    });
+
+    it('includes the store transaction id and restore flag when set', async () => {
+      const http = makeHttp();
+      http.post.mockResolvedValueOnce(ok({ success: true }));
+      const svc = new PaymentService(http);
+
+      await svc.validateStorePurchase('app-1', {
+        providerType: PaymentProviderType.AppleAppStore,
+        productId: 'pro',
+        purchaseToken: 'jws',
+        transactionId: 'store-txn-7',
+        isRestore: true,
+      });
+
+      const [, body] = http.post.mock.calls[0] as [string, Record<string, unknown>];
+      expect(body.transactionId).toBe('store-txn-7');
+      expect(body.isRestore).toBe(true);
+    });
   });
 });

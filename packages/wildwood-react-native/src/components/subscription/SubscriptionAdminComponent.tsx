@@ -11,15 +11,13 @@ import { OverridesPanel } from './OverridesPanel';
 import { TierPlansPanel } from './TierPlansPanel';
 import type { TierSelectedEventArgs } from './TierPlansPanel';
 import { TierChangeConfirmationModal } from './TierChangeConfirmationModal';
+import { PAYMENT_CALLBACK_MISSING_MESSAGE, paymentAmountForPreview } from './paymentSeam';
+import type { PaymentRequiredArgs } from './paymentSeam';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
-export interface PaymentRequiredArgs {
-  tierId: string;
-  tierName: string;
-  pricingId?: string;
-  price?: number;
-}
+// Re-exported from its original home so existing deep imports keep resolving.
+export type { PaymentRequiredArgs };
 
 export interface SubscriptionAdminComponentProps {
   appId: string;
@@ -139,13 +137,13 @@ export function SubscriptionAdminComponent({
         if (preview?.paymentRequired && !options.bypassPayment) {
           if (!onPaymentRequired) {
             admin.clearError();
-            throw new Error('Payment is required. Wire the onPaymentRequired callback to collect payment.');
+            throw new Error(PAYMENT_CALLBACK_MISSING_MESSAGE);
           }
           const txnId = await onPaymentRequired({
             tierId: pendingArgs.tierId,
             tierName: pendingArgs.tierName,
             pricingId: pendingArgs.pricingId,
-            price: preview.proratedChargeToday ?? preview.newPrice ?? 0,
+            price: paymentAmountForPreview(preview),
           });
           if (!txnId) {
             setConfirmLoading(false);
