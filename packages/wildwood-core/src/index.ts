@@ -137,6 +137,12 @@ export type {
   BillingAddress,
   PaymentResult,
 } from './payment/types.js';
+export type {
+  IapProductMapping,
+  StoreProviderType,
+  StorePurchase,
+  StorePurchaseValidationResult,
+} from './payment/iapTypes.js';
 
 // Payment Script Loader
 export {
