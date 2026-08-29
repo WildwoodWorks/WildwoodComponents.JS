@@ -58,6 +58,13 @@ export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures';
 export type { UseFeaturesReturn } from './hooks/useFeatures';
+export { useInAppPurchases } from './hooks/useInAppPurchases';
+export type {
+  UseInAppPurchasesOptions,
+  UseInAppPurchasesReturn,
+  IapDisplayProduct,
+  IapPurchaseState,
+} from './hooks/useInAppPurchases';
 
 // Components
 export { AuthenticationComponent } from './components/AuthenticationComponent';
@@ -91,6 +98,8 @@ export { PaymentComponent } from './components/PaymentComponent';
 export type { PaymentComponentProps } from './components/PaymentComponent';
 export { PaymentFormComponent } from './components/PaymentFormComponent';
 export type { PaymentFormComponentProps } from './components/PaymentFormComponent';
+export { InAppPurchaseSheet } from './components/InAppPurchaseSheet';
+export type { InAppPurchaseSheetProps } from './components/InAppPurchaseSheet';
 export { TokenRegistrationComponent } from './components/TokenRegistrationComponent';
 export type { TokenRegistrationComponentProps } from './components/TokenRegistrationComponent';
 export { AIProxyComponent } from './components/AIProxyComponent';
@@ -182,6 +191,9 @@ export type {
   AppFeatureDefinitionModel,
   RegistrationFormData,
   PaymentCompletionResult,
+  IapProductMapping,
+  StorePurchase,
+  StoreProviderType,
   FeedbackWidgetConfig,
   SubmitFeedbackInput,
   SystemFeedback,
