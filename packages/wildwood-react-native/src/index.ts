@@ -58,6 +58,13 @@ export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin';
 export { useFeatures, clearFeatureCache, invalidateFeatures } from './hooks/useFeatures';
 export type { UseFeaturesReturn } from './hooks/useFeatures';
+export { useExpoProviderSignIn } from './hooks/useExpoProviderSignIn';
+export type {
+  ExpoProviderSignInConfig,
+  ExpoGoogleSignInConfig,
+  ExpoMicrosoftSignInConfig,
+  ExpoProviderSignInCallback,
+} from './hooks/useExpoProviderSignIn';
 export { useInAppPurchases } from './hooks/useInAppPurchases';
 export type {
   UseInAppPurchasesOptions,
