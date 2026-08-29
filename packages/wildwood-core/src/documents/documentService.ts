@@ -21,6 +21,38 @@ export interface DocumentRequestOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * React Native file descriptor. RN has no `File`, and its `Blob`s aren't
+ * readable by its own `FormData`; instead RN's FormData polyfill serializes a
+ * `{ uri, name, type }` object into a multipart file part, streaming the bytes
+ * from the local `uri` (e.g. the `file://…` or `content://…` path handed back
+ * by expo-document-picker / react-native-image-picker).
+ */
+export interface ReactNativeFileDescriptor {
+  /** Local file URI, e.g. "file:///var/mobile/.../rfp.pdf". */
+  uri: string;
+  /** File name sent to the server, e.g. "rfp.pdf". */
+  name: string;
+  /** MIME type, e.g. "application/pdf". */
+  type: string;
+}
+
+/**
+ * Anything `DocumentService.upload` accepts: a web `Blob`/`File`, or a React
+ * Native `{ uri, name, type }` descriptor.
+ */
+export type UploadableFile = Blob | ReactNativeFileDescriptor;
+
+/** True for a real Blob/File — guarded so it's safe where `Blob` is undefined. */
+function isBlobLike(file: UploadableFile): file is Blob {
+  return typeof Blob !== 'undefined' && file instanceof Blob;
+}
+
+/** True for the RN `{ uri, name, type }` descriptor shape. */
+function isFileDescriptor(file: UploadableFile): file is ReactNativeFileDescriptor {
+  return !isBlobLike(file) && typeof (file as Partial<ReactNativeFileDescriptor>)?.uri === 'string';
+}
+
 export class DocumentService {
   /** Token the one-shot 401 signal last fired for; re-armed when the token changes. */
   private lastAuthFailureToken: string | undefined;
@@ -49,11 +81,23 @@ export class DocumentService {
    * Uploads one file as multipart form data. Returns the created document
    * (status "uploaded"; text extraction runs server-side) or null on failure —
    * with the server's error detail in the thrown Error when it responded.
+   *
+   * `file` is a web `Blob`/`File`, or a React Native `{ uri, name, type }`
+   * descriptor (appended to FormData as-is, since RN's FormData reads the file
+   * off the uri itself). `fileName` overrides the name in either case.
    */
-  async upload(file: Blob, fileName?: string, options?: DocumentRequestOptions): Promise<AppDocumentModel> {
+  async upload(file: UploadableFile, fileName?: string, options?: DocumentRequestOptions): Promise<AppDocumentModel> {
     const form = new FormData();
-    const name = fileName ?? (file instanceof File ? file.name : 'document');
-    form.append('file', file, name);
+    if (isFileDescriptor(file)) {
+      // RN's FormData takes the part name from the descriptor, not from a
+      // third `filename` argument — so an override has to go into the object.
+      const part = fileName ? { ...file, name: fileName } : file;
+      form.append('file', part as unknown as Blob);
+    } else {
+      // `File` is undefined in some non-browser runtimes; guard before instanceof.
+      const name = fileName ?? (typeof File !== 'undefined' && file instanceof File ? file.name : 'document');
+      form.append('file', file, name);
+    }
 
     const response = await this.fetch(options)(`${this.url('', options)}`, {
       method: 'POST',
