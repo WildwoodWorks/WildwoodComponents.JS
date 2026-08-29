@@ -110,4 +110,22 @@ describe('useAIFlowSubscriptions', () => {
     });
     expect(result.current.error).not.toBeNull();
   });
+
+  it('passes fetchImpl through to the core request options', async () => {
+    const client = createTestClient();
+    const listSpy = vi.spyOn(client.aiFlowSubscription, 'getSubscriptions').mockResolvedValue([]);
+    const createSpy = vi.spyOn(client.aiFlowSubscription, 'create').mockResolvedValue(sub);
+    // Stable identity: fetchImpl feeds the load effect's dependencies.
+    const fetchImpl: typeof fetch = vi.fn();
+
+    const { result } = renderHook(() => useAIFlowSubscriptions({ fetchImpl }), { wrapper: createWrapper(client) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(listSpy).toHaveBeenCalledWith({ apiBaseUrl: undefined, appId: undefined, fetchImpl });
+
+    await act(async () => {
+      await result.current.create(createRequest);
+    });
+    expect(createSpy).toHaveBeenCalledWith(createRequest, { apiBaseUrl: undefined, appId: undefined, fetchImpl });
+  });
 });

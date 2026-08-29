@@ -20,6 +20,12 @@ export interface UseAIFlowOptions {
   apiBaseUrl?: string;
   /** Override the app whose flows are targeted. Defaults to the client config appId. */
   appId?: string;
+  /**
+   * Override the fetch used for every flow call (SSE included). Defaults to the global fetch.
+   * Keep it referentially stable — like apiBaseUrl/appId it feeds the flow-load effect, so a
+   * new function identity each render would reload the flow list each render.
+   */
+  fetchImpl?: typeof fetch;
   /** Fixed flow to run; auto-selected once flows load (the component hides its picker). */
   flowId?: string;
   /** Refresh the current thread's run history after each run (default true). */
@@ -92,7 +98,7 @@ function shortData(data: unknown): string {
 
 export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   const client = useWildwood();
-  const { apiBaseUrl, appId, flowId: fixedFlowId } = options ?? {};
+  const { apiBaseUrl, appId, fetchImpl, flowId: fixedFlowId } = options ?? {};
   const showRunHistory = options?.showRunHistory ?? true;
   const captureEvents = options?.captureEvents ?? false;
 
@@ -137,7 +143,10 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
     setPendingInterrupt(value);
   }, []);
 
-  const requestOptions = useCallback((signal?: AbortSignal) => ({ apiBaseUrl, appId, signal }), [apiBaseUrl, appId]);
+  const requestOptions = useCallback(
+    (signal?: AbortSignal) => ({ apiBaseUrl, appId, fetchImpl, signal }),
+    [apiBaseUrl, appId, fetchImpl],
+  );
 
   const resetRunState = useCallback(() => {
     streamBufferRef.current = '';
@@ -194,7 +203,7 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
     // them would run the old app's flow (or resume its thread) against the new context.
     selectFlow(null);
     client.aiFlow
-      .getFlows({ apiBaseUrl, appId })
+      .getFlows({ apiBaseUrl, appId, fetchImpl })
       .then((loaded) => {
         if (disposed) return;
         setFlows(loaded);
@@ -209,7 +218,7 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
     return () => {
       disposed = true;
     };
-  }, [client, apiBaseUrl, appId, fixedFlowId, authEpoch, selectFlow]);
+  }, [client, apiBaseUrl, appId, fetchImpl, fixedFlowId, authEpoch, selectFlow]);
 
   // Surface session expiry the way the Blazor component's AuthenticationFailed handler does.
   useEffect(() => {
@@ -273,12 +282,12 @@ export function useAIFlow(options?: UseAIFlowOptions): UseAIFlowReturn {
   const loadHistory = useCallback(async () => {
     if (!showRunHistory || !threadIdRef.current) return;
     try {
-      const runs = await client.aiFlow.getThreadRuns(threadIdRef.current, { apiBaseUrl, appId });
+      const runs = await client.aiFlow.getThreadRuns(threadIdRef.current, { apiBaseUrl, appId, fetchImpl });
       setHistory(runs);
     } catch {
       // keep whatever history was shown before
     }
-  }, [client, apiBaseUrl, appId, showRunHistory]);
+  }, [client, apiBaseUrl, appId, fetchImpl, showRunHistory]);
 
   const finishRun = useCallback(
     (runResult: AIFlowRunResult, keepInterrupt = false) => {

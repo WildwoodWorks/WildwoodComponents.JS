@@ -19,6 +19,11 @@ export interface UseAIFlowSubscriptionsOptions {
   apiBaseUrl?: string;
   /** Override the app whose subscriptions are targeted. Defaults to the client config appId. */
   appId?: string;
+  /**
+   * Override the fetch used for every subscription call. Defaults to the global fetch.
+   * Keep it referentially stable — like apiBaseUrl/appId it feeds the load effect.
+   */
+  fetchImpl?: typeof fetch;
 }
 
 export interface UseAIFlowSubscriptionsReturn {
@@ -39,7 +44,7 @@ export interface UseAIFlowSubscriptionsReturn {
 
 export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions): UseAIFlowSubscriptionsReturn {
   const client = useWildwood();
-  const { apiBaseUrl, appId } = options ?? {};
+  const { apiBaseUrl, appId, fetchImpl } = options ?? {};
 
   const [subscriptions, setSubscriptions] = useState<AIFlowSubscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +52,7 @@ export function useAIFlowSubscriptions(options?: UseAIFlowSubscriptionsOptions):
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const disposedRef = useRef(false);
 
-  const requestOptions = useCallback(() => ({ apiBaseUrl, appId }), [apiBaseUrl, appId]);
+  const requestOptions = useCallback(() => ({ apiBaseUrl, appId, fetchImpl }), [apiBaseUrl, appId, fetchImpl]);
 
   const refresh = useCallback(async () => {
     const list = await client.aiFlowSubscription.getSubscriptions(requestOptions());
