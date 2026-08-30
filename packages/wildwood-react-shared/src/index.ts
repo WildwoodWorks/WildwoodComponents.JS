@@ -79,6 +79,8 @@ export { useWildwoodComponent } from './hooks/useWildwoodComponent.js';
 export type { UseWildwoodComponentReturn } from './hooks/useWildwoodComponent.js';
 export { usePlatformDetection } from './hooks/usePlatformDetection.js';
 export type { UsePlatformDetectionReturn } from './hooks/usePlatformDetection.js';
+export { resolveRegistrationAccess } from './authentication/registrationAccess.js';
+export type { RegistrationAccess } from './authentication/registrationAccess.js';
 export { useAuthenticationLogic } from './hooks/useAuthenticationLogic.js';
 export type {
   AuthView,

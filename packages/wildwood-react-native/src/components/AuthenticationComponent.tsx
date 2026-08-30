@@ -20,7 +20,7 @@ import {
   type AuthProvider,
   type PendingDisclaimerModel,
 } from '@wildwood/core';
-import { useAuthenticationLogic } from '@wildwood/react-shared';
+import { useAuthenticationLogic, resolveRegistrationAccess } from '@wildwood/react-shared';
 import { useWildwoodTheme } from '../styles/ThemeContext';
 import type { WildwoodTheme } from '../styles/theme';
 
@@ -40,6 +40,13 @@ export interface AuthenticationComponentProps {
    * Mirrors the injection pattern used by FeedbackComponent's captureScreenshot.
    */
   onProviderSignIn?: (provider: AuthProvider, authorizationUrl: string | null) => Promise<string | null>;
+  /**
+   * Overrides the server configuration's registration gate. `false` hides the sign-up link and
+   * makes the registration view unreachable even when the app allows open or token registration —
+   * for companion apps that are distributed without self-signup. `true` shows it even when the
+   * configuration denies registration. Omit for config-driven behaviour (the default).
+   */
+  allowRegistration?: boolean;
 }
 
 export function AuthenticationComponent({
@@ -50,6 +57,7 @@ export function AuthenticationComponent({
   onAuthenticationSuccess,
   onAuthenticationError,
   onProviderSignIn,
+  allowRegistration: allowRegistrationProp,
 }: AuthenticationComponentProps) {
   const theme = useWildwoodTheme();
   // Memoised on the theme: StyleSheet.create is not free, and this component re-renders on every
@@ -58,7 +66,7 @@ export function AuthenticationComponent({
   const [oauthLoading, setOauthLoading] = useState(false);
   const {
     // State
-    view,
+    view: hookView,
     setView,
     isLoading: loading,
     errorMessage: error,
@@ -123,7 +131,7 @@ export function AuthenticationComponent({
 
     // Computed
     allowPasswordReset,
-    allowRegistration,
+    allowRegistration: configAllowsRegistration,
 
     // Client (for password requirements text)
     client,
@@ -138,6 +146,14 @@ export function AuthenticationComponent({
     onAuthenticationSuccess,
     onAuthenticationError,
   });
+
+  // The prop overrides the server config in both directions; when registration is off the register
+  // view collapses back to login, so it stays unreachable however it was entered.
+  const { showRegistration, view } = resolveRegistrationAccess(
+    allowRegistrationProp,
+    configAllowsRegistration,
+    hookView,
+  );
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -329,7 +345,7 @@ export function AuthenticationComponent({
             <Text style={styles.linkText}>Forgot password?</Text>
           </Pressable>
         )}
-        {allowRegistration && (
+        {showRegistration && (
           <Pressable
             style={styles.linkButton}
             onPress={() => {
