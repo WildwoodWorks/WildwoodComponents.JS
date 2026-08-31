@@ -104,3 +104,46 @@ describe('AuthenticationComponent allowRegistration prop', () => {
     expect(screen.getByRole('button', { name: /^Sign In$/i })).toBeTruthy();
   });
 });
+
+describe('AuthenticationComponent onRegisterClick prop', () => {
+  it('calls the handler instead of opening the register view', async () => {
+    const client = clientWithConfig(config({ allowOpenRegistration: true }));
+    const onRegisterClick = vi.fn();
+
+    render(<AuthenticationComponent appId="test-app-id" onRegisterClick={onRegisterClick} />, {
+      wrapper: createWrapper(client),
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Sign up$/i }));
+
+    expect(onRegisterClick).toHaveBeenCalledTimes(1);
+    // The register view's first-name field is its marker — the host owns signup now, so the
+    // component must stay on login rather than switching underneath the navigation.
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Sign In$/i })).toBeTruthy());
+    expect(screen.queryByLabelText(/First Name/i)).toBeNull();
+  });
+
+  it('falls back to the built-in register view when the handler is omitted', async () => {
+    const client = clientWithConfig(config({ allowOpenRegistration: true }));
+
+    render(<AuthenticationComponent appId="test-app-id" />, { wrapper: createWrapper(client) });
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Sign up$/i }));
+
+    expect(await screen.findByLabelText(/First Name/i)).toBeTruthy();
+  });
+
+  it('does not resurrect the sign-up link when allowRegistration is false', async () => {
+    const client = clientWithConfig(config({ allowOpenRegistration: true }));
+    const onRegisterClick = vi.fn();
+
+    render(
+      <AuthenticationComponent appId="test-app-id" allowRegistration={false} onRegisterClick={onRegisterClick} />,
+      { wrapper: createWrapper(client) },
+    );
+
+    await configApplied();
+    expect(signUpLink()).toBeNull();
+    expect(onRegisterClick).not.toHaveBeenCalled();
+  });
+});
