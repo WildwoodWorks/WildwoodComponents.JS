@@ -74,6 +74,13 @@ export interface AuthenticationComponentProps {
    * behaviour (the default).
    */
   allowRegistration?: boolean;
+  /**
+   * Replaces the footer sign-up action. When supplied, the "Sign up" button calls this instead of
+   * switching to the component's own registration view — for apps whose signup lives elsewhere,
+   * such as a plan-first wizard on its own route. The button is still gated by `allowRegistration`
+   * and the server configuration, so `false` hides it regardless of this handler.
+   */
+  onRegisterClick?: () => void;
 }
 
 export function AuthenticationComponent({
@@ -85,6 +92,7 @@ export function AuthenticationComponent({
   onAuthenticationError,
   className,
   allowRegistration: allowRegistrationProp,
+  onRegisterClick,
 }: AuthenticationComponentProps) {
   const {
     // State
@@ -868,7 +876,9 @@ export function AuthenticationComponent({
                 {showRegistration && (
                   <p>
                     Don't have an account?{' '}
-                    <button type="button" className="ww-btn-link" onClick={toggleMode}>
+                    {/* onRegisterClick hands sign-up to the host app; without it the button falls
+                        back to this component's own register view. */}
+                    <button type="button" className="ww-btn-link" onClick={onRegisterClick ?? toggleMode}>
                       Sign up
                     </button>
                   </p>
