@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useAuth } from '../hooks/useAuth.js';
-import { createWrapper } from './testUtils.js';
+import { createTestClient, createWrapper } from './testUtils.js';
 
 describe('useAuth', () => {
   it('starts not authenticated', () => {
@@ -38,5 +38,27 @@ describe('useAuth', () => {
     expect(typeof result.current.sendTwoFactorCode).toBe('function');
     expect(typeof result.current.verifyTwoFactorCode).toBe('function');
     expect(typeof result.current.verifyTwoFactorRecoveryCode).toBe('function');
+  });
+
+  // An app can build its own reset screen on this hook rather than on AuthenticationComponent,
+  // so the forwarding — including the optional reset token — has to be real, not assumed.
+  it('forwards resetPassword to the client, reset token included', async () => {
+    const client = createTestClient();
+    const spy = vi.spyOn(client.auth, 'resetPassword').mockResolvedValue(true);
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper(client) });
+
+    await result.current.resetPassword('NewPass1!', 'NewPass1!', 'app-1', 'link-token');
+
+    expect(spy).toHaveBeenCalledWith('NewPass1!', 'NewPass1!', 'app-1', 'link-token');
+  });
+
+  it('forwards requestPasswordReset to the client', async () => {
+    const client = createTestClient();
+    const spy = vi.spyOn(client.auth, 'requestPasswordReset').mockResolvedValue(true);
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper(client) });
+
+    await result.current.requestPasswordReset('john@example.com', 'app-1');
+
+    expect(spy).toHaveBeenCalledWith('john@example.com', 'app-1');
   });
 });

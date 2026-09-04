@@ -48,7 +48,43 @@ export const handlers = [
         { status: 401 },
       );
     }
+    // Mirrors the server's temporary-password branch: a REAL token is issued alongside the
+    // flag (AuthService.AuthenticateAsync -> TokenService.GenerateTokensAsync), which is what
+    // makes the follow-up reset call authenticable.
+    if (body.Email === 'temp@example.com' && body.Password !== 'NewPass1!') {
+      return HttpResponse.json({
+        ...makeAuthResponse(body.Email),
+        requiresPasswordReset: true,
+      });
+    }
     return HttpResponse.json(makeAuthResponse(body.Email || 'test@example.com'));
+  }),
+
+  // Auth - reset password. [Authorize] on the server: the user is identified from the JWT
+  // alone, so an unauthenticated call cannot be served.
+  http.post('https://test-api.example.com/api/auth/reset-password', async ({ request }) => {
+    const authorization = request.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+      return HttpResponse.json(
+        { error: 'InvalidToken', message: 'Unable to identify user from token' },
+        { status: 401 },
+      );
+    }
+    const body = (await request.json()) as Record<string, string>;
+    if (body.NewPassword !== body.ConfirmPassword) {
+      return HttpResponse.json(
+        { error: 'PasswordMismatch', message: 'New password and confirmation do not match' },
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({ message: 'Password reset successful' });
+  }),
+
+  // Auth - forgot password (anonymous; always generic to prevent email enumeration)
+  http.post('https://test-api.example.com/api/auth/forgot-password', () => {
+    return HttpResponse.json({
+      message: 'If an account with that email exists, a password reset email has been sent.',
+    });
   }),
 
   // Auth - register

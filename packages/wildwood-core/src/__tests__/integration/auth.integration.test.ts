@@ -41,6 +41,50 @@ describe('Auth integration (msw)', () => {
     ).rejects.toThrow();
   });
 
+  // The reported bug, end to end: an account created with a temporary password could reach the
+  // reset screen and no further, because the reset call was sent anonymously and 401'd.
+  it('completes the forced password-reset flow after a temporary-password login', async () => {
+    const client = createTestClient();
+
+    const login = await client.auth.login({
+      email: 'temp@example.com',
+      password: 'TempPass123',
+      appId: 'test-app-id',
+      appVersion: '1.0.0',
+      platform: 'web',
+      deviceInfo: 'test',
+    });
+
+    expect(login.requiresPasswordReset).toBe(true);
+    expect(login.jwtToken).toBeTruthy();
+
+    // The component skips completeAuth() on this branch, so the reset must work off the token
+    // login() already stored — nothing else has run in between.
+    await expect(client.auth.resetPassword('NewPass1!', 'NewPass1!', 'test-app-id')).resolves.toBe(true);
+
+    const relogin = await client.auth.login({
+      email: 'temp@example.com',
+      password: 'NewPass1!',
+      appId: 'test-app-id',
+      appVersion: '1.0.0',
+      platform: 'web',
+      deviceInfo: 'test',
+    });
+
+    expect(relogin.requiresPasswordReset).toBe(false);
+  });
+
+  it('rejects a password reset sent without a session', async () => {
+    const client = createTestClient();
+
+    await expect(client.auth.resetPassword('NewPass1!', 'NewPass1!', 'test-app-id')).rejects.toThrow();
+  });
+
+  it('requestPasswordReset returns generically for any email', async () => {
+    const client = createTestClient();
+    await expect(client.auth.requestPasswordReset('anyone@example.com', 'test-app-id')).resolves.toBe(true);
+  });
+
   it('register returns user with token', async () => {
     const client = createTestClient();
     const result = await client.auth.register({

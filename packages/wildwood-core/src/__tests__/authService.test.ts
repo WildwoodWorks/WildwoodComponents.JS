@@ -266,6 +266,89 @@ describe('AuthService', () => {
 
       expect(handler).toHaveBeenCalledWith('refreshed-jwt');
     });
+
+    // The refresh-token endpoint never sets requiresPasswordReset, so it always comes back
+    // false. Storing that verbatim would silently clear a pending forced reset.
+    it('preserves a pending requiresPasswordReset across a refresh', async () => {
+      await storage.setItem('ww_refreshToken', 'token');
+      await storage.setItem('ww_user', JSON.stringify(mockAuthResponse({ requiresPasswordReset: true })));
+
+      mockPost(mockAuthResponse({ jwtToken: 'refreshed-jwt', requiresPasswordReset: false }));
+      await auth.refreshToken();
+
+      const stored = await auth.getStoredUser();
+      expect(stored?.requiresPasswordReset).toBe(true);
+    });
+
+    it('does not invent requiresPasswordReset when none was pending', async () => {
+      await storage.setItem('ww_refreshToken', 'token');
+      await storage.setItem('ww_user', JSON.stringify(mockAuthResponse({ requiresPasswordReset: false })));
+
+      mockPost(mockAuthResponse({ jwtToken: 'refreshed-jwt', requiresPasswordReset: false }));
+      await auth.refreshToken();
+
+      const stored = await auth.getStoredUser();
+      expect(stored?.requiresPasswordReset).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Password Reset
+  // -------------------------------------------------------------------------
+
+  describe('resetPassword', () => {
+    function authHeaderOf(callIndex = 0): string | undefined {
+      const init = fetchSpy.mock.calls[callIndex]?.[1] as RequestInit | undefined;
+      return (init?.headers as Record<string, string> | undefined)?.['Authorization'];
+    }
+
+    // The regression: the server identifies the user solely from the JWT, so a reset sent
+    // without one 401s and strands every temp-password account on the reset screen.
+    it('sends the session bearer token when no reset token is supplied', async () => {
+      http.setTokenProvider(async () => 'jwt-token-123');
+      mockPost({ message: 'Password reset successful' });
+
+      await auth.resetPassword('NewPass1!', 'NewPass1!', 'app-1');
+
+      expect(authHeaderOf()).toBe('Bearer jwt-token-123');
+    });
+
+    it('omits the body reset token when none is supplied', async () => {
+      http.setTokenProvider(async () => 'jwt-token-123');
+      mockPost({ message: 'Password reset successful' });
+
+      await auth.resetPassword('NewPass1!', 'NewPass1!', 'app-1');
+
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body).toEqual({ NewPassword: 'NewPass1!', ConfirmPassword: 'NewPass1!', AppId: 'app-1' });
+    });
+
+    // An emailed-link reset is the one case that is legitimately anonymous.
+    it('stays anonymous and sends the reset token when one is supplied', async () => {
+      http.setTokenProvider(async () => 'jwt-token-123');
+      mockPost({ message: 'Password reset successful' });
+
+      await auth.resetPassword('NewPass1!', 'NewPass1!', 'app-1', 'link-token');
+
+      expect(authHeaderOf()).toBeUndefined();
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.ResetToken).toBe('link-token');
+    });
+  });
+
+  describe('requestPasswordReset', () => {
+    it('posts anonymously to forgot-password', async () => {
+      http.setTokenProvider(async () => 'jwt-token-123');
+      mockPost({ message: 'If an account with that email exists, a password reset email has been sent.' });
+
+      await auth.requestPasswordReset('john@example.com', 'app-1');
+
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+      expect((init.headers as Record<string, string>)['Authorization']).toBeUndefined();
+      expect(JSON.parse(init.body as string)).toEqual({ Email: 'john@example.com', AppId: 'app-1' });
+    });
   });
 
   // -------------------------------------------------------------------------
