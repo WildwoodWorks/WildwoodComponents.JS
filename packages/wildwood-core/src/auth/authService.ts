@@ -323,6 +323,19 @@ export class AuthService {
     return true;
   }
 
+  /**
+   * Sets a new password.
+   *
+   * `POST api/auth/reset-password` is `[Authorize]` on the server and identifies the user
+   * solely from the JWT — the request body carries no email or user id. The forced-reset flow
+   * (login with a temporary password) already has a real token: `login()` short-circuits only
+   * for `requiresTwoFactor`, so a `requiresPasswordReset` response still reaches
+   * `storeAuthentication()`. That token MUST be sent or the reset 401s and the user is stranded
+   * on the reset screen.
+   *
+   * `resetToken` is reserved for a future emailed-link flow, which is the only case that is
+   * legitimately anonymous — hence `skipAuth` follows it rather than being hardcoded.
+   */
   async resetPassword(
     newPassword: string,
     confirmPassword: string,
@@ -337,7 +350,7 @@ export class AuthService {
         ConfirmPassword: confirmPassword,
         AppId: appId,
       },
-      { skipAuth: true },
+      { skipAuth: !!resetToken },
     );
     return true;
   }
@@ -412,6 +425,15 @@ export class AuthService {
       );
 
       if (data?.jwtToken) {
+        // The refresh-token endpoint does not carry requiresPasswordReset, so it always comes
+        // back false. Storing that would clear a pending forced reset — a user who refreshes
+        // before resetting would silently stop being asked. Carry the prior value forward; the
+        // next real login returns the authoritative one.
+        const prior = await this.getStoredUser();
+        if (prior?.requiresPasswordReset) {
+          data.requiresPasswordReset = true;
+        }
+
         await this.storeAuthentication(data);
         this.onAuthChanged?.(data);
         this.events.emit('tokenRefreshed', data.jwtToken);
