@@ -97,6 +97,9 @@ describe('PaymentService', () => {
         appId: 'app-1',
         providerType: PaymentProviderType.AppleAppStore,
         productId: 'com.wildwood.pro.monthly',
+        // `receiptData` is the field the server's ValidateReceiptRequest actually binds;
+        // `purchaseToken` is the contract name kept for when the API binds it too.
+        receiptData: 'signed-jws',
         purchaseToken: 'signed-jws',
         transactionId: undefined,
         isRestore: undefined,
@@ -118,6 +121,8 @@ describe('PaymentService', () => {
       expect(url).toBe('api/payment/validate-google-receipt');
       expect(body.providerType).toBe(PaymentProviderType.GooglePlayStore);
       expect(body.purchaseToken).toBe('play-token');
+      // The Google action reads request.ReceiptData and treats it as the purchase token.
+      expect(body.receiptData).toBe('play-token');
     });
 
     it('passes the validation result through', async () => {

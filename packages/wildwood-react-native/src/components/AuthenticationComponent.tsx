@@ -47,6 +47,12 @@ export interface AuthenticationComponentProps {
    * configuration denies registration. Omit for config-driven behaviour (the default).
    */
   allowRegistration?: boolean;
+  /**
+   * Replaces the footer sign-up action. When supplied, "Sign up" calls this instead of switching
+   * to the component's own registration view — for apps whose signup lives on its own screen. Still
+   * gated by `allowRegistration` and the server configuration. Mirrors the web component.
+   */
+  onRegisterClick?: () => void;
 }
 
 export function AuthenticationComponent({
@@ -58,6 +64,7 @@ export function AuthenticationComponent({
   onAuthenticationError,
   onProviderSignIn,
   allowRegistration: allowRegistrationProp,
+  onRegisterClick,
 }: AuthenticationComponentProps) {
   const theme = useWildwoodTheme();
   // Memoised on the theme: StyleSheet.create is not free, and this component re-renders on every
@@ -348,10 +355,13 @@ export function AuthenticationComponent({
         {showRegistration && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => {
-              clearMessages();
-              setView('register');
-            }}
+            onPress={
+              onRegisterClick ??
+              (() => {
+                clearMessages();
+                setView('register');
+              })
+            }
           >
             <Text style={styles.linkText}>Don't have an account? Sign up</Text>
           </Pressable>
@@ -609,7 +619,7 @@ export function AuthenticationComponent({
    themeable colour. */
 const createStyles = (theme: WildwoodTheme) =>
   StyleSheet.create({
-  container: {
+    container: {
       flex: 1,
     },
     scrollContent: {
