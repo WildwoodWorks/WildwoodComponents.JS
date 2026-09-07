@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AppTierModel, AppTierPricingModel } from '@wildwood/core';
+import type { AppTierModel, AppTierPricingModel, PaymentCompletionResult } from '@wildwood/core';
 import { useAppTier } from '../../hooks/useAppTier.js';
 import { PaymentComponent } from '../payment/PaymentComponent.js';
 import { TierCard } from '../tier/TierCard.js';
@@ -51,8 +51,17 @@ export function AppTierComponent({
   selfService = false,
   className,
 }: AppTierComponentProps) {
-  const { tiers, userSubscription, loading, error, getTiers, getUserSubscription, changeTier, selfSubscribe } =
-    useAppTier();
+  const {
+    tiers,
+    userSubscription,
+    loading,
+    error,
+    getTiers,
+    getUserSubscription,
+    previewTierChange,
+    changeTier,
+    selfSubscribe,
+  } = useAppTier();
 
   const [step, setStep] = useState<Step>('tiers');
   const [billingAnnual, setBillingAnnual] = useState(false);
@@ -91,7 +100,8 @@ export function AppTierComponent({
   );
 
   const handleConfirmChangeRef = useRef<
-    ((tier?: AppTierModel, pricing?: AppTierPricingModel | null) => Promise<void>) | undefined
+    | ((tier?: AppTierModel, pricing?: AppTierPricingModel | null, paymentTransactionId?: string) => Promise<void>)
+    | undefined
   >(undefined);
 
   const handleSelectTier = useCallback(
@@ -111,7 +121,7 @@ export function AppTierComponent({
   );
 
   const handleConfirmChange = useCallback(
-    async (tier?: AppTierModel, pricing?: AppTierPricingModel | null) => {
+    async (tier?: AppTierModel, pricing?: AppTierPricingModel | null, paymentTransactionId?: string) => {
       const t = tier ?? selectedTier;
       const p = pricing !== undefined ? pricing : selectedPricing;
       if (!t) return;
@@ -119,9 +129,27 @@ export function AppTierComponent({
       setChangeError(null);
       setChangeLoading(true);
       try {
+        if (!paymentTransactionId && !t.isFreeTier) {
+          // Ask the server whether this change needs money collected first. Free targets never do,
+          // and a change that already carries a payment transaction id has been paid. A preview that
+          // fails degrades to the direct call, which the server still guards (same shape as
+          // react-native's runTierChangeWithPayment).
+          let paymentRequired = false;
+          try {
+            const preview = await previewTierChange(t.id, p?.pricingModelId);
+            paymentRequired = preview.success && preview.paymentRequired;
+          } catch {
+            // fall through to the direct call
+          }
+          if (paymentRequired) {
+            setStep('payment');
+            return;
+          }
+        }
+
         const result = selfService
-          ? await selfSubscribe(t.id, p?.pricingModelId)
-          : await changeTier(t.id, p?.pricingModelId);
+          ? await selfSubscribe(t.id, p?.pricingModelId, paymentTransactionId)
+          : await changeTier(t.id, p?.pricingModelId, undefined, paymentTransactionId);
         if (result.success) {
           if (result.isScheduled) {
             setSuccessMessage(
@@ -144,15 +172,18 @@ export function AppTierComponent({
         setChangeLoading(false);
       }
     },
-    [selectedTier, selectedPricing, selfService, selfSubscribe, changeTier, onTierChanged],
+    [selectedTier, selectedPricing, selfService, selfSubscribe, changeTier, previewTierChange, onTierChanged],
   );
   handleConfirmChangeRef.current = handleConfirmChange;
 
-  const handlePaymentSuccess = useCallback(async () => {
-    if (!selectedTier) return;
-    // After payment, retry the tier change
-    await handleConfirmChange();
-  }, [selectedTier, handleConfirmChange]);
+  const handlePaymentSuccess = useCallback(
+    async (result: PaymentCompletionResult) => {
+      if (!selectedTier) return;
+      // Retry the tier change carrying the payment — without the id the server asks for payment again.
+      await handleConfirmChange(undefined, undefined, result.transactionId ?? undefined);
+    },
+    [selectedTier, handleConfirmChange],
+  );
 
   const handleCancelSubscription = useCallback(async () => {
     if (!userSubscription) return;

@@ -86,6 +86,11 @@ export class PaymentService {
       appId,
       providerType: purchase.providerType,
       productId: purchase.productId,
+      // The server's ValidateReceiptRequest binds `receiptData` and nothing else for the token —
+      // the Google action even comments that ReceiptData "is the purchase token". Sending only
+      // `purchaseToken` validates an empty receipt, so send the token as `receiptData` too.
+      // `purchaseToken` stays as the contract name for when the API binds it.
+      receiptData: purchase.purchaseToken,
       purchaseToken: purchase.purchaseToken,
       transactionId: purchase.transactionId,
       isRestore: purchase.isRestore,
