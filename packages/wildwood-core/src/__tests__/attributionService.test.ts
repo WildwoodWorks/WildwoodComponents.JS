@@ -514,3 +514,37 @@ describe('createWildwoodClient attribution wiring', () => {
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('AttributionService consent withdrawal', () => {
+  it('removes the stored blob once consent state exists but no longer grants the category', async () => {
+    let granted = true;
+    let state: ConsentState | null = makeConsentState(true, true);
+    const listeners = new Set<(s: ConsentState) => void>();
+    const consent: AttributionConsentSource = {
+      isGranted: (category: ConsentCategory) => category === 'StrictlyNecessary' || granted,
+      getState: () => state,
+      onConsentChange: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    };
+    stubLanding(LANDING);
+    const { service, storage } = makeService({
+      consent: { consent, decide: () => {}, listenerCount: () => listeners.size },
+    });
+    await service.initialize();
+    expect(await storage.getItem(ATTRIBUTION_STORAGE_KEY)).not.toBeNull();
+
+    // A withdrawal leaves the visitor undecided with nothing granted.
+    granted = false;
+    state = makeConsentState(false, false);
+    for (const listener of listeners) listener(state);
+    await flush();
+
+    expect(await storage.getItem(ATTRIBUTION_STORAGE_KEY)).toBeNull();
+    expect(service.getState().persisted).toBe(false);
+    expect(service.getForRegistration()?.lastTouch?.source).toBe('reddit');
+  });
+});

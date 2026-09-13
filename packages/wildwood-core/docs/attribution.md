@@ -45,7 +45,7 @@ await client.auth.register({ email, firstName, lastName, password, appId: 'my-ap
 - **Consent-gated persistence:** the touches are held in memory and written to storage under
   `ww_attribution` only once the App's persistence consent category (Analytics by default) is granted
   through the consent engine. While the visitor has not decided, they stay in memory and are written
-  when consent is granted; if the visitor declines, any stored blob is removed. A same-visit signup
+  when consent is granted; if the visitor declines or withdraws consent, any stored blob is removed. A same-visit signup
   (land on an ad, sign up) is attributed either way.
 - **Landing beacon:** when the App turns the beacon on, one anonymous touch is posted per landing so the
   report can show visits and conversion per campaign. No IP address is stored, and only the click id's

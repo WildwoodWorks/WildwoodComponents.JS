@@ -278,10 +278,10 @@ export class AttributionService {
 
     const category = config.persistenceConsentCategory;
     let allowed: boolean;
-    let decided: boolean;
+    let consentKnown: boolean;
     try {
       allowed = category === 'StrictlyNecessary' || this.consent.isGranted(category);
-      decided = this.consent.getState()?.decided === true;
+      consentKnown = this.consent.getState() !== null;
     } catch {
       return;
     }
@@ -297,13 +297,14 @@ export class AttributionService {
       return;
     }
 
-    if (decided) {
-      // Declined (or GPC opted the visitor out of the category): memory only, and nothing left behind.
+    if (consentKnown) {
+      // Consent state exists and does not grant the category: declined, withdrawn (which leaves the visitor
+      // undecided), or not answered since the consent config changed. Memory only, nothing left behind.
       await this.removeStored();
       this.setPersisted(false);
     }
-    // Undecided (no banner answer yet, or the consent engine has not initialized): stay memory-only;
-    // the consent subscription retries on every change.
+    // No consent state yet (the consent engine has not initialized): stay memory-only; the consent
+    // subscription retries on every change.
   }
 
   private ensureConsentSubscription(): void {
