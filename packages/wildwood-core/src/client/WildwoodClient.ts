@@ -19,6 +19,7 @@ import { TwoFactorService } from '../security/twoFactorService.js';
 import { CaptchaService } from '../security/captchaService.js';
 import { DisclaimerService } from '../features/disclaimerService.js';
 import { ConsentService } from '../consent/consentService.js';
+import { AttributionService } from '../attribution/attributionService.js';
 import { AppTierService } from '../features/appTierService.js';
 import { FeedbackService } from '../feedback/feedbackService.js';
 import { ThemeService } from '../theme/themeService.js';
@@ -41,6 +42,8 @@ export interface WildwoodClient {
   readonly captcha: CaptchaService;
   readonly disclaimer: DisclaimerService;
   readonly consent: ConsentService;
+  /** Campaign Attribution: campaign-touch capture, consent-gated persistence, the registration payload. */
+  readonly attribution: AttributionService;
   readonly appTier: AppTierService;
   readonly feedback: FeedbackService;
   readonly theme: ThemeService;
@@ -73,6 +76,8 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const captcha = new CaptchaService();
   const disclaimer = new DisclaimerService(http, config.appId ?? '');
   const consent = new ConsentService(http, config.appId ?? '', config.consent);
+  // After consent: attribution persistence is gated on the consent engine's decisions.
+  const attribution = new AttributionService(http, storage, consent, events, config.appId ?? '', config.attribution);
   const appTier = new AppTierService(http);
   const feedback = new FeedbackService(http, config.appId ?? '');
   const theme = new ThemeService(storage, events);
@@ -94,12 +99,14 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
     captcha,
     disclaimer,
     consent,
+    attribution,
     appTier,
     feedback,
     theme,
     events,
     dispose() {
       session.dispose();
+      attribution.dispose();
       events.removeAllListeners();
     },
   };

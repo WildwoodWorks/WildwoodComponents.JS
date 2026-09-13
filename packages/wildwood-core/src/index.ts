@@ -213,6 +213,28 @@ export type {
   ConsentChangeListener,
   ConsentServiceOptions,
 } from './consent/types.js';
+
+// Campaign Attribution
+export { AttributionService } from './attribution/attributionService.js';
+export {
+  ATTRIBUTION_STORAGE_KEY,
+  ATTRIBUTION_SCHEMA_VERSION,
+  UTM_PARAMS,
+  CLICK_ID_PARAMS,
+} from './attribution/types.js';
+export type {
+  AttributionTouch,
+  PublicAttributionConfig,
+  StoredAttribution,
+  AttributionState,
+  AttributionPayload,
+  AttributionTouchRequest,
+  AttributionConsentSource,
+  AttributionServiceOptions,
+  AttributionChangeListener,
+  AttributionPlatform,
+  AttributionSdk,
+} from './attribution/types.js';
 export {
   CURRENCY_SYMBOLS,
   getCurrencySymbol,

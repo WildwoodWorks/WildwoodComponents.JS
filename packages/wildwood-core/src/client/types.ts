@@ -2,6 +2,7 @@
 
 import type { StorageAdapter } from '../platform/types.js';
 import type { ConsentServiceOptions } from '../consent/types.js';
+import type { AttributionServiceOptions } from '../attribution/types.js';
 
 export interface WildwoodConfig {
   /** Base URL for the WildwoodAPI server (e.g. https://localhost:5291) */
@@ -40,6 +41,12 @@ export interface WildwoodConfig {
    * first-party cookie is used by default.
    */
   consent?: ConsentServiceOptions;
+  /**
+   * Campaign Attribution options. Capture is switched on per app in WildwoodAdmin; pass
+   * `enabled: false` to keep this client from capturing at all, or `platform` to label payloads
+   * from a native host such as React Native.
+   */
+  attribution?: AttributionServiceOptions;
 }
 
 export interface RequestOptions {

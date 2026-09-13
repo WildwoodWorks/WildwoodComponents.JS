@@ -496,3 +496,21 @@ describe('AttributionService lifecycle', () => {
     expect(listener.mock.calls.at(-1)![0].last.source).toBe('reddit');
   });
 });
+
+describe('createWildwoodClient attribution wiring', () => {
+  it('exposes the attribution service and disposes it with the client', async () => {
+    const { createWildwoodClient } = await import('../client/WildwoodClient.js');
+    const client = createWildwoodClient({
+      baseUrl: 'https://api.example.com',
+      appId: 'app-1',
+      storage: 'memory',
+      attribution: { enabled: false },
+    });
+    expect(client.attribution).toBeInstanceOf(AttributionService);
+    const dispose = vi.spyOn(client.attribution, 'dispose');
+
+    client.dispose();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+  });
+});
