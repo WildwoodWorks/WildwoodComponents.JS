@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createWildwoodClient, type ThemeName, type WildwoodConfig } from '@wildwood/core';
+import { Linking, Platform } from 'react-native';
+import { createWildwoodClient, type AttributionPlatform, type ThemeName, type WildwoodConfig } from '@wildwood/core';
 import { WildwoodContext } from './WildwoodContext';
 import { ThemeContext } from '../styles/ThemeContext';
 import { resolveTheme, type WildwoodTheme } from '../styles/theme';
@@ -20,6 +21,12 @@ export interface WildwoodProviderProps {
   theme?: ThemeName | Partial<WildwoodTheme>;
 }
 
+/** The platform attribution payloads report from a native host. */
+function nativeAttributionPlatform(): AttributionPlatform {
+  if (Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web') return Platform.OS;
+  return 'unknown';
+}
+
 export function WildwoodProvider({ config, children, theme }: WildwoodProviderProps) {
   const client = useMemo(() => {
     // React Native should use 'memory' storage by default
@@ -27,6 +34,8 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
     const effectiveConfig: WildwoodConfig = {
       ...config,
       storage: config.storage ?? 'memory',
+      // Attribution payloads name the native platform unless the host chose one.
+      attribution: { platform: nativeAttributionPlatform(), ...config.attribution },
     };
     return createWildwoodClient(effectiveConfig);
   }, [config.baseUrl, config.appId, config.storage]);
@@ -39,6 +48,25 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
 
   useEffect(() => {
     let cancelled = false;
+
+    /* Campaign attribution. There is no window.location on a native host, so the launch deep link and
+       every link opened while running are captured explicitly. Each step is guarded: attribution must
+       never break the provider. */
+    client.attribution.initialize().catch(() => {});
+    let linkSubscription: { remove: () => void } | undefined;
+    try {
+      Linking.getInitialURL()
+        .then((url) => {
+          if (!cancelled && url) client.attribution.captureUrl(url);
+        })
+        .catch(() => {});
+      linkSubscription = Linking.addEventListener('url', ({ url }) => {
+        client.attribution.captureUrl(url);
+      });
+    } catch {
+      /* Linking unavailable on this host */
+    }
+
     client.session.initialize();
 
     /* AWAIT the restore. ThemeService.initialize() reads storage asynchronously and does NOT emit
@@ -59,6 +87,8 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
     return () => {
       cancelled = true;
       unsubscribe();
+      linkSubscription?.remove();
+      client.attribution.dispose();
       client.session.dispose();
     };
   }, [client]);
@@ -67,10 +97,7 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
      theme change, not once per component per render. An explicit `theme` prop wins over the
      service: an app that ships one brand palette should not have it swapped by a stored
      preference. */
-  const resolvedTheme = useMemo(
-    () => resolveTheme(theme ?? serviceTheme),
-    [theme, serviceTheme],
-  );
+  const resolvedTheme = useMemo(() => resolveTheme(theme ?? serviceTheme), [theme, serviceTheme]);
 
   return (
     <WildwoodContext.Provider value={client}>

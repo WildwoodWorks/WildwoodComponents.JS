@@ -338,6 +338,11 @@ export function AuthenticationComponent({
                           if (result.success && result.response) {
                             const authResponse = result.response as AuthenticationResponse;
                             if (authResponse.jwtToken) {
+                              // The popup handed back a session directly, so auth.login() never ran to queue
+                              // the campaign-attribution claim. Queue it before processAuthResponse: two-factor,
+                              // a forced reset or pending disclaimers can defer the session, and the claim goes
+                              // out only once the session is signed in.
+                              client.auth.queueAttributionClaim(appId ?? '');
                               await processAuthResponse(authResponse);
                             } else {
                               // Provider returned a token/code, complete via login

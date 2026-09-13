@@ -4,6 +4,7 @@ import { HttpClient } from '../client/httpClient.js';
 import { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import { MemoryStorageAdapter } from '../platform/storageService.js';
 import type { AuthenticationResponse } from '../auth/types.js';
+import type { AttributionPayload } from '../attribution/types.js';
 
 function createConfig() {
   return { baseUrl: 'https://api.example.com', enableRetry: false };
@@ -474,5 +475,221 @@ describe('AuthService', () => {
       const providers = await auth.getAvailableProviders('app-1');
       expect(providers[0].buttonText).toBe('Continue with Google');
     });
+  });
+});
+
+describe('AuthService campaign attribution', () => {
+  const payload: AttributionPayload = {
+    version: 1,
+    visitorKey: 'visitor-key-0001',
+    firstTouch: null,
+    lastTouch: {
+      source: 'reddit',
+      medium: 'paid',
+      campaign: 'govcon-test-sep26',
+      term: null,
+      content: 'ad1',
+      clickIdName: null,
+      clickIdValue: null,
+      referrerHost: null,
+      landingHost: 'cairnfed.ai',
+      landingPath: '/',
+      extraParams: null,
+      occurredAt: '2026-09-13T12:00:00.000Z',
+    },
+    platform: 'web',
+    sdk: 'js',
+  };
+  const registration = {
+    email: 'new@example.com',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    password: 'pass123',
+    appId: 'app-1',
+  };
+
+  let fetchSpy: ReturnType<typeof vi.fn>;
+  let auth: AuthService;
+  let events: WildwoodEventEmitter;
+  let source: { getForRegistration: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> };
+
+  function respond(body: unknown, status = 200) {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(body), { status, headers: new Headers({ 'content-type': 'application/json' }) }),
+    );
+  }
+  const bodyOf = (call: number) => JSON.parse(fetchSpy.mock.calls[call][1].body);
+  const urlOf = (call: number) => String(fetchSpy.mock.calls[call][0]);
+
+  beforeEach(() => {
+    fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    events = new WildwoodEventEmitter();
+    auth = new AuthService(new HttpClient(createConfig()), new MemoryStorageAdapter(), events);
+    source = { getForRegistration: vi.fn(() => payload), clear: vi.fn() };
+    auth.setAttributionProvider(source);
+  });
+
+  it('register attaches the captured payload and clears it after a token response', async () => {
+    respond(mockAuthResponse());
+
+    await auth.register(registration);
+
+    expect(bodyOf(0).attribution).toEqual(payload);
+    expect(source.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('register omits attribution when nothing was captured', async () => {
+    source.getForRegistration.mockReturnValue(null);
+    respond(mockAuthResponse());
+
+    await auth.register(registration);
+
+    expect('attribution' in bodyOf(0)).toBe(false);
+  });
+
+  it('register sends no attribution when the caller passes null', async () => {
+    respond(mockAuthResponse());
+
+    await auth.register({ ...registration, attribution: null });
+
+    expect('attribution' in bodyOf(0)).toBe(false);
+    expect(source.getForRegistration).not.toHaveBeenCalled();
+  });
+
+  it('register keeps the payload when the request fails', async () => {
+    respond({ message: 'Email already registered' }, 400);
+
+    await expect(auth.register(registration)).rejects.toBeDefined();
+
+    expect(source.clear).not.toHaveBeenCalled();
+  });
+
+  it('registerWithToken attaches Attribution and clears it on success', async () => {
+    respond({ success: true, message: 'ok', userId: 'user-9' });
+
+    await auth.registerWithToken({ ...registration, registrationToken: 'token-1' });
+
+    expect(bodyOf(0).Attribution).toEqual(payload);
+    expect(source.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('registerWithToken keeps the payload on a token-less failure', async () => {
+    respond({ success: false, message: 'Invalid token' });
+
+    await expect(auth.registerWithToken({ ...registration, registrationToken: 'token-1' })).rejects.toThrow(
+      'Invalid token',
+    );
+
+    expect(source.clear).not.toHaveBeenCalled();
+  });
+
+  it('registerOpen attaches Attribution and clears it only on success', async () => {
+    respond({ success: false, message: 'Registration is closed' });
+    await auth.registerOpen(registration);
+    expect(bodyOf(0).Attribution).toEqual(payload);
+    expect(source.clear).not.toHaveBeenCalled();
+
+    respond({ success: true, message: 'ok', userId: 'user-9' });
+    await auth.registerOpen(registration);
+    expect(source.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('a provider login claims the attribution for the new account', async () => {
+    respond(mockAuthResponse());
+    respond({ recorded: true, reason: null });
+
+    await auth.loginWithProvider('Google', 'provider-token', 'app-1');
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+    expect(urlOf(1)).toContain('api/attribution/claim?appId=app-1');
+    expect(bodyOf(1)).toEqual({ appId: 'app-1', ...payload });
+  });
+
+  it('a provider login deferred by two-factor claims once verification signs in', async () => {
+    respond(mockAuthResponse({ requiresTwoFactor: true, jwtToken: '', refreshToken: '', twoFactorSessionId: 's-1' }));
+    await auth.loginWithProvider('Google', 'provider-token', 'app-1');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    respond({ success: true, authResponse: mockAuthResponse() });
+    respond({ recorded: true, reason: null });
+    await auth.verifyTwoFactorCode({ sessionId: 's-1', code: '123456' } as Parameters<
+      AuthService['verifyTwoFactorCode']
+    >[0]);
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+    expect(urlOf(2)).toContain('api/attribution/claim?appId=app-1');
+  });
+
+  it('a queued claim waits for a signed-in authChanged and a sign-out drops it', async () => {
+    auth.queueAttributionClaim('app-1');
+    events.emit('authChanged', mockAuthResponse({ jwtToken: '' }));
+    events.emit('authChanged', null);
+    events.emit('authChanged', mockAuthResponse());
+    expect(source.getForRegistration).not.toHaveBeenCalled();
+
+    auth.queueAttributionClaim('app-1');
+    respond({ recorded: true, reason: null });
+    events.emit('authChanged', mockAuthResponse());
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+    expect(urlOf(0)).toContain('api/attribution/claim?appId=app-1');
+  });
+
+  it('a queued claim lapses after the claim window', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-09-13T12:00:00Z'));
+      auth.queueAttributionClaim('app-1');
+      vi.setSystemTime(new Date('2026-09-13T12:16:00Z'));
+
+      events.emit('authChanged', mockAuthResponse());
+
+      expect(source.getForRegistration).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a queued claim still goes out after every listener was removed (client disposed and remounted)', async () => {
+    events.removeAllListeners();
+    auth.queueAttributionClaim('app-1');
+    respond({ recorded: true, reason: null });
+
+    events.emit('authChanged', mockAuthResponse());
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+  });
+
+  it('a claim is sent at most once per queue', async () => {
+    auth.queueAttributionClaim('app-1');
+    respond({ recorded: true, reason: null });
+
+    events.emit('authChanged', mockAuthResponse());
+    events.emit('authChanged', mockAuthResponse());
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+    expect(source.getForRegistration).toHaveBeenCalledTimes(1);
+  });
+
+  it('a password login does not claim', async () => {
+    respond(mockAuthResponse());
+
+    await auth.login({ username: 'john', password: 'pass', appId: 'app-1' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('claimAttribution sends nothing without a payload and never throws on failure', async () => {
+    source.getForRegistration.mockReturnValue(null);
+    expect(await auth.claimAttribution('app-1')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    source.getForRegistration.mockReturnValue(payload);
+    respond({ message: 'Unauthorized' }, 401);
+    expect(await auth.claimAttribution('app-1')).toBeNull();
+    expect(source.clear).not.toHaveBeenCalled();
   });
 });

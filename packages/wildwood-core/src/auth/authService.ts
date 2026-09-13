@@ -19,6 +19,12 @@ import type {
   ValidateRegistrationResponse,
   OpenRegistrationResult,
 } from './types.js';
+import type {
+  AttributionClaimRequest,
+  AttributionClaimResponse,
+  AttributionPayload,
+  AttributionRegistrationSource,
+} from '../attribution/types.js';
 
 const STORAGE_KEYS = {
   accessToken: 'ww_accessToken',
@@ -26,9 +32,18 @@ const STORAGE_KEYS = {
   user: 'ww_user',
 } as const;
 
+/**
+ * How long a queued attribution claim stays valid. Mirrors the server's claim window: WildwoodAPI refuses
+ * a claim for an account created longer ago than this.
+ */
+const ATTRIBUTION_CLAIM_WINDOW_MS = 15 * 60 * 1000;
+
 export class AuthService {
   private onAuthChanged: ((response: AuthenticationResponse) => void) | null = null;
   private onLogout: (() => void) | null = null;
+  private attributionSource: AttributionRegistrationSource | null = null;
+  private queuedClaim: { appId: string; queuedAt: number } | null = null;
+  private queuedClaimUnsubscribe: (() => void) | null = null;
 
   constructor(
     private http: HttpClient,
@@ -45,6 +60,14 @@ export class AuthService {
   /** Register a callback for logout (used by SessionManager) */
   setLogoutHandler(handler: () => void): void {
     this.onLogout = handler;
+  }
+
+  /**
+   * Register the Campaign Attribution source (the client's AttributionService). Registration requests
+   * then carry the captured campaign touches, and a provider login claims them for the new account.
+   */
+  setAttributionProvider(source: AttributionRegistrationSource | null): void {
+    this.attributionSource = source;
   }
 
   // ---------------------------------------------------------------------------
@@ -67,6 +90,11 @@ export class AuthService {
 
     const { data } = await this.http.post<AuthenticationResponse>('api/auth/login', loginDto, { skipAuth: true });
 
+    // A provider sign-in may have just created the account, and a provider signup has no registration
+    // request to carry the campaign touches. Queue a claim: it goes out on the next signed-in authChanged,
+    // which is the emit below or, when two-factor defers the session, the one verification makes.
+    if (request.providerToken && request.appId) this.queueAttributionClaim(request.appId);
+
     // If 2FA is required, return without storing auth
     if (data.requiresTwoFactor) {
       return data;
@@ -83,9 +111,12 @@ export class AuthService {
   // ---------------------------------------------------------------------------
 
   async register(request: RegistrationRequest): Promise<AuthenticationResponse> {
+    const { attribution: explicitAttribution, ...fields } = request;
+    const attribution = this.resolveAttribution(explicitAttribution);
     const registerDto = {
-      ...request,
+      ...fields,
       confirmPassword: request.confirmPassword ?? request.password,
+      ...(attribution ? { attribution } : {}),
     };
     const { data } = await this.http.post<AuthenticationResponse>('api/auth/register', registerDto, { skipAuth: true });
 
@@ -93,6 +124,8 @@ export class AuthService {
       await this.storeAuthentication(data);
       this.onAuthChanged?.(data);
       this.events.emit('authChanged', data);
+      // Recorded with the account: a later signup from this browser must not reuse the same touches.
+      this.clearAttribution();
     }
     return data;
   }
@@ -108,6 +141,7 @@ export class AuthService {
    * a session exists). A token-less failure throws with the server's message.
    */
   async registerWithToken(request: RegistrationRequest): Promise<AuthenticationResponse> {
+    const attribution = this.resolveAttribution(request.attribution);
     const tokenRegistrationDto = {
       Token: request.registrationToken,
       Username: request.username ?? request.email,
@@ -118,6 +152,7 @@ export class AuthService {
       AppId: request.appId,
       Platform: request.platform,
       DeviceInfo: request.deviceInfo,
+      ...(attribution ? { Attribution: attribution } : {}),
     };
 
     const { data } = await this.http.post<AuthenticationResponse & Partial<OpenRegistrationResult>>(
@@ -130,6 +165,7 @@ export class AuthService {
       await this.storeAuthentication(data);
       this.onAuthChanged?.(data);
       this.events.emit('authChanged', data);
+      this.clearAttribution();
       return data;
     }
 
@@ -137,6 +173,7 @@ export class AuthService {
     if (data.success === false) {
       throw new Error(data.message || 'Registration failed.');
     }
+    this.clearAttribution();
 
     return {
       id: data.userId ?? '',
@@ -161,6 +198,7 @@ export class AuthService {
    * call login() with the same credentials afterwards to authenticate.
    */
   async registerOpen(request: RegistrationRequest, pricingModelId?: string): Promise<OpenRegistrationResult> {
+    const attribution = this.resolveAttribution(request.attribution);
     const { data } = await this.http.post<OpenRegistrationResult>(
       'api/userregistration/register',
       {
@@ -172,10 +210,12 @@ export class AuthService {
         AppId: request.appId,
         Platform: request.platform,
         DeviceInfo: request.deviceInfo,
+        ...(attribution ? { Attribution: attribution } : {}),
         ...(pricingModelId ? { PricingModelId: pricingModelId } : {}),
       },
       { skipAuth: true },
     );
+    if (data?.success) this.clearAttribution();
     return data;
   }
 
@@ -291,6 +331,84 @@ export class AuthService {
       deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
     };
     return this.login(request);
+  }
+
+  /**
+   * Claims the captured campaign touches for the signed-in user's just-created account
+   * (POST api/attribution/claim?appId=), for provider signups that have no registration request to
+   * carry them. Never throws: returns null when nothing was sent or the request failed, and clears the
+   * local touches after any successful response, since the server has then decided either way.
+   */
+  async claimAttribution(appId: string): Promise<AttributionClaimResponse | null> {
+    if (!appId) return null;
+    const payload = this.resolveAttribution(undefined);
+    if (!payload) return null;
+    const body: AttributionClaimRequest = { appId, ...payload };
+    try {
+      // appId rides in the query string too: the server's rate-limit partition reads ?appId= and must
+      // match the body.
+      const { data } = await this.http.post<AttributionClaimResponse>(
+        `api/attribution/claim?appId=${encodeURIComponent(appId)}`,
+        body,
+      );
+      this.clearAttribution();
+      return data ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Queues a campaign-attribution claim for the next `authChanged` that carries a token, i.e. once a session
+   * is signed in. Provider sign-ins use it because two-factor, a forced password reset or pending
+   * disclaimers can defer the session, and a claim sent before the session exists would 401. A sign-out
+   * drops the queued claim, and it lapses after the server's claim window.
+   */
+  queueAttributionClaim(appId: string): void {
+    this.dropQueuedClaim();
+    if (!appId) return;
+    this.queuedClaim = { appId, queuedAt: Date.now() };
+    // Subscribed per queued claim, not once in the constructor: client.dispose() removes every event
+    // listener, and a remounted provider (React StrictMode) keeps using the same client.
+    this.queuedClaimUnsubscribe = this.events.on('authChanged', (response: AuthenticationResponse | null) =>
+      this.sendQueuedAttributionClaim(response),
+    );
+  }
+
+  private sendQueuedAttributionClaim(response: AuthenticationResponse | null): void {
+    const queued = this.queuedClaim;
+    if (!queued) return;
+    // A token-less response (two-factor still pending) is not a signed-in session yet: keep waiting.
+    if (response && !response.jwtToken) return;
+    this.dropQueuedClaim();
+    // A sign-out drops the claim; a stale one lapses with the server's claim window.
+    if (!response || Date.now() - queued.queuedAt > ATTRIBUTION_CLAIM_WINDOW_MS) return;
+    void this.claimAttribution(queued.appId);
+  }
+
+  private dropQueuedClaim(): void {
+    this.queuedClaim = null;
+    const unsubscribe = this.queuedClaimUnsubscribe;
+    this.queuedClaimUnsubscribe = null;
+    unsubscribe?.();
+  }
+
+  /** The caller's explicit payload when given (null means "send none"), else the captured one. */
+  private resolveAttribution(explicit: AttributionPayload | null | undefined): AttributionPayload | null {
+    if (explicit !== undefined) return explicit;
+    try {
+      return this.attributionSource?.getForRegistration() ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private clearAttribution(): void {
+    try {
+      this.attributionSource?.clear();
+    } catch {
+      /* attribution is best-effort */
+    }
   }
 
   // ---------------------------------------------------------------------------

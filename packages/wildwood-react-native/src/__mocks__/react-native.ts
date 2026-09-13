@@ -3,7 +3,8 @@ import { forwardRef, createElement } from 'react';
 
 const createMockComponent = (name: string) =>
   forwardRef((props: Record<string, unknown>, ref: unknown) =>
-    createElement(name, { ...props, ref } as Record<string, unknown>));
+    createElement(name, { ...props, ref } as Record<string, unknown>),
+  );
 
 export const View = createMockComponent('View');
 export const Text = createMockComponent('Text');
@@ -25,8 +26,7 @@ export const StyleSheet = {
 
 export const Platform = {
   OS: 'ios' as const,
-  select: <T>(specifics: { ios?: T; android?: T; default?: T }) =>
-    specifics.ios ?? specifics.default,
+  select: <T>(specifics: { ios?: T; android?: T; default?: T }) => specifics.ios ?? specifics.default,
 };
 
 export const Alert = {
@@ -36,6 +36,8 @@ export const Alert = {
 export const Linking = {
   openURL: async (_url: string) => {},
   canOpenURL: async (_url: string) => true,
+  getInitialURL: async (): Promise<string | null> => null,
+  addEventListener: (_type: string, _handler: (event: { url: string }) => void) => ({ remove: () => {} }),
 };
 
 export const Dimensions = {
@@ -45,7 +47,9 @@ export const Dimensions = {
 export const Animated = {
   View: createMockComponent('Animated.View'),
   Text: createMockComponent('Animated.Text'),
-  Value: class { constructor() {} },
+  Value: class {
+    constructor() {}
+  },
   timing: () => ({ start: () => {} }),
   spring: () => ({ start: () => {} }),
 };

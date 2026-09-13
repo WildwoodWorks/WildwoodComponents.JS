@@ -101,6 +101,55 @@ describe('ConsentService decision table', () => {
     expect((posts.at(-1)!.body as { method: string }).method).toBe('AcceptAll');
   });
 
+  it('notifies change listeners once initialize() settles the state', async () => {
+    const config = makeConfig();
+    const { http } = makeHttp(config);
+    const svc = new ConsentService(http, 'app-1');
+    const listener = vi.fn();
+    svc.onConsentChange(listener);
+
+    await svc.initialize();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].decided).toBe(false);
+  });
+
+  it('notifies a returning visitor whose stored decision is still valid', async () => {
+    const config = makeConfig();
+    const { http } = makeHttp(config);
+    const stored = new Map<string, string>([
+      ['ww_consent', JSON.stringify({ visitorKey: 'visitor-1', consentString: 'Analytics', configVersion: 1 })],
+    ]);
+    const storage = {
+      get: (key: string) => stored.get(key) ?? null,
+      set: (key: string, value: string) => {
+        stored.set(key, value);
+      },
+    };
+    const svc = new ConsentService(http, 'app-1', { storage });
+    const listener = vi.fn();
+    svc.onConsentChange(listener);
+
+    await svc.initialize();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].decided).toBe(true);
+    expect(listener.mock.calls[0][0].categories.Analytics).toBe(true);
+  });
+
+  it('a throwing change listener does not break initialize()', async () => {
+    const config = makeConfig();
+    const { http } = makeHttp(config);
+    const svc = new ConsentService(http, 'app-1');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    svc.onConsentChange(() => {
+      throw new Error('listener failure');
+    });
+
+    await expect(svc.initialize()).resolves.toBeDefined();
+    warn.mockRestore();
+  });
+
   it('rejectAll grants nothing beyond StrictlyNecessary', async () => {
     const config = makeConfig();
     const { http } = makeHttp(config);

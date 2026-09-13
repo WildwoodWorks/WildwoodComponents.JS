@@ -40,6 +40,8 @@ export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
 export { useConsent } from './hooks/useConsent';
 export type { UseConsentReturn } from './hooks/useConsent';
+export { useAttribution } from './hooks/useAttribution';
+export type { UseAttributionReturn } from './hooks/useAttribution';
 export { useFeedback } from './hooks/useFeedback';
 export type { UseFeedbackReturn } from './hooks/useFeedback';
 export { useAppTier } from './hooks/useAppTier';

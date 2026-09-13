@@ -9,6 +9,7 @@ import { TwoFactorTest } from './pages/TwoFactorTest';
 import { TokenRegistrationTest } from './pages/TokenRegistrationTest';
 import { DisclaimerTest } from './pages/DisclaimerTest';
 import { ConsentTest } from './pages/ConsentTest';
+import { AttributionTest } from './pages/AttributionTest';
 import { FeedbackTest } from './pages/FeedbackTest';
 import { AppTierTest } from './pages/AppTierTest';
 import { AIChatTest } from './pages/AIChatTest';
@@ -42,6 +43,7 @@ export function App() {
           <Route path="token-registration" element={<TokenRegistrationTest />} />
           <Route path="disclaimer" element={<DisclaimerTest />} />
           <Route path="consent" element={<ConsentTest />} />
+          <Route path="attribution" element={<AttributionTest />} />
           <Route path="feedback" element={<FeedbackTest />} />
           <Route path="app-tier" element={<AppTierTest />} />
           <Route path="ai-chat" element={<AIChatTest />} />

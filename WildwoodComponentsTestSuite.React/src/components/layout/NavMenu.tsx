@@ -108,6 +108,11 @@ export function NavMenu() {
           </NavLink>
         </li>
         <li>
+          <NavLink to="/attribution" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Campaign Attribution
+          </NavLink>
+        </li>
+        <li>
           <NavLink to="/feedback" className={({ isActive }) => (isActive ? 'active' : '')}>
             Feedback
           </NavLink>

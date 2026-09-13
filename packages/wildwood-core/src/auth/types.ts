@@ -1,6 +1,8 @@
 // Auth types - ported from WildwoodComponents.Blazor/Models/ComponentModels.cs
 // and WildwoodComponents.Shared/Models/WildwoodAuthModels.cs
 
+import type { AttributionPayload } from '../attribution/types.js';
+
 export interface LoginRequest {
   username: string;
   email?: string;
@@ -33,6 +35,11 @@ export interface RegistrationRequest {
   captchaResponse?: string;
   licenseToken?: string;
   registrationToken?: string;
+  /**
+   * Campaign Attribution payload. Filled from the client's AttributionService when omitted; pass
+   * `null` to send none.
+   */
+  attribution?: AttributionPayload | null;
 }
 
 /** Collected registration form data (not yet submitted to API). Used by deferred registration flows. */
