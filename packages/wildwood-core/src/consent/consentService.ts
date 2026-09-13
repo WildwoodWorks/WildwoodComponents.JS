@@ -62,6 +62,16 @@ export class ConsentService {
    * table, injects already-consented scripts, and returns what the UI needs to render.
    */
   async initialize(appId?: string): Promise<ConsentInitResult> {
+    const result = await this.initializeState(appId);
+    // Tell listeners what the restored (cookie) or defaulted state is. Without this a returning visitor
+    // with a valid stored decision never produces a change event, so a consumer gated on consent (e.g.
+    // Campaign Attribution's persistence) would wait forever. Later changes emit from applyCategories
+    // and withdraw.
+    this.emitChange();
+    return result;
+  }
+
+  private async initializeState(appId?: string): Promise<ConsentInitResult> {
     const config = await this.fetchConfig(appId);
     this.config = config;
     this.injectedIds.clear();
@@ -409,7 +419,14 @@ export class ConsentService {
 
   private emitChange(): void {
     if (!this.state) return;
-    for (const listener of this.listeners) listener(this.state);
+    for (const listener of this.listeners) {
+      try {
+        listener(this.state);
+      } catch (err) {
+        // A faulty subscriber must not break initialize() or a consent decision for everyone else.
+        console.warn('[ConsentService] consent change listener threw', err);
+      }
+    }
   }
 
   private requireInit(): void {

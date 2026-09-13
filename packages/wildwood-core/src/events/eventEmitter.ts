@@ -1,6 +1,7 @@
 // Typed event emitter for cross-service communication
 
 import type { AuthenticationResponse } from '../auth/types.js';
+import type { AttributionTouch } from '../attribution/types.js';
 
 export interface WildwoodEvents {
   authChanged: AuthenticationResponse | null;
@@ -9,6 +10,8 @@ export interface WildwoodEvents {
   tokenRefreshed: string;
   themeChanged: string;
   error: { service: string; message: string; details?: unknown };
+  /** Campaign Attribution captured a campaign touch from the landing URL. */
+  attributionCaptured: AttributionTouch;
 }
 
 type EventHandler<T> = T extends void ? () => void : (data: T) => void;
