@@ -652,6 +652,27 @@ describe('AuthService campaign attribution', () => {
     }
   });
 
+  it('a queued claim still goes out after every listener was removed (client disposed and remounted)', async () => {
+    events.removeAllListeners();
+    auth.queueAttributionClaim('app-1');
+    respond({ recorded: true, reason: null });
+
+    events.emit('authChanged', mockAuthResponse());
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+  });
+
+  it('a claim is sent at most once per queue', async () => {
+    auth.queueAttributionClaim('app-1');
+    respond({ recorded: true, reason: null });
+
+    events.emit('authChanged', mockAuthResponse());
+    events.emit('authChanged', mockAuthResponse());
+
+    await vi.waitFor(() => expect(source.clear).toHaveBeenCalledTimes(1));
+    expect(source.getForRegistration).toHaveBeenCalledTimes(1);
+  });
+
   it('a password login does not claim', async () => {
     respond(mockAuthResponse());
 

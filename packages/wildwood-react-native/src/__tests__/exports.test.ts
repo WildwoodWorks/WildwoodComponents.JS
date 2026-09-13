@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { usePlatformDetection } from '../hooks/usePlatformDetection';
 import { useWildwoodComponent } from '../hooks/useWildwoodComponent';
 import { useFeedback } from '../hooks/useFeedback';
+import { useAttribution } from '../hooks/useAttribution';
 
 // Test theme/styles (no react-native dependency)
 import { defaultTheme, resolveTheme, themes } from '../styles/theme';
@@ -21,6 +22,10 @@ describe('@wildwood/react-native hooks', () => {
   it('useFeedback is a function', () => {
     expect(typeof useFeedback).toBe('function');
   });
+
+  it('useAttribution is a function', () => {
+    expect(typeof useAttribution).toBe('function');
+  });
 });
 
 describe('@wildwood/react-native styles', () => {
@@ -33,9 +38,7 @@ describe('@wildwood/react-native styles', () => {
 
   it('themes contains the built-in themes the web names', () => {
     expect(themes).toBeDefined();
-    expect(Object.keys(themes)).toEqual(
-      expect.arrayContaining(['woodland-warm', 'cool-blue', 'fall-colors']),
-    );
+    expect(Object.keys(themes)).toEqual(expect.arrayContaining(['woodland-warm', 'cool-blue', 'fall-colors']));
   });
 
   it('resolveTheme layers a partial over the default rather than replacing it', () => {

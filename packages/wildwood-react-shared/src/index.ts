@@ -53,6 +53,8 @@ export { useDisclaimer } from './hooks/useDisclaimer.js';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer.js';
 export { useConsent } from './hooks/useConsent.js';
 export type { UseConsentReturn } from './hooks/useConsent.js';
+export { useAttribution } from './hooks/useAttribution.js';
+export type { UseAttributionReturn } from './hooks/useAttribution.js';
 export { useFeedback } from './hooks/useFeedback.js';
 export type { UseFeedbackReturn } from './hooks/useFeedback.js';
 export { useCaptcha } from './hooks/useCaptcha.js';

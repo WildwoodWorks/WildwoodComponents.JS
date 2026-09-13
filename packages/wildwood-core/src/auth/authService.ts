@@ -43,18 +43,14 @@ export class AuthService {
   private onLogout: (() => void) | null = null;
   private attributionSource: AttributionRegistrationSource | null = null;
   private queuedClaim: { appId: string; queuedAt: number } | null = null;
+  private queuedClaimUnsubscribe: (() => void) | null = null;
 
   constructor(
     private http: HttpClient,
     private storage: StorageAdapter,
     private events: WildwoodEventEmitter,
     private defaultAppVersion: string = '1.0.0',
-  ) {
-    // A queued attribution claim goes out once a session is actually signed in (see queueAttributionClaim).
-    this.events.on('authChanged', (response: AuthenticationResponse | null) =>
-      this.sendQueuedAttributionClaim(response),
-    );
-  }
+  ) {}
 
   /** Register a callback for auth state changes (used by SessionManager) */
   setAuthChangedHandler(handler: (response: AuthenticationResponse) => void): void {
@@ -369,20 +365,32 @@ export class AuthService {
    * drops the queued claim, and it lapses after the server's claim window.
    */
   queueAttributionClaim(appId: string): void {
-    this.queuedClaim = appId ? { appId, queuedAt: Date.now() } : null;
+    this.dropQueuedClaim();
+    if (!appId) return;
+    this.queuedClaim = { appId, queuedAt: Date.now() };
+    // Subscribed per queued claim, not once in the constructor: client.dispose() removes every event
+    // listener, and a remounted provider (React StrictMode) keeps using the same client.
+    this.queuedClaimUnsubscribe = this.events.on('authChanged', (response: AuthenticationResponse | null) =>
+      this.sendQueuedAttributionClaim(response),
+    );
   }
 
   private sendQueuedAttributionClaim(response: AuthenticationResponse | null): void {
     const queued = this.queuedClaim;
     if (!queued) return;
-    if (!response) {
-      this.queuedClaim = null;
-      return;
-    }
-    if (!response.jwtToken) return;
-    this.queuedClaim = null;
-    if (Date.now() - queued.queuedAt > ATTRIBUTION_CLAIM_WINDOW_MS) return;
+    // A token-less response (two-factor still pending) is not a signed-in session yet: keep waiting.
+    if (response && !response.jwtToken) return;
+    this.dropQueuedClaim();
+    // A sign-out drops the claim; a stale one lapses with the server's claim window.
+    if (!response || Date.now() - queued.queuedAt > ATTRIBUTION_CLAIM_WINDOW_MS) return;
     void this.claimAttribution(queued.appId);
+  }
+
+  private dropQueuedClaim(): void {
+    this.queuedClaim = null;
+    const unsubscribe = this.queuedClaimUnsubscribe;
+    this.queuedClaimUnsubscribe = null;
+    unsubscribe?.();
   }
 
   /** The caller's explicit payload when given (null means "send none"), else the captured one. */

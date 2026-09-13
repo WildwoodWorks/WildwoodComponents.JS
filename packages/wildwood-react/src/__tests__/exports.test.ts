@@ -35,6 +35,9 @@ describe('@wildwood/react exports', () => {
   it('exports useFeedback', () => {
     expect(WildwoodReact.useFeedback).toBeDefined();
   });
+  it('exports useAttribution', () => {
+    expect(WildwoodReact.useAttribution).toBeDefined();
+  });
   it('exports useAppTier', () => {
     expect(WildwoodReact.useAppTier).toBeDefined();
   });
