@@ -110,6 +110,25 @@ export interface AttributionTouchRequest {
   platform: AttributionPlatform;
 }
 
+/** Posted to POST api/attribution/claim?appId= (authenticated) after a provider signup. */
+export interface AttributionClaimRequest extends AttributionPayload {
+  appId: string;
+}
+
+export type AttributionClaimReason = 'Disabled' | 'WindowExpired' | 'AlreadyRecorded' | 'Empty' | 'NotAppUser';
+
+/** Result of a claim. `reason` is null when the attribution was recorded. */
+export interface AttributionClaimResponse {
+  recorded: boolean;
+  reason: AttributionClaimReason | null;
+}
+
+/** The slice of AttributionService that registration needs; AuthService depends on nothing else. */
+export interface AttributionRegistrationSource {
+  getForRegistration(): AttributionPayload | null;
+  clear(): void;
+}
+
 /**
  * The slice of the consent engine attribution depends on. ConsentService satisfies it; a narrow
  * interface keeps the dependency one-way and lets tests fake it.

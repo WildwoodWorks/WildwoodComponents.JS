@@ -78,6 +78,8 @@ export function createWildwoodClient(config: WildwoodConfig): WildwoodClient {
   const consent = new ConsentService(http, config.appId ?? '', config.consent);
   // After consent: attribution persistence is gated on the consent engine's decisions.
   const attribution = new AttributionService(http, storage, consent, events, config.appId ?? '', config.attribution);
+  // Every registration path attaches the captured campaign touches; provider logins claim them.
+  auth.setAttributionProvider(attribution);
   const appTier = new AppTierService(http);
   const feedback = new FeedbackService(http, config.appId ?? '');
   const theme = new ThemeService(storage, events);

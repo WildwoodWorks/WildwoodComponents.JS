@@ -234,6 +234,10 @@ export type {
   AttributionChangeListener,
   AttributionPlatform,
   AttributionSdk,
+  AttributionClaimRequest,
+  AttributionClaimReason,
+  AttributionClaimResponse,
+  AttributionRegistrationSource,
 } from './attribution/types.js';
 export {
   CURRENCY_SYMBOLS,
