@@ -167,6 +167,33 @@ describe('PaymentComponent free trial', () => {
     expect(confirmCardSetup).toHaveBeenLastCalledWith('seti_1_secret_abc', expect.anything());
   });
 
+  it('asks before charging when the server starts the plan without its trial', async () => {
+    // The account already had its trial, so the server created a paid subscription instead.
+    initiatePayment.mockResolvedValue({
+      success: true,
+      providerType: 1,
+      paymentIntentId: 'in_2',
+      clientSecret: 'pi_2_secret_abc',
+      clientSecretType: 'payment_intent',
+    });
+    confirmCardPayment.mockResolvedValue({ paymentIntent: { id: 'pi_2', status: 'succeeded' } });
+    confirmPayment.mockResolvedValue({ success: true, transactionId: 'txn-3', paymentIntentId: 'pi_2' });
+
+    const { onPaymentSuccess } = await renderWithCompleteCard({ trialDays: 14 });
+    fireEvent.click(screen.getByRole('button', { name: /Start 14-day free trial/ }));
+
+    await waitFor(() => expect(screen.getByText(/free trial isn't available on your account/)).toBeTruthy());
+    expect(confirmCardPayment).not.toHaveBeenCalled();
+    expect(onPaymentSuccess).not.toHaveBeenCalled();
+    expect(screen.queryByText(/won't be charged today/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Pay \$99\.00/ }));
+    await waitFor(() => expect(onPaymentSuccess).toHaveBeenCalled());
+    expect(initiatePayment).toHaveBeenCalledTimes(1);
+    expect(confirmCardPayment).toHaveBeenCalledWith('pi_2_secret_abc', expect.anything());
+    expect(screen.getByText('Payment Successful!')).toBeTruthy();
+  });
+
   it('still confirms a payment when there is no trial', async () => {
     initiatePayment.mockResolvedValue({
       success: true,

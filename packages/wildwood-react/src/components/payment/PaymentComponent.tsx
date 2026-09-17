@@ -159,7 +159,10 @@ export function PaymentComponent({
   // The Stripe intent created for this payment, kept after a declined card so a retry confirms the same
   // intent instead of creating another subscription (which would bill separately, or be left abandoned).
   const pendingIntentRef = useRef<{ key: string; result: InitiatePaymentResponse } | null>(null);
-  const hasTrial = (trialDays ?? 0) > 0;
+  // Set when the plan advertises a trial but the server started a paid subscription instead (the account has
+  // already had its trial). The charge then waits for the user to agree to it.
+  const [trialUnavailable, setTrialUnavailable] = useState(false);
+  const hasTrial = (trialDays ?? 0) > 0 && !trialUnavailable;
 
   // Saved methods
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
@@ -372,6 +375,13 @@ export function PaymentComponent({
         pendingIntentRef.current = { key: intentKey, result: initResult };
       }
 
+      // Offered a trial, but the server wants a charge today: never charge a card the user saved for a free
+      // trial. Say so and let them confirm the same intent with the next click.
+      if (hasTrial && isStripeProvider && initResult.clientSecret && initResult.clientSecretType !== 'setup_intent') {
+        setTrialUnavailable(true);
+        return;
+      }
+
       // Handle redirect-based providers (PayPal, etc.)
       if (initResult.redirectUrl || initResult.approvalUrl) {
         const url = initResult.redirectUrl ?? initResult.approvalUrl!;
@@ -502,6 +512,7 @@ export function PaymentComponent({
   }, [
     amount,
     currency,
+    hasTrial,
     selectedProvider,
     config,
     description,
@@ -639,6 +650,12 @@ export function PaymentComponent({
         </div>
       )}
       {error && <div className="ww-alert ww-alert-danger">{error}</div>}
+      {trialUnavailable && (
+        <div className="ww-alert ww-alert-warning" role="alert">
+          The free trial isn&apos;t available on your account, so {formatAmount(amount, currency)} will be charged
+          today. Select Pay to continue.
+        </div>
+      )}
 
       {/* Amount display */}
       {showAmount && (

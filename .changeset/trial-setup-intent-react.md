@@ -21,6 +21,10 @@ subscription then reached the end of its trial with nothing to charge.
 This needs a WildwoodAPI that understands `supportsSetupIntent`. Against an older API the payment step
 behaves as before.
 
+If the plan offers a trial but the server starts it as a charge instead (a WildwoodAPI that gives each account
+one trial per app), `PaymentComponent` doesn't charge the card. It says the trial isn't available and
+that the amount is due today, and switches the button to "Pay $X" for the user to confirm.
+
 A declined card is retried on the same Stripe intent instead of creating another subscription, and the
 Stripe confirmation now sends the id the server recorded (a subscription's first invoice) so the server can
 verify the payment with Stripe.
