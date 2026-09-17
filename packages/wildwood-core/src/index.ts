@@ -60,6 +60,8 @@ export type {
   ValidateRegistrationRequest,
   ValidateRegistrationResponse,
   OpenRegistrationResult,
+  RegistrationTokenAppGrant,
+  RegistrationTokenDetails,
 } from './auth/types.js';
 
 // AI

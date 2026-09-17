@@ -1,0 +1,56 @@
+---
+"@wildwood/react": minor
+---
+
+Free trials save the card at signup, and registration tokens with a plan skip plan selection
+
+**Free trials.** A paid plan whose pricing has `trialDays` used to be sold as a charge ("Pay $99.00",
+then "Payment Successful! Amount: $99.00") while nothing was actually collected. Stripe returned no
+payment to confirm, `PaymentComponent` took that as success, and the card was never attached. The
+subscription then reached the end of its trial with nothing to charge.
+
+- `PaymentComponent` has a `trialDays` prop. With it the button reads "Start 14-day free trial", the
+  form says nothing is charged today, and the success screen gives the date the first charge is due.
+- For Stripe it asks the server for a SetupIntent (`supportsSetupIntent`), confirms it with
+  `stripe.confirmCardSetup`, and verifies it on the server. A declined card now stops the flow the way a
+  declined payment does.
+- `SignupWithSubscriptionComponent` passes the selected pricing's trial through, shows
+  "14-day free trial. Due today: $0.00" in the order summary and the trial on the plan summary card.
+  Tier cards show the trial under the price.
+
+This needs a WildwoodAPI that understands `supportsSetupIntent`. Against an older API the payment step
+behaves as before.
+
+If the plan offers a trial but the server starts it as a charge instead (a WildwoodAPI that gives each account
+one trial per app), `PaymentComponent` doesn't charge the card. It says the trial isn't available and
+that the amount is due today, and switches the button to "Pay $X" for the user to confirm.
+
+`SubscriptionStatusPanel` shows "Trial Ends" only while a trial is running. The subscription keeps a past
+trial's end date, which had the panel showing a future trial end on a plan already being paid for.
+
+A declined card is retried on the same Stripe intent instead of creating another subscription, and the
+Stripe confirmation now sends the id the server recorded (a subscription's first invoice) so the server can
+verify the payment with Stripe.
+
+**Upgrades start a real subscription.** `SubscriptionAdminComponent`'s `onPaymentRequired` passed only
+`pricingId`, which is the tier-pricing link id, and hosts wired it into `PaymentComponent`'s `pricingModelId`.
+The server couldn't find a pricing model for it, so an upgrade was charged once at the prorated amount the
+client sent: no recurring subscription, no renewal, no trial. The callback now also receives `pricingModelId`,
+the plan's `price` and `trialDays`:
+
+```tsx
+const handlePaymentRequired = ({ tierName, pricingModelId, price, trialDays }) => /* open a modal with */
+  <PaymentComponent isSubscription pricingModelId={pricingModelId} amount={price} trialDays={trialDays} ... />;
+```
+
+With a WildwoodAPI that verifies plan-change payments, an upgrade from a plan already billed by a Stripe
+subscription no longer asks for payment at all: Stripe's subscription update prorates it.
+
+**Signup never hangs on a refused plan.** A self-subscribe the server refuses (a 4xx) finishes signup with
+"Plan activation is pending" instead of leaving the wizard on "Activating your plan..." forever, and "Start
+Over" clears the previous attempt's payment and plan.
+
+**Registration tokens that carry a plan.** When the user registers with a token whose plan covers this
+app, `SignupWithSubscriptionComponent` skips plan selection and payment and does not self-subscribe
+afterwards. Registering with the token already subscribes the user, and a self-subscribe would have
+cancelled that subscription. Tokens without a plan for the app keep the normal flow.

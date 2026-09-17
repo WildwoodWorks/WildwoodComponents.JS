@@ -4,6 +4,7 @@ import type {
   PaymentProviderDto,
   SavedPaymentMethodDto,
   PaymentCompletionResult,
+  InitiatePaymentResponse,
 } from '@wildwood/core';
 import { PaymentProviderType, loadStripe } from '@wildwood/core';
 import { usePayment } from '../../hooks/usePayment.js';
@@ -24,6 +25,11 @@ export interface PaymentComponentProps {
   returnUrl?: string;
   cancelUrl?: string;
   metadata?: Record<string, string>;
+  /**
+   * The subscription starts with this many free-trial days. The button offers the trial instead of a
+   * charge, and with Stripe the card is saved (confirmed as a SetupIntent) rather than charged today.
+   */
+  trialDays?: number;
   /** Pre-loaded providers (skip API fetch) */
   preloadedProviders?: PaymentProviderDto[];
   preselectedProviderId?: string;
@@ -70,6 +76,13 @@ interface StripeInstance {
     paymentIntent?: { id: string; status: string };
     error?: { message: string; code?: string };
   }>;
+  confirmCardSetup: (
+    clientSecret: string,
+    data?: { payment_method: { card: StripeCardElement } },
+  ) => Promise<{
+    setupIntent?: { id: string; status: string };
+    error?: { message: string; code?: string };
+  }>;
 }
 
 interface StripeElements {
@@ -111,6 +124,7 @@ export function PaymentComponent({
   returnUrl,
   cancelUrl,
   metadata,
+  trialDays,
   preloadedProviders,
   preselectedProviderId,
   onPaymentSuccess,
@@ -140,6 +154,19 @@ export function PaymentComponent({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PaymentCompletionResult | null>(null);
+  // Set when the completed step saved a card for a free trial rather than charging it.
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  // The Stripe intent created for this payment, kept after a declined card so a retry confirms the same
+  // intent instead of creating another subscription (which would bill separately, or be left abandoned).
+  const pendingIntentRef = useRef<{ key: string; result: InitiatePaymentResponse } | null>(null);
+  // Set when the plan advertises a trial but the server started a paid subscription instead (the account has
+  // already had its trial). The charge then waits for the user to agree to it.
+  const [trialUnavailable, setTrialUnavailable] = useState(false);
+  const hasTrial = (trialDays ?? 0) > 0 && !trialUnavailable;
+  // That answer was about one plan; a form reused for another plan offers its trial again.
+  useEffect(() => {
+    setTrialUnavailable(false);
+  }, [pricingModelId, trialDays, amount]);
 
   // Saved methods
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
@@ -318,28 +345,44 @@ export function PaymentComponent({
 
     setIsProcessing(true);
     try {
-      // Step 1: Initiate payment on the server → get clientSecret
-      const initResult = await initiatePayment({
-        providerId,
-        appId: appId ?? config?.appId ?? '',
-        amount,
-        currency: currency ?? config?.defaultCurrency ?? 'USD',
-        description,
-        customerId,
-        customerEmail,
-        orderId,
-        subscriptionId,
-        pricingModelId,
-        isSubscription,
-        returnUrl,
-        cancelUrl,
-        metadata,
-      });
+      // Step 1: Initiate payment on the server → get clientSecret (or reuse the one a declined attempt created)
+      const intentKey = [providerId, pricingModelId ?? '', amount, isSubscription ? 'sub' : 'once'].join('|');
+      const reusable = pendingIntentRef.current?.key === intentKey ? pendingIntentRef.current.result : null;
+      const initResult =
+        reusable ??
+        (await initiatePayment({
+          providerId,
+          appId: appId ?? config?.appId ?? '',
+          amount,
+          currency: currency ?? config?.defaultCurrency ?? 'USD',
+          description,
+          customerId,
+          customerEmail,
+          orderId,
+          subscriptionId,
+          pricingModelId,
+          isSubscription,
+          returnUrl,
+          cancelUrl,
+          metadata,
+          // Lets a Stripe trial come back as a SetupIntent to confirm, so the card is saved for trial end.
+          supportsSetupIntent: isStripeProvider,
+        }));
 
       if (!initResult.success) {
         const msg = initResult.errorMessage ?? 'Payment initiation failed';
         setPaymentError(msg);
         onPaymentFailure?.(msg);
+        return;
+      }
+      if (isStripeProvider && initResult.clientSecret) {
+        pendingIntentRef.current = { key: intentKey, result: initResult };
+      }
+
+      // Offered a trial, but the server wants a charge today: never charge a card the user saved for a free
+      // trial. Say so and let them confirm the same intent with the next click.
+      if (hasTrial && isStripeProvider && initResult.clientSecret && initResult.clientSecretType !== 'setup_intent') {
+        setTrialUnavailable(true);
         return;
       }
 
@@ -359,7 +402,49 @@ export function PaymentComponent({
         return;
       }
 
-      // Step 2: For Stripe, confirm payment client-side with card element
+      // Step 2a: Stripe free trial — nothing is charged now, but the card is saved (SetupIntent) so Stripe can
+      // charge it when the trial ends.
+      if (
+        isStripeProvider &&
+        initResult.clientSecretType === 'setup_intent' &&
+        initResult.clientSecret &&
+        stripeRef.current &&
+        cardElementRef.current
+      ) {
+        const { setupIntent, error: setupError } = await stripeRef.current.confirmCardSetup(initResult.clientSecret, {
+          payment_method: { card: cardElementRef.current },
+        });
+
+        if (setupError || !setupIntent || setupIntent.status !== 'succeeded') {
+          const msg =
+            setupError?.message ??
+            (setupIntent ? `Card setup status: ${setupIntent.status}. Please try again.` : 'Card setup failed');
+          setPaymentError(msg);
+          onPaymentFailure?.(msg);
+          return;
+        }
+
+        const serverResult = await confirmPayment(setupIntent.id, PaymentProviderType.Stripe);
+        if (serverResult.success) {
+          const result: PaymentCompletionResult = {
+            ...serverResult,
+            paymentIntentId: serverResult.paymentIntentId ?? setupIntent.id,
+            subscriptionId: serverResult.subscriptionId ?? initResult.subscriptionId,
+          };
+          pendingIntentRef.current = null;
+          setTrialEndsAt(initResult.trialEnd ?? null);
+          setPaymentResult(result);
+          setPaymentComplete(true);
+          onPaymentSuccess?.(result);
+        } else {
+          const msg = serverResult.errorMessage ?? 'Your card could not be verified. Please try another card.';
+          setPaymentError(msg);
+          onPaymentFailure?.(msg);
+        }
+        return;
+      }
+
+      // Step 2b: For Stripe, confirm payment client-side with card element
       if (isStripeProvider && initResult.clientSecret && stripeRef.current && cardElementRef.current) {
         const { paymentIntent, error: stripeConfirmError } = await stripeRef.current.confirmCardPayment(
           initResult.clientSecret,
@@ -386,10 +471,15 @@ export function PaymentComponent({
           return;
         }
 
-        // Step 3: Confirm on the server
-        const serverResult = await confirmPayment(paymentIntent.id, PaymentProviderType.Stripe);
+        // Step 3: Confirm on the server. Send the id the server recorded for this payment (a subscription's
+        // first invoice, or the PaymentIntent itself for a one-time payment) so it can verify it with Stripe.
+        const serverResult = await confirmPayment(
+          initResult.paymentIntentId ?? paymentIntent.id,
+          PaymentProviderType.Stripe,
+        );
 
         if (serverResult.success) {
+          pendingIntentRef.current = null;
           setPaymentResult(serverResult);
           setPaymentComplete(true);
           onPaymentSuccess?.(serverResult);
@@ -426,6 +516,7 @@ export function PaymentComponent({
   }, [
     amount,
     currency,
+    hasTrial,
     selectedProvider,
     config,
     description,
@@ -495,15 +586,28 @@ export function PaymentComponent({
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
             </svg>
           </div>
-          <h4>Payment Successful!</h4>
-          {paymentResult.transactionId && (
-            <p className="ww-payment-transaction">
-              Transaction ID: <code>{paymentResult.transactionId}</code>
-            </p>
+          {trialEndsAt ? (
+            <>
+              <h4>Your free trial has started!</h4>
+              <p>
+                Your card is saved. You won&apos;t be charged until{' '}
+                <strong>{new Date(trialEndsAt).toLocaleDateString()}</strong>, when{' '}
+                <strong>{formatAmount(amount, currency)}</strong> is due.
+              </p>
+            </>
+          ) : (
+            <>
+              <h4>Payment Successful!</h4>
+              {paymentResult.transactionId && (
+                <p className="ww-payment-transaction">
+                  Transaction ID: <code>{paymentResult.transactionId}</code>
+                </p>
+              )}
+              <p>
+                Amount: <strong>{formatAmount(amount, currency)}</strong>
+              </p>
+            </>
           )}
-          <p>
-            Amount: <strong>{formatAmount(amount, currency)}</strong>
-          </p>
           {paymentResult.receiptUrl && (
             <a
               href={paymentResult.receiptUrl}
@@ -550,6 +654,12 @@ export function PaymentComponent({
         </div>
       )}
       {error && <div className="ww-alert ww-alert-danger">{error}</div>}
+      {trialUnavailable && (
+        <div className="ww-alert ww-alert-warning" role="alert">
+          The free trial isn&apos;t available on your account, so {formatAmount(amount, currency)} will be charged
+          today. Select Pay to continue.
+        </div>
+      )}
 
       {/* Amount display */}
       {showAmount && (
@@ -746,10 +856,16 @@ export function PaymentComponent({
                 <svg className="ww-payment-lock-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
                 </svg>
-                Pay {formatAmount(amount, currency)}
+                {hasTrial ? `Start ${trialDays}-day free trial` : `Pay ${formatAmount(amount, currency)}`}
               </>
             )}
           </button>
+          {hasTrial && (
+            <p className="ww-order-summary-trial">
+              You won&apos;t be charged today. {formatAmount(amount, currency)} is due when the trial ends unless you
+              cancel before then.
+            </p>
+          )}
         </div>
       )}
 

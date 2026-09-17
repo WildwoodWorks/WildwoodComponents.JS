@@ -108,12 +108,24 @@ export interface InitiatePaymentRequest {
   returnUrl?: string;
   cancelUrl?: string;
   metadata?: Record<string, string>;
+  /**
+   * The client can confirm a Stripe SetupIntent. When set and the subscription starts with a free trial,
+   * the server returns the trial's SetupIntent secret (`clientSecretType: 'setup_intent'`) so the card is
+   * saved for the charge at trial end instead of skipping card collection.
+   */
+  supportsSetupIntent?: boolean;
 }
 
 export interface InitiatePaymentResponse {
   success: boolean;
   paymentIntentId?: string;
   clientSecret?: string;
+  /** What `clientSecret` confirms: a charge (`payment_intent`) or a saved card for a trial (`setup_intent`). */
+  clientSecretType?: 'payment_intent' | 'setup_intent';
+  /** Free-trial length in days, when the subscription starts with one. */
+  trialDays?: number;
+  /** When the free trial ends and the first charge is attempted (ISO date). */
+  trialEnd?: string;
   redirectUrl?: string;
   approvalUrl?: string;
   orderId?: string;
