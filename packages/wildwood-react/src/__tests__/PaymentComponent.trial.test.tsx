@@ -194,6 +194,44 @@ describe('PaymentComponent free trial', () => {
     expect(screen.getByText('Payment Successful!')).toBeTruthy();
   });
 
+  it('offers the trial again when the same form is reused for another plan', async () => {
+    initiatePayment.mockResolvedValue({
+      success: true,
+      providerType: 1,
+      paymentIntentId: 'in_2',
+      clientSecret: 'pi_2_secret_abc',
+      clientSecretType: 'payment_intent',
+    });
+    const view = render(
+      <PaymentComponent
+        appId="app-1"
+        amount={99}
+        pricingModelId="pm-monthly"
+        isSubscription
+        trialDays={14}
+        preloadedProviders={[stripeProvider]}
+      />,
+    );
+    await waitFor(() => expect(cardChange).toBeDefined());
+    act(() => cardChange!({ complete: true, empty: false }));
+    fireEvent.click(screen.getByRole('button', { name: /Start 14-day free trial/ }));
+    await waitFor(() => expect(screen.getByText(/free trial isn't available on your account/)).toBeTruthy());
+
+    view.rerender(
+      <PaymentComponent
+        appId="app-1"
+        amount={149}
+        pricingModelId="pm-business"
+        isSubscription
+        trialDays={14}
+        preloadedProviders={[stripeProvider]}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Start 14-day free trial/ })).toBeTruthy());
+    expect(screen.queryByText(/free trial isn't available on your account/)).toBeNull();
+  });
+
   it('still confirms a payment when there is no trial', async () => {
     initiatePayment.mockResolvedValue({
       success: true,

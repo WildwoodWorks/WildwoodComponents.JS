@@ -163,6 +163,10 @@ export function PaymentComponent({
   // already had its trial). The charge then waits for the user to agree to it.
   const [trialUnavailable, setTrialUnavailable] = useState(false);
   const hasTrial = (trialDays ?? 0) > 0 && !trialUnavailable;
+  // That answer was about one plan; a form reused for another plan offers its trial again.
+  useEffect(() => {
+    setTrialUnavailable(false);
+  }, [pricingModelId, trialDays, amount]);
 
   // Saved methods
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
