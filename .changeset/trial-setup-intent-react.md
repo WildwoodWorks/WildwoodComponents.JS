@@ -25,6 +25,20 @@ A declined card is retried on the same Stripe intent instead of creating another
 Stripe confirmation now sends the id the server recorded (a subscription's first invoice) so the server can
 verify the payment with Stripe.
 
+**Upgrades start a real subscription.** `SubscriptionAdminComponent`'s `onPaymentRequired` passed only
+`pricingId`, which is the tier-pricing link id, and hosts wired it into `PaymentComponent`'s `pricingModelId`.
+The server couldn't find a pricing model for it, so an upgrade was charged once at the prorated amount the
+client sent: no recurring subscription, no renewal, no trial. The callback now also receives `pricingModelId`,
+the plan's `price` and `trialDays`:
+
+```tsx
+const handlePaymentRequired = ({ tierName, pricingModelId, price, trialDays }) => /* open a modal with */
+  <PaymentComponent isSubscription pricingModelId={pricingModelId} amount={price} trialDays={trialDays} ... />;
+```
+
+With a WildwoodAPI that verifies plan-change payments, an upgrade from a plan already billed by a Stripe
+subscription no longer asks for payment at all: Stripe's subscription update prorates it.
+
 **Signup never hangs on a refused plan.** A self-subscribe the server refuses (a 4xx) finishes signup with
 "Plan activation is pending" instead of leaving the wizard on "Activating your plan..." forever, and "Start
 Over" clears the previous attempt's payment and plan.

@@ -24,8 +24,17 @@ export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | '
 export interface PaymentRequiredArgs {
   tierId: string;
   tierName: string;
+  /** The tier's pricing option (AppTierPricing id). Not a pricing model id. */
   pricingId?: string;
+  /**
+   * The pricing model behind that option — what `PaymentComponent`'s `pricingModelId` needs, so the payment
+   * starts the plan's recurring subscription (and its trial) rather than a one-time charge.
+   */
+  pricingModelId?: string;
+  /** The amount the plan's subscription charges (the pricing option's price). */
   price?: number;
+  /** Free-trial days on the pricing option; pass to `PaymentComponent`'s `trialDays`. */
+  trialDays?: number;
 }
 
 export interface SubscriptionAdminComponentProps {
@@ -198,11 +207,18 @@ export function SubscriptionAdminComponent({
               'Payment is required for this tier change. Wire the onPaymentRequired callback to collect payment.',
             );
           }
+          // The payment starts the new plan's own subscription, billed at the plan's price, so hand over the
+          // pricing model (not the tier-pricing link id) and the price and trial that subscription will have.
+          const pricing = admin.tiers
+            .find((t) => t.id === pendingArgs.tierId)
+            ?.pricingOptions?.find((p) => p.id === pendingArgs.pricingId);
           const txnId = await onPaymentRequired({
             tierId: pendingArgs.tierId,
             tierName: pendingArgs.tierName,
             pricingId: pendingArgs.pricingId,
-            price: preview.proratedChargeToday ?? preview.newPrice ?? 0,
+            pricingModelId: pricing?.pricingModelId,
+            price: pricing?.price ?? preview.newPrice ?? preview.proratedChargeToday ?? 0,
+            trialDays: pricing?.trialDays,
           });
           if (!txnId) {
             setConfirmLoading(false);
