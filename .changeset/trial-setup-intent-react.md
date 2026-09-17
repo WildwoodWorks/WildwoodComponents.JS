@@ -25,6 +25,9 @@ If the plan offers a trial but the server starts it as a charge instead (a Wildw
 one trial per app), `PaymentComponent` doesn't charge the card. It says the trial isn't available and
 that the amount is due today, and switches the button to "Pay $X" for the user to confirm.
 
+`SubscriptionStatusPanel` shows "Trial Ends" only while a trial is running. The subscription keeps a past
+trial's end date, which had the panel showing a future trial end on a plan already being paid for.
+
 A declined card is retried on the same Stripe intent instead of creating another subscription, and the
 Stripe confirmation now sends the id the server recorded (a subscription's first invoice) so the server can
 verify the payment with Stripe.

@@ -50,6 +50,11 @@ export function SubscriptionStatusPanel({
     );
   }
 
+  // The server keeps a past trial's end date on the row (it records that the account had its trial), so
+  // only show it while that trial is still running: never on a plan that is already being paid for.
+  const trialEnd = subscription.trialEndDate ? new Date(subscription.trialEndDate) : null;
+  const showTrialEnd = trialEnd !== null && subscription.status !== 'Active' && trialEnd.getTime() > Date.now();
+
   const handleConfirmCancel = async () => {
     setCancelling(true);
     try {
@@ -107,14 +112,12 @@ export function SubscriptionStatusPanel({
             </div>
           </div>
         )}
-        {subscription.trialEndDate && (
+        {showTrialEnd && (
           <div className="ww-sub-status-field">
             <span className="ww-sub-status-field-icon ww-sub-status-field-icon-trial" />
             <div className="ww-sub-status-field-content">
               <span className="ww-sub-status-field-label">Trial Ends</span>
-              <span className="ww-sub-status-field-value">
-                {new Date(subscription.trialEndDate).toLocaleDateString()}
-              </span>
+              <span className="ww-sub-status-field-value">{trialEnd.toLocaleDateString()}</span>
             </div>
           </div>
         )}
