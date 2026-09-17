@@ -241,6 +241,31 @@ export interface OpenRegistrationResult {
   requiresPaymentSetup?: boolean;
 }
 
+/**
+ * A plan a registration token gives an app: the tier (and add-ons / extra features) its registrants
+ * are subscribed to when they register with the token.
+ */
+export interface RegistrationTokenAppGrant {
+  appId: string;
+  appName?: string;
+  appTierId: string;
+  appTierName?: string;
+  appTierPricingId?: string;
+  pricingName?: string;
+  addOnIds: string[];
+  addOnNames?: string[];
+  featureCodes: string[];
+  featureNames?: string[];
+}
+
+/** What a registration token grants, from the server's detailed token validation. */
+export interface RegistrationTokenDetails {
+  isValid: boolean;
+  errorMessage?: string;
+  /** Per-app plans the token carries. Empty when the token only grants app access. */
+  appGrants: RegistrationTokenAppGrant[];
+}
+
 export interface PendingDisclaimerModel {
   disclaimerId: string;
   versionId: string;

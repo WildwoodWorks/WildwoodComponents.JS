@@ -53,6 +53,8 @@ export interface AppTierPricingModel {
   price: number;
   billingFrequency: string;
   billingFrequencyLabel?: string;
+  /** Free-trial length in days from the underlying PricingModel; the payment processor starts the same trial. */
+  trialDays?: number;
 }
 
 export interface AppTierFeatureModel {

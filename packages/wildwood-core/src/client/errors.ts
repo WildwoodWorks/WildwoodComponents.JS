@@ -49,6 +49,7 @@ export class WildwoodError extends Error {
     if (body && typeof body === 'object') {
       const obj = body as Record<string, unknown>;
       if (typeof obj.message === 'string') message = obj.message;
+      else if (typeof obj.errorMessage === 'string') message = obj.errorMessage;
       else if (typeof obj.error === 'string') message = obj.error;
       else if (typeof obj.title === 'string') message = obj.title;
 
@@ -63,6 +64,10 @@ export class WildwoodError extends Error {
         code = 'TwoFactorRequired';
       }
     }
+
+    // HTTP/2 responses carry no status text, so a body without a recognized message field would otherwise
+    // produce an empty message — which callers that branch on "is there an error message?" read as no error.
+    if (!message) message = `Request failed (HTTP ${status})`;
 
     return new WildwoodError(message, status, code, body);
   }

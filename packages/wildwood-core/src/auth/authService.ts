@@ -18,6 +18,7 @@ import type {
   ValidateRegistrationRequest,
   ValidateRegistrationResponse,
   OpenRegistrationResult,
+  RegistrationTokenDetails,
 } from './types.js';
 import type {
   AttributionClaimRequest,
@@ -509,6 +510,29 @@ export class AuthService {
       return data ?? false;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Validates a registration token and reports the plans it grants. Returns `null` when the details can't
+   * be read (network error, or a server without the endpoint), so callers can fall back to the plain
+   * validity check rather than treating the token as invalid.
+   */
+  async getRegistrationTokenDetails(token: string): Promise<RegistrationTokenDetails | null> {
+    try {
+      const { data } = await this.http.get<{
+        isValid?: boolean;
+        errorMessage?: string | null;
+        appGrants?: RegistrationTokenDetails['appGrants'] | null;
+      }>(`api/registrationtokens/validate-detailed/${encodeURIComponent(token)}`, { skipAuth: true });
+      if (!data) return null;
+      return {
+        isValid: data.isValid === true,
+        errorMessage: data.errorMessage ?? undefined,
+        appGrants: data.appGrants ?? [],
+      };
+    } catch {
+      return null;
     }
   }
 

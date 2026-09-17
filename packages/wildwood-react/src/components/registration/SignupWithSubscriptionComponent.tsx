@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatPrice } from '@wildwood/core';
-import type { RegistrationFormData, AppTierModel, AppTierPricingModel, PaymentCompletionResult } from '@wildwood/core';
+import type {
+  RegistrationFormData,
+  AppTierModel,
+  AppTierPricingModel,
+  PaymentCompletionResult,
+  RegistrationTokenAppGrant,
+} from '@wildwood/core';
 import { TokenRegistrationComponent } from './TokenRegistrationComponent.js';
 import { PricingDisplayComponent } from '../pricing/PricingDisplayComponent.js';
 import { PaymentComponent } from '../payment/PaymentComponent.js';
@@ -51,6 +57,9 @@ export function SignupWithSubscriptionComponent({
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
   const [paymentTransactionId, setPaymentTransactionId] = useState<string | undefined>();
   const [paymentExternalId, setPaymentExternalId] = useState<string | undefined>();
+  // The plan a registration token gives this app. Registering with the token subscribes the user to it, so
+  // the wizard skips plan selection and payment, and must not self-subscribe over it.
+  const [tokenGrant, setTokenGrant] = useState<RegistrationTokenAppGrant | null>(null);
   const processingRef = useRef(false);
   // Track completed sub-steps so retry doesn't re-register an already-created user
   const registeredRef = useRef(false);
@@ -106,6 +115,7 @@ export function SignupWithSubscriptionComponent({
   // Is the selected tier a paid tier that requires payment?
   const requiresPayment =
     selectedTier != null && !selectedTier.isFreeTier && selectedPricing != null && selectedPricing.price > 0;
+  const selectedTrialDays = requiresPayment ? (selectedPricing?.trialDays ?? 0) : 0;
 
   // Build visible steps dynamically based on flow
   const visibleSteps: Step[] = (() => {
@@ -235,9 +245,16 @@ export function SignupWithSubscriptionComponent({
         // 4. Subscribe to tier (if one was selected)
         if (tier) {
           setProcessingStatus('Activating your plan...');
-          const subscribeResult = await client.appTier.selfSubscribe(appIdForRequest, tier.id, pricing?.id, txnId);
+          // Non-fatal either way — the account exists, and the plan can be activated later. The server answers
+          // a refused subscription with a 4xx, which the client throws, so a rejection is handled like a
+          // `success: false` result rather than failing the whole signup.
+          const subscribeResult = await client.appTier
+            .selfSubscribe(appIdForRequest, tier.id, pricing?.id, txnId)
+            .catch((err: unknown) => ({
+              success: false,
+              errorMessage: err instanceof Error ? err.message : String(err),
+            }));
           if (!subscribeResult.success) {
-            // Non-fatal — account was created, subscription can be done later
             console.warn('Tier subscription failed:', subscribeResult.errorMessage);
             setSubscriptionFailed(true);
           }
@@ -252,7 +269,9 @@ export function SignupWithSubscriptionComponent({
           setCurrentStep('success');
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Signup failed';
+        // Never an empty message: the error view only renders when there is one, so '' would leave the user
+        // on the spinner.
+        const msg = (err instanceof Error && err.message) || 'Signup failed. Please try again.';
         setProcessingError(msg);
       } finally {
         processingRef.current = false;
@@ -267,8 +286,27 @@ export function SignupWithSubscriptionComponent({
 
   // After registration form: decide next step
   const handleFormDataCollected = useCallback(
-    (data: RegistrationFormData) => {
+    async (data: RegistrationFormData) => {
       setFormData(data);
+
+      // A token that carries a plan for this app decides the plan itself: registering with it subscribes
+      // the user, so there is nothing to choose or pay for. If the details can't be read, fall through to
+      // the normal flow (the token still grants access).
+      if (data.useToken && data.registrationToken) {
+        setProcessingError(null);
+        setProcessingStatus('Checking your registration token...');
+        setCurrentStep('processing');
+        const details = await client.auth.getRegistrationTokenDetails(data.registrationToken);
+        const grant = details?.appGrants.find((g) => g.appId?.toLowerCase() === resolvedAppId.toLowerCase());
+        if (grant) {
+          setTokenGrant(grant);
+          processSignupRef.current(data, null, null);
+          return;
+        }
+        setCurrentStep('register');
+      }
+      setTokenGrant(null);
+
       if (effectiveSkipTierSelection) {
         // Tier already selected (pre-selected) or skipped
         if (requiresPayment) {
@@ -280,7 +318,7 @@ export function SignupWithSubscriptionComponent({
         setCurrentStep('select-tier');
       }
     },
-    [effectiveSkipTierSelection, requiresPayment, selectedTier, selectedPricing],
+    [client, resolvedAppId, effectiveSkipTierSelection, requiresPayment, selectedTier, selectedPricing],
   );
 
   // Tier selected from full grid
@@ -323,11 +361,14 @@ export function SignupWithSubscriptionComponent({
   }, []);
 
   const handleRetry = useCallback(() => {
-    if (formData && (selectedTier || skipTierSelection)) {
+    if (formData && tokenGrant) {
+      processSignup(formData, null, null);
+    } else if (formData && (selectedTier || skipTierSelection)) {
       processSignup(formData, selectedTier, selectedPricing, paymentTransactionId, paymentExternalId);
     }
   }, [
     formData,
+    tokenGrant,
     selectedTier,
     selectedPricing,
     skipTierSelection,
@@ -419,6 +460,9 @@ export function SignupWithSubscriptionComponent({
                   <span className="ww-price-period">
                     /{preSelectedTierPricing.billingFrequency?.toLowerCase() ?? 'month'}
                   </span>
+                  {!preSelectedTier.isFreeTier && (preSelectedTierPricing.trialDays ?? 0) > 0 && (
+                    <div className="ww-plan-trial">{preSelectedTierPricing.trialDays}-day free trial</div>
+                  )}
                 </>
               ) : null}
             </div>
@@ -498,6 +542,11 @@ export function SignupWithSubscriptionComponent({
                 </span>
               </span>
             </div>
+            {selectedTrialDays > 0 && (
+              <div className="ww-order-summary-trial">
+                {selectedTrialDays}-day free trial. Due today: {formatPrice(0, 'USD')}
+              </div>
+            )}
           </div>
 
           <PaymentComponent
@@ -506,6 +555,7 @@ export function SignupWithSubscriptionComponent({
             currency="USD"
             description={`${selectedTier.name} Subscription`}
             pricingModelId={selectedPricing.pricingModelId}
+            trialDays={selectedTrialDays || undefined}
             isSubscription={true}
             showAmount={false}
             requireBillingAddress={requireBillingAddress}
@@ -557,6 +607,11 @@ export function SignupWithSubscriptionComponent({
                     registeredRef.current = false;
                     loggedInRef.current = false;
                     disclaimersPendingRef.current = false;
+                    // A fresh start must not carry the previous attempt's payment or plan into the next one.
+                    setPaymentTransactionId(undefined);
+                    setPaymentExternalId(undefined);
+                    setSubscriptionFailed(false);
+                    setTokenGrant(null);
                     setCurrentStep('register');
                   }}
                 >
@@ -606,11 +661,15 @@ export function SignupWithSubscriptionComponent({
           </div>
           <h3>You&apos;re All Set!</h3>
           <p className="ww-text-muted">
-            {skipTierSelection && !hasPreSelectedTier
-              ? 'Your account has been created successfully.'
-              : subscriptionFailed
-                ? 'Your account is ready! Plan activation is pending — you can select a plan from your dashboard.'
-                : 'Your account has been created and your plan is active.'}
+            {tokenGrant
+              ? `Your account has been created with the ${tokenGrant.appTierName ?? 'plan'} from your registration token.`
+              : skipTierSelection && !hasPreSelectedTier
+                ? 'Your account has been created successfully.'
+                : subscriptionFailed
+                  ? 'Your account is ready! Plan activation is pending — you can select a plan from your dashboard.'
+                  : selectedTrialDays > 0
+                    ? `Your account has been created and your ${selectedTrialDays}-day free trial has started.`
+                    : 'Your account has been created and your plan is active.'}
           </p>
           <button type="button" className="ww-btn ww-btn-primary ww-btn-lg" onClick={onComplete}>
             Get Started

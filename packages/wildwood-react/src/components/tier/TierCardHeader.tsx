@@ -57,6 +57,9 @@ export function TierCardHeader({
         </div>
       )}
       {discount ? <div className="ww-tier-discount">Save {discount}%</div> : null}
+      {showPrice && !isEnterprise && !isFreeTier && pricing && pricing.price > 0 && (pricing.trialDays ?? 0) > 0 ? (
+        <div className="ww-plan-trial">{pricing.trialDays}-day free trial</div>
+      ) : null}
     </div>
   );
 }

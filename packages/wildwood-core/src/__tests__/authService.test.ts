@@ -420,6 +420,41 @@ describe('AuthService', () => {
   // Provider Configuration
   // -------------------------------------------------------------------------
 
+  describe('getRegistrationTokenDetails', () => {
+    it('returns the plans the token grants', async () => {
+      mockGet({
+        isValid: true,
+        errorMessage: null,
+        appGrants: [{ appId: 'app-1', appTierId: 'tier-pro', appTierName: 'Pro', addOnIds: [], featureCodes: [] }],
+      });
+
+      const details = await auth.getRegistrationTokenDetails('TOKEN 1');
+
+      expect(fetchSpy.mock.calls[0][0]).toContain('api/registrationtokens/validate-detailed/TOKEN%201');
+      expect(details).toEqual({
+        isValid: true,
+        errorMessage: undefined,
+        appGrants: [{ appId: 'app-1', appTierId: 'tier-pro', appTierName: 'Pro', addOnIds: [], featureCodes: [] }],
+      });
+    });
+
+    it('treats a server without plan grants as a token with none', async () => {
+      mockGet({ isValid: true });
+
+      expect(await auth.getRegistrationTokenDetails('T')).toEqual({
+        isValid: true,
+        errorMessage: undefined,
+        appGrants: [],
+      });
+    });
+
+    it('returns null when the details cannot be read', async () => {
+      fetchSpy.mockRejectedValueOnce(new Error('Network error'));
+
+      expect(await auth.getRegistrationTokenDetails('T')).toBeNull();
+    });
+  });
+
   describe('getAvailableProviders', () => {
     it('returns empty array on error', async () => {
       fetchSpy.mockRejectedValueOnce(new Error('Network error'));
