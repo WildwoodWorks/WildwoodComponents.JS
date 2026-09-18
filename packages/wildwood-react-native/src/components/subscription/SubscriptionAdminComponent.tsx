@@ -1,20 +1,27 @@
 // SubscriptionAdminComponent - the native twin of @wildwood/react's admin surface.
 //
-// The plan change itself is the shared `usePlanChangeFlow`, so this component, the web admin
-// component and (from Stage 9) the native manage view all drive one implementation: preview,
-// confirm, collect a card when one is needed, change.
+// The plan change itself is the shared `usePlanChangeFlow`, and the composition around it is the one
+// `RegistrationSubscriptionManage` uses, so this component, the web admin component and the native
+// manage view cannot drift: preview, confirm in every layout, collect a card when one is needed,
+// change, answer the bank, complete.
 //
-// No `PaymentActionAdapter` is supplied here. React Native ships no payment SDK in the box, so the
-// flow never tells the server it can answer a 3-D Secure challenge, and a change that needs a card
-// with no host `onPaymentRequired` wired says so through `PlanChangeNotice` instead of throwing the
-// old "Wire the onPaymentRequired callback" error. A host that DOES pass `onPaymentRequired` keeps
-// exactly the behaviour it had.
+// Where the card comes from follows one rule everywhere: a host `onPaymentRequired` wins when it was
+// given, and otherwise the component's own `PaymentModal` takes it. That is the documented behaviour
+// change the web made - before it, a change needing a card with no callback wired threw "Wire the
+// onPaymentRequired callback" at the user.
+//
+// The 3-D Secure step is the host-injected `PaymentActionAdapter`, because this package ships no
+// payment SDK. WITHOUT one the flow never tells the server it can answer a challenge, so the server
+// refuses a change that needs one rather than parking it - and the card modal still works, since
+// `PaymentComponent` completes a payment through the provider's own page or a server-owned
+// completion with no SDK at all.
 
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AppTierCancelResultModel } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../hooks/useSubscriptionAdmin';
+import { usePaymentActionHandler } from '../../provider/PaymentActionContext';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel';
 import { FeaturesPanel } from './FeaturesPanel';
 import { AddOnsPanel } from './AddOnsPanel';
@@ -23,9 +30,11 @@ import { OverridesPanel } from './OverridesPanel';
 import { TierPlansPanel } from './TierPlansPanel';
 import { TierChangeConfirmationModal } from './TierChangeConfirmationModal';
 import { CancelResultNotice } from './CancelResultNotice';
+import { PaymentModal } from '../registrationSubscription/parts/PaymentModal';
 import { PlanChangeNotice } from '../registrationSubscription/parts/PlanChangeNotice';
+import { planChangeCardSource } from '../registrationSubscription/views/manageViewModel';
 import { usePlanChangeFlow, DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS } from '@wildwood/react-shared';
-import type { PaymentRequiredArgs } from '@wildwood/react-shared';
+import type { PaymentActionAdapter, PaymentRequiredArgs } from '@wildwood/react-shared';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
@@ -42,7 +51,18 @@ export interface SubscriptionAdminComponentProps {
   currency?: string;
   showBillingToggle?: boolean;
   showStatusAboveTabs?: boolean;
+  /**
+   * Collect the card for a change yourself. Given one, its answer is final - a transaction id
+   * completes the change, an empty answer abandons it. Left out, the component's own
+   * {@link import('../registrationSubscription/parts/PaymentModal').PaymentModal} takes the card.
+   */
   onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
+  /**
+   * How a card sheet or a bank's 3-D Secure challenge is shown on this device. Overrides
+   * `WildwoodProvider`'s handler. Without one the server is never asked to park a change on a
+   * challenge, because nothing here could answer it - see the README.
+   */
+  paymentActionHandler?: PaymentActionAdapter;
   onSubscriptionChanged?: () => void;
   style?: ViewStyle;
 }
@@ -59,10 +79,14 @@ export function SubscriptionAdminComponent({
   showBillingToggle = true,
   showStatusAboveTabs = false,
   onPaymentRequired,
+  paymentActionHandler,
   onSubscriptionChanged,
   style,
 }: SubscriptionAdminComponentProps) {
   const admin = useSubscriptionAdmin();
+  /* The host seam. A prop wins over the one WildwoodProvider supplies, and its ABSENCE is what keeps
+     `SupportsPaymentAction` off the wire - the shared flow reads exactly this. */
+  const handler = usePaymentActionHandler(paymentActionHandler);
   const [activeTab, setActiveTab] = useState<Tab>(showStatusAboveTabs ? 'tiers' : 'subscription');
   // Result of the most recent cancel action, shown as a dismissible notice near the status
   // panel (mirrors the Swift lastCancelResult card): scheduled vs immediate, plus store
@@ -80,7 +104,8 @@ export function SubscriptionAdminComponent({
     onSubscriptionChanged?.();
   }, [admin, appId, companyId, userId, onSubscriptionChanged]);
 
-  // No `paymentActions`: this stack has no card SDK, so the change is posted in the plain form and a
+  // With a handler the change is posted in the options form (`SupportsPaymentAction`) so the server
+  // may park it on a challenge this device can answer; without one it is posted plain, and a
   // challenge that arrives anyway is reported rather than swallowed (see the shared hook).
   const flow = usePlanChangeFlow({
     appId,
@@ -88,6 +113,7 @@ export function SubscriptionAdminComponent({
     companyId,
     admin,
     onPaymentRequired,
+    paymentActions: handler,
     onChanged: handleRefresh,
   });
 
@@ -261,7 +287,9 @@ export function SubscriptionAdminComponent({
   // cancels render here — a failed cancel surfaces through the admin.error alert.
   const cancelNotice = <CancelResultNotice result={lastCancelResult} onDismiss={() => setLastCancelResult(null)} />;
 
-  const planChangeNotice = <PlanChangeNotice flow={flow} labels={DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS} />;
+  const planChangeNotice = (
+    <PlanChangeNotice flow={flow} labels={DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS} collectsPaymentInApp />
+  );
 
   // Every layout renders the confirmation modal: a tier picked in a stacked layout previewed and
   // then showed nothing when only the tabbed return carried it.
@@ -273,6 +301,27 @@ export function SubscriptionAdminComponent({
       loading={flow.busy}
     />
   ) : null;
+
+  // The card, when the host did not bring a modal of its own. Rendered in every layout for the same
+  // reason the confirmation is.
+  const cardSource = planChangeCardSource({
+    step: flow.step,
+    hasHostHandler: !!onPaymentRequired,
+    paymentRequest: flow.paymentRequest,
+    collectsPaymentInApp: true,
+  });
+  const paymentModal =
+    cardSource === 'builtIn' && flow.paymentRequest ? (
+      <PaymentModal
+        visible
+        appId={appId}
+        request={flow.paymentRequest}
+        currency={currency}
+        labels={DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS}
+        paymentActionHandler={paymentActionHandler}
+        onSettled={flow.providePayment}
+      />
+    ) : null;
 
   // A failed change speaks through the plan-change notice, not twice.
   const errorAlert =
@@ -322,6 +371,7 @@ export function SubscriptionAdminComponent({
         {displayMode === 'usage' ? usageContent : null}
         {displayMode === 'overrides' ? overridesContent : null}
         {confirmationModal}
+        {paymentModal}
       </ScrollView>
     );
   }
@@ -396,6 +446,7 @@ export function SubscriptionAdminComponent({
       </View>
 
       {confirmationModal}
+      {paymentModal}
     </ScrollView>
   );
 }

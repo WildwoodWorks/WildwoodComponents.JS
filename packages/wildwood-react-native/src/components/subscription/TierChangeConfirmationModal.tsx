@@ -8,6 +8,17 @@ export interface TierChangeConfirmationModalProps {
   onConfirm: (options: { immediate: boolean; bypassPayment: boolean }) => void;
   onCancel: () => void;
   loading?: boolean;
+  /**
+   * The subscription is billed through the device's app store.
+   *
+   * The preview prices a CARD change - a credit for unused days, a prorated charge today, a next
+   * billing date. A store prices and bills its own subscriptions on its own terms, so none of those
+   * figures would be honoured. They are left out and {@link storeNotice} is shown in their place
+   * rather than quoting a number nobody here can stand behind.
+   */
+  storeBilled?: boolean;
+  /** What to say instead of the proration. Comes from the component labels; required by nothing. */
+  storeNotice?: string;
 }
 
 /**
@@ -25,6 +36,8 @@ export function TierChangeConfirmationModal({
   onConfirm,
   onCancel,
   loading,
+  storeBilled = false,
+  storeNotice,
 }: TierChangeConfirmationModalProps) {
   const [immediate, setImmediate] = useState(!preview.isDowngrade);
   const [bypassPayment, setBypassPayment] = useState(false);
@@ -32,12 +45,14 @@ export function TierChangeConfirmationModal({
   const showPaymentBypass = preview.paymentBypassAllowed && preview.paymentRequired;
   const effectivePaymentRequired = preview.paymentRequired && !bypassPayment;
   const title = preview.isUpgrade ? `Upgrade to ${preview.newTierName}` : `Downgrade to ${preview.newTierName}`;
+  // The store's figures, not the server's: nothing here quotes an amount it cannot honour.
+  const showsMoney = !storeBilled;
 
   const confirmLabel = loading
     ? 'Processing...'
     : bypassPayment
       ? 'Apply change (no charge)'
-      : preview.isUpgrade && preview.proratedChargeToday
+      : showsMoney && preview.isUpgrade && preview.proratedChargeToday
         ? `Upgrade for ${formatCurrency(preview.proratedChargeToday, preview.currency)}`
         : preview.isDowngrade
           ? 'Confirm Downgrade'
@@ -56,12 +71,19 @@ export function TierChangeConfirmationModal({
               </Pressable>
             </View>
 
+            {/* The store bills this one, so it says so where the money would have been. */}
+            {storeBilled && storeNotice ? (
+              <View style={styles.storeNotice} accessibilityRole="alert">
+                <Text style={styles.storeNoticeText}>{storeNotice}</Text>
+              </View>
+            ) : null}
+
             {/* Plan comparison */}
             <View style={styles.comparison}>
               <View style={styles.plan}>
                 <Text style={styles.planLabel}>Current</Text>
                 <Text style={styles.planName}>{preview.currentTierName}</Text>
-                {preview.currentPrice != null && (
+                {showsMoney && preview.currentPrice != null && (
                   <Text style={styles.planPrice}>
                     {formatCurrency(preview.currentPrice, preview.currency)}/
                     {preview.currentBillingFrequency?.toLowerCase() ?? 'mo'}
@@ -72,7 +94,7 @@ export function TierChangeConfirmationModal({
               <View style={styles.plan}>
                 <Text style={styles.planLabel}>New</Text>
                 <Text style={styles.planName}>{preview.newTierName}</Text>
-                {preview.newPrice != null && (
+                {showsMoney && preview.newPrice != null && (
                   <Text style={styles.planPrice}>
                     {formatCurrency(preview.newPrice, preview.currency)}/
                     {preview.newBillingFrequency?.toLowerCase() ?? 'mo'}
@@ -82,7 +104,8 @@ export function TierChangeConfirmationModal({
             </View>
 
             {/* Savings */}
-            {preview.isBillingFrequencyChange &&
+            {showsMoney &&
+              preview.isBillingFrequencyChange &&
               preview.monthlyEquivalentCurrent != null &&
               preview.monthlyEquivalentNew != null &&
               preview.monthlyEquivalentNew < preview.monthlyEquivalentCurrent && (
@@ -101,7 +124,7 @@ export function TierChangeConfirmationModal({
               )}
 
             {/* Proration for upgrades */}
-            {preview.isUpgrade && effectivePaymentRequired && preview.proratedChargeToday != null && (
+            {showsMoney && preview.isUpgrade && effectivePaymentRequired && preview.proratedChargeToday != null && (
               <View style={styles.chargeBox}>
                 <Text style={styles.chargeHeader}>Today's charge</Text>
                 {preview.creditAmount != null && preview.creditAmount > 0 && (
@@ -128,7 +151,7 @@ export function TierChangeConfirmationModal({
             )}
 
             {/* Downgrade credit */}
-            {preview.isDowngrade && preview.creditAmount != null && preview.creditAmount > 0 && (
+            {showsMoney && preview.isDowngrade && preview.creditAmount != null && preview.creditAmount > 0 && (
               <View style={styles.creditInfo}>
                 <Text style={styles.creditInfoText}>
                   {formatCurrency(preview.creditAmount, preview.currency)} credit will be applied to your next bill.
@@ -290,6 +313,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   savingsText: { fontSize: 13, fontWeight: '500', color: '#059669', textAlign: 'center' },
+  storeNotice: {
+    backgroundColor: '#eff6ff',
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 6,
+  },
+  storeNoticeText: { fontSize: 13, color: '#2563eb' },
   chargeBox: {
     borderWidth: 1,
     borderColor: '#e5e7eb',

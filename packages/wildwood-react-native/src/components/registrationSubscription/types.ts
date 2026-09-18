@@ -17,9 +17,15 @@
 
 import type { ReactNode } from 'react';
 import type { ViewStyle } from 'react-native';
-import type { AppTierAddOnModel, IapProductMapping } from '@wildwood/core';
+import type {
+  AppTierAddOnModel,
+  AppTierLimitStatusModel,
+  IapProductMapping,
+  UserTierSubscriptionModel,
+} from '@wildwood/core';
 import type {
   PaymentActionAdapter,
+  PaymentRequiredArgs,
   PricingBilling,
   RegistrationSubscriptionError,
   RegistrationSubscriptionLabels,
@@ -202,3 +208,74 @@ export interface RegistrationSubscriptionSignupProps extends RegistrationSubscri
   /** Replaces the built-in "registration is closed" notice. */
   renderClosed?: (info: RegistrationClosedInfo) => ReactNode;
 }
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Manage view
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** How the manage view arranges its sections. */
+export type ManageLayout = 'tabs' | 'stacked';
+
+/** The panels the manage view can show. */
+export type ManageSection = 'subscription' | 'plans' | 'features' | 'addOns' | 'usage' | 'overrides';
+
+export interface RegistrationSubscriptionManageProps extends RegistrationSubscriptionCommonProps {
+  /** `'tabs'` is one panel at a time; `'stacked'` renders them all down the page. Default `'tabs'`. */
+  layout?: ManageLayout;
+  /**
+   * Which panels to show, in order. Defaults to everything the viewer is allowed to see: `overrides`
+   * needs `isAdmin` and `addOns` needs `showAddOns`, whether they are asked for or defaulted.
+   */
+  sections?: ManageSection[];
+  /** Keep the subscription card above the tab bar instead of behind a tab. */
+  showStatusAboveTabs?: boolean;
+  /** Unlocks the admin-only panels (overrides, usage editing). */
+  isAdmin?: boolean;
+  /** Whose subscription to manage. Defaults to the signed-in user. */
+  userId?: string;
+  /** The company whose subscription to manage, for company-level plans. */
+  companyId?: string;
+  /**
+   * Let the user buy packs themselves, through the component's own card-once checkout. Ignored on a
+   * device the app's store must bill: there is no store product behind a pack.
+   */
+  allowPackSelfService?: boolean;
+  /** Offer cancellation. Default true; false hides the subscription's cancel button. */
+  allowCancel?: boolean;
+  /** Show the packs panel. Default true. */
+  showAddOns?: boolean;
+  /** Overlay the host's own real-time usage on the server's limit statuses before they render. */
+  onMergeUsage?: (
+    statuses: AppTierLimitStatusModel[],
+    subscription: UserTierSubscriptionModel | null,
+  ) => AppTierLimitStatusModel[] | Promise<AppTierLimitStatusModel[]>;
+  /**
+   * Called when a change needs a card and none is on file. Return a payment transaction id to
+   * complete the change, or null to abandon it.
+   *
+   * Optional, and rarely wanted: the view has its own card modal and uses it when this is left out.
+   * A host that passes one keeps full control — its answer is taken instead, exactly as the older
+   * `SubscriptionAdminComponent` behaved.
+   */
+  onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
+  /**
+   * How a card sheet or 3-D Secure challenge is shown on this device. Overrides `WildwoodProvider`'s
+   * handler. Without one the change is never parked on a challenge the device cannot answer — see
+   * the README.
+   */
+  paymentActionHandler?: PaymentActionAdapter;
+  /** Called after the subscription changes, so the host can refresh whatever else shows it. */
+  onSubscriptionChanged?: () => void;
+  /** Called after entitlements change, so the host can refresh its own gates. */
+  onEntitlementsChanged?: (reason: EntitlementsChangedReason) => void;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// The component's own props
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** `view` picks the surface, and with it the rest of the props. */
+export type RegistrationAndSubscriptionComponentProps =
+  | ({ view: 'pricing' } & RegistrationSubscriptionPricingProps)
+  | ({ view: 'signup' } & RegistrationSubscriptionSignupProps)
+  | ({ view: 'manage' } & RegistrationSubscriptionManageProps);

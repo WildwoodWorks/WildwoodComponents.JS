@@ -141,6 +141,11 @@ export type {
   PlanChangeEvent,
   PlanChangeMachineOptions,
 } from '@wildwood/react-shared';
+// The driven plan change itself — preview, confirm, card, change, challenge, complete — as the
+// manage view and `SubscriptionAdminComponent` run it. Exported on the web package too, for a host
+// that wants the order without the panels.
+export { usePlanChangeFlow } from '@wildwood/react-shared';
+export type { PlanChangeFlow, PlanChangeFlowOptions } from '@wildwood/react-shared';
 
 // One rule for what "subscribed" means across the panels, and why entitlements changed.
 export { grantsAccess, ACCESS_GRANTING_STATUSES } from '@wildwood/react-shared';
@@ -239,17 +244,26 @@ export type {
   PlanChangeNoticeProps,
   PlanChangeNoticeContent,
   PlanChangeNoticeKind,
+  PlanChangeNoticeOptions,
 } from './components/registrationSubscription/parts/PlanChangeNotice';
 
-// Registration & Subscription — the pricing surface. The same set the web package exports: the view
-// and its props. `PlanGrid`, `PackGrid` and `PricingSkeleton` stay internal there too, so a host
-// builds its own grid from the exported catalog helpers rather than from a part that may move.
+// Registration & Subscription — one component over three views, and each view on its own for a host
+// that would rather pick an import than pass a prop.
+export { RegistrationAndSubscriptionComponent } from './components/registrationSubscription/RegistrationAndSubscriptionComponent';
+// The pricing surface. The same set the web package exports: the view and its props. `PlanGrid`,
+// `PackGrid` and `PricingSkeleton` stay internal there too, so a host builds its own grid from the
+// exported catalog helpers rather than from a part that may move.
 export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/RegistrationSubscriptionPricing';
 // The signup surface. `ClosedNotice` is exported for a host that wants to say "registration is
 // closed" on a screen of its own, exactly as the web package exports it; the rest of the parts
 // (`PlanSummaryCard`, `TokenPlanSummary`, `OrderSummary`, `PackCheckout`, `PackOutcomeList`,
 // `PackPicker`) stay internal there too.
 export { RegistrationSubscriptionSignup } from './components/registrationSubscription/views/RegistrationSubscriptionSignup';
+// The manage surface, and the built-in card sheet a plan change uses when the host brought no modal
+// of its own — exported on the web package too, for a host that wants it on a screen of its own.
+export { RegistrationSubscriptionManage } from './components/registrationSubscription/views/RegistrationSubscriptionManage';
+export { PaymentModal } from './components/registrationSubscription/parts/PaymentModal';
+export type { PaymentModalProps } from './components/registrationSubscription/parts/PaymentModal';
 export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice';
 export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice';
 export type {
@@ -257,11 +271,15 @@ export type {
   RegistrationSubscriptionCommonProps,
   RegistrationSubscriptionPricingProps,
   RegistrationSubscriptionSignupProps,
+  RegistrationSubscriptionManageProps,
+  RegistrationAndSubscriptionComponentProps,
   RegistrationClosedInfo,
   PricingSelection,
   PricingPackSelection,
   SignupPlanSelection,
   SignupPackSelection,
+  ManageLayout,
+  ManageSection,
   AddOnGroup,
   AddOnPresentation,
 } from './components/registrationSubscription/types';

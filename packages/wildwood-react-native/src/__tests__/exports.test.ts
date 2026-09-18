@@ -96,6 +96,26 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     }
   });
 
+  it('exports the component and all three of its views', () => {
+    // A host either passes `view` to the one component or imports the view it wants; both are
+    // supported, exactly as they are in @wildwood/react.
+    expect(typeof reactNative.RegistrationAndSubscriptionComponent).toBe('function');
+    expect(typeof reactNative.RegistrationSubscriptionPricing).toBe('function');
+    expect(typeof reactNative.RegistrationSubscriptionSignup).toBe('function');
+    expect(typeof reactNative.RegistrationSubscriptionManage).toBe('function');
+  });
+
+  it('exports the manage view parts the web package exports too, and no more', () => {
+    // `PaymentModal`, `PlanChangeNotice`, `CancelResultNotice` and `usePlanChangeFlow` are public on
+    // the web package, so a host can build its own subscription screen on the same pieces.
+    expect(typeof reactNative.PaymentModal).toBe('function');
+    expect(typeof reactNative.PlanChangeNotice).toBe('function');
+    expect(typeof reactNative.CancelResultNotice).toBe('function');
+    expect(typeof reactNative.usePlanChangeFlow).toBe('function');
+    // The pack picker stays internal on both stacks.
+    expect((reactNative as Record<string, unknown>).PackPicker).toBeUndefined();
+  });
+
   it('exports the shared constants', () => {
     expect(reactNative.ACCESS_GRANTING_STATUSES).toEqual(['Active', 'Trialing', 'PendingCancellation']);
     expect(reactNative.MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS).toBeGreaterThan(0);

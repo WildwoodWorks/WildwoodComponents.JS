@@ -62,9 +62,10 @@ describe('planChangeNoticeContent', () => {
     ).toMatchObject({ kind: 'progress', message: LABELS.applyingChange });
   });
 
-  it('says where a card can be given when this stack cannot take one', () => {
-    // The flow hands out `paymentRequest` only when no host handler owns the card step, which on
-    // React Native means nothing here can collect it - the old code threw here instead.
+  it('says where a card can be given when the surface cannot take one', () => {
+    // The flow hands out `paymentRequest` only when no host handler owns the card step. A surface
+    // that mounts no card sheet of its own has nothing to offer for it - the old code threw here
+    // instead. (The manage view and SubscriptionAdminComponent DO mount one: see manageView.test.)
     const content = planChangeNoticeContent(
       {
         step: 'collectingPayment',
@@ -108,8 +109,8 @@ describe('the no-handler payment path, through the real machine', () => {
     const state = priceAndConfirm();
 
     expect(state.step).toBe('collectingPayment');
-    // What `usePlanChangeFlow` exposes with no host handler: the request the built-in modal would
-    // have taken. React Native has none yet, so the notice speaks for it.
+    // What `usePlanChangeFlow` exposes with no host handler: the request a card sheet would take.
+    // On a surface that mounts none, the notice speaks for it.
     const content = planChangeNoticeContent(
       {
         step: state.step,
@@ -143,10 +144,13 @@ describe('SubscriptionAdminComponent source', () => {
     expect(source).not.toContain('PAYMENT_CALLBACK_MISSING_MESSAGE');
   });
 
-  it('asks the server for a 3-D Secure park only from a stack that can answer one', () => {
-    // No `paymentActions` adapter is passed: the shared flow then posts the plain change rather
-    // than `supportsPaymentAction: true`. Stage 6 brings the handler prop.
-    expect(source).not.toContain('paymentActions');
+  it('asks the server for a 3-D Secure park only from a device that can answer one', () => {
+    // The adapter is whatever `usePaymentActionHandler` found - the component's prop, then the
+    // provider's, then nothing. The shared flow posts the plain change when it is undefined, so a
+    // device with no payment SDK never tells the server it can answer a challenge.
+    expect(source).toContain('const handler = usePaymentActionHandler(paymentActionHandler)');
+    expect(source).toContain('paymentActions: handler');
+    expect(source).not.toContain('supportsPaymentAction: true');
   });
 
   it('says a failure once: the data-layer alert stands down while the notice speaks', () => {

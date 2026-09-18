@@ -209,6 +209,15 @@ export interface RegistrationSubscriptionLabels {
   packReactivate: string;
   /** Marks a feature an override grants outside the plan. */
   featureIncluded: string;
+  /**
+   * Said in place of the preview's proration figures when the app is billed through a device store.
+   *
+   * A store subscription is not prorated the way the server's own preview describes: the store
+   * decides what is charged and when. Quoting "Net charge today" at somebody the App Store or Play
+   * will bill on its own terms states a number nobody here can honour, so the store is named
+   * instead. Used by the native stacks, which are the only ones a store can bill.
+   */
+  storeManagesBilling: string;
 
   // ── Shared ─────────────────────────────────────────────────────────────────
 
@@ -327,6 +336,7 @@ export const DEFAULT_LABELS: RegistrationSubscriptionLabels = {
   packCancelKeep: 'Keep pack',
   packReactivate: 'Reactivate',
   featureIncluded: 'Included',
+  storeManagesBilling: 'Your app store manages billing for this change.',
 
   finishOnWeb: 'This purchase has to be finished on the web.',
   viewNotAvailable: 'This view is not available yet',

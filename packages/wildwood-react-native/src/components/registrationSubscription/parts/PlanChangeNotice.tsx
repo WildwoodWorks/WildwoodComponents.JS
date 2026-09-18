@@ -3,10 +3,13 @@
 //
 // Three things, and all of them matter to somebody holding a card: the bank is being asked (or the
 // server is still applying a change that HAS been paid for), a failure with the way back, and - the
-// one the web does not need - a change that needs a card this stack cannot collect. React Native
-// ships no payment SDK in the box, so with no host `onPaymentRequired` and no built-in card modal
-// the flow parks in `collectingPayment`; saying where the purchase can be finished is the honest
-// thing to show, rather than a spinner that never resolves.
+// one the web does not need - a change that needs a card the SURFACE cannot collect. A surface that
+// mounts the built-in `PaymentModal` (the manage view, `SubscriptionAdminComponent`) collects it
+// there and this notice says nothing about the card step; one that does not would otherwise park in
+// `collectingPayment` forever, so it is told where the purchase can be finished instead.
+//
+// Which of the two applies is `planChangeCardSource`, so the notice and the surface that mounts the
+// modal cannot disagree about who is taking the card.
 //
 // A failed change is never silent: a customer whose card was declined mid-upgrade would otherwise be
 // left looking at the plan they still have.
@@ -14,6 +17,7 @@
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { PlanChangeFlow, RegistrationSubscriptionLabels } from '@wildwood/react-shared';
+import { planChangeCardSource } from '../views/manageViewModel';
 
 /** Which of the notice's four shapes applies. */
 export type PlanChangeNoticeKind = 'none' | 'progress' | 'payment' | 'failed';
@@ -30,10 +34,21 @@ export interface PlanChangeNoticeContent {
   canDismiss: boolean;
 }
 
+/** How the surface rendering the notice takes a card, when the change needs one. */
+export interface PlanChangeNoticeOptions {
+  /**
+   * The surface mounts the built-in {@link import('./PaymentModal').PaymentModal}, so the card step
+   * speaks for itself and this notice says nothing about it. Defaults to false - a surface that
+   * collects nothing has to say where the purchase can be finished.
+   */
+  collectsPaymentInApp?: boolean;
+}
+
 /** What the flow's state means for this notice. A rule, so it can be tested without a renderer. */
 export function planChangeNoticeContent(
   flow: Pick<PlanChangeFlow, 'step' | 'paymentRequest' | 'error' | 'canRetry'>,
   labels: RegistrationSubscriptionLabels,
+  options: PlanChangeNoticeOptions = {},
 ): PlanChangeNoticeContent {
   if (flow.step === 'authenticating') {
     return { kind: 'progress', message: labels.authenticatingChange, canRetry: false, canDismiss: false };
@@ -41,9 +56,16 @@ export function planChangeNoticeContent(
   if (flow.step === 'completing') {
     return { kind: 'progress', message: labels.applyingChange, canRetry: false, canDismiss: false };
   }
-  // A card is wanted and nothing here can take one: no host handler (the flow would be driving it)
-  // and no built-in modal on this platform yet.
-  if (flow.step === 'collectingPayment' && flow.paymentRequest) {
+  // A card is wanted and nothing on this surface can take one: no host handler (the flow would be
+  // driving that itself) and no built-in modal mounted here either.
+  const card = planChangeCardSource({
+    step: flow.step,
+    // A host handler means `paymentRequest` is null, so this is settled by the request alone.
+    hasHostHandler: false,
+    paymentRequest: flow.paymentRequest,
+    collectsPaymentInApp: options.collectsPaymentInApp === true,
+  });
+  if (card === 'finishOnWeb') {
     return { kind: 'payment', message: labels.finishOnWeb, canRetry: false, canDismiss: true };
   }
   if (flow.step === 'failed') {
@@ -61,11 +83,13 @@ export function planChangeNoticeContent(
 export interface PlanChangeNoticeProps {
   flow: PlanChangeFlow;
   labels: RegistrationSubscriptionLabels;
+  /** The surface mounts the built-in card modal, so the notice stays out of the card step. */
+  collectsPaymentInApp?: boolean;
   style?: ViewStyle;
 }
 
-export function PlanChangeNotice({ flow, labels, style }: PlanChangeNoticeProps) {
-  const content = planChangeNoticeContent(flow, labels);
+export function PlanChangeNotice({ flow, labels, collectsPaymentInApp, style }: PlanChangeNoticeProps) {
+  const content = planChangeNoticeContent(flow, labels, { collectsPaymentInApp });
   if (content.kind === 'none') return null;
 
   if (content.kind === 'progress') {

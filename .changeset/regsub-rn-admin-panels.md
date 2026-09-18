@@ -31,10 +31,12 @@ shown to everyone, not only admins.
 layout. The change itself moves onto the shared `usePlanChangeFlow`, so this component, the web admin
 component and the native manage view all follow one order. A change that needs a card with no
 `onPaymentRequired` wired no longer throws "Wire the onPaymentRequired callback" at the user — the
-new `PlanChangeNotice` says the purchase has to be finished on the web and lets the change be
-abandoned. A host that passes `onPaymentRequired` keeps exactly the behaviour it had, including the
-rule that an empty answer abandons the change. The cancel-result notice (store-billing instructions
-and link included) is now the exported `CancelResultNotice`.
+component's own `PaymentModal` takes the card, and closing it returns to the confirmation with the
+priced change intact. A host that passes `onPaymentRequired` keeps exactly the behaviour it had,
+including the rule that an empty answer abandons the change. The cancel-result notice (store-billing
+instructions and link included) is now the exported `CancelResultNotice`, and a failure is said once
+through the new `PlanChangeNotice`.
 
-No payment SDK is assumed: with no `PaymentActionAdapter` the flow never tells the server it can
-answer a 3-D Secure challenge, so no change is parked on one.
+No payment SDK is assumed: with no `PaymentActionAdapter` — the component's new
+`paymentActionHandler`, or `WildwoodProvider`'s — the flow never tells the server it can answer a
+3-D Secure challenge, so no change is parked on one.

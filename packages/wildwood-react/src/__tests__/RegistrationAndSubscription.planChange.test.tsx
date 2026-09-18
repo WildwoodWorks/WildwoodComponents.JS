@@ -233,10 +233,15 @@ describe('plan change: 3-D Secure', () => {
     await upgradeToPro();
 
     expect(await screen.findByText('The payment window closed - please start the change again')).toBeTruthy();
-    expect(onError).toHaveBeenCalledWith({
-      code: 'pending_change_expired',
-      message: 'The payment window closed - please start the change again',
-    });
+    // The report comes out of an effect, which runs AFTER the commit that painted the notice above.
+    // Asserting it the moment the text appears races that effect on a loaded machine; the payload is
+    // still asserted in full.
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith({
+        code: 'pending_change_expired',
+        message: 'The payment window closed - please start the change again',
+      }),
+    );
   });
 
   it('previews, changes and completes exactly once under StrictMode', async () => {
