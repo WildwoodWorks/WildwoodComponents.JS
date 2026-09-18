@@ -12,6 +12,15 @@ export interface WildwoodEvents {
   error: { service: string; message: string; details?: unknown };
   /** Campaign Attribution captured a campaign touch from the landing URL. */
   attributionCaptured: AttributionTouch;
+  /**
+   * What the user is entitled to just changed — they signed up, changed plan, bought or cancelled
+   * a pack. Entitlements are cached behind several layers, so this is the signal to re-read the
+   * subscription and the feature map rather than proof that the new state has propagated yet.
+   */
+  entitlementsChanged: {
+    appId: string;
+    reason: 'signup' | 'tierChange' | 'addOn' | 'cancel' | 'reactivate' | 'manual';
+  };
 }
 
 type EventHandler<T> = T extends void ? () => void : (data: T) => void;

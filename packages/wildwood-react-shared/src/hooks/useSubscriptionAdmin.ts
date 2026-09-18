@@ -14,9 +14,25 @@ import type {
   AppFeatureDefinitionModel,
   AppFeatureOverrideModel,
   TierChangePreviewModel,
+  SelfChangeTierOptions,
+  TrialEligibilityModel,
+  AddOnSubscribeResultModel,
+  AddOnSubscriptionCancelResultModel,
+  AddOnSubscriptionReactivateResultModel,
 } from '@wildwood/core';
+import type { EntitlementsChangedReason } from '../subscription/entitlements.js';
 import { useWildwood } from './useWildwood.js';
 import { invalidateFeatures } from './useFeatures.js';
+
+/**
+ * What to show when the server refused something and said nothing useful about why. Prefer the
+ * server's own message; fall back to naming the operation, with its error code when there is one.
+ */
+function refusalMessage(operation: string, message?: string | null, code?: string | null): string {
+  if (message) return message;
+  if (code) return `The request was refused: could not ${operation} (${code}).`;
+  return `The request was refused: could not ${operation}.`;
+}
 
 export interface UseSubscriptionAdminReturn {
   // Data
@@ -38,12 +54,16 @@ export interface UseSubscriptionAdminReturn {
   getTiers: (appId: string) => Promise<AppTierModel[]>;
   getAvailableAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
   getAllAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
+  /** The app's packs as an unauthenticated visitor sees them (Active only, with pricing). */
+  getPublicAddOns: (appId: string) => Promise<AppTierAddOnModel[]>;
   previewTierChange: (
     appId: string,
     tierId: string,
     pricingId?: string,
     userId?: string,
   ) => Promise<TierChangePreviewModel>;
+  /** Whether this account may still start a free trial, on a tier and per pack. Never throws. */
+  getTrialEligibility: (appId: string) => Promise<TrialEligibilityModel>;
 
   // User-scoped (self)
   getMySubscription: (appId: string) => Promise<UserTierSubscriptionModel | null>;
@@ -83,6 +103,15 @@ export interface UseSubscriptionAdminReturn {
     immediate?: boolean,
     paymentTransactionId?: string,
   ) => Promise<AppTierChangeResultModel>;
+  /**
+   * The options form of the self-service tier change. With `supportsPaymentAction: true` a change
+   * whose proration needs 3-D Secure comes back `requiresAction` with a `clientSecret` and a
+   * `pendingChangeId` to finish through {@link UseSubscriptionAdminReturn.completeTierChange},
+   * instead of being refused.
+   */
+  changeTierWithOptions: (appId: string, options: SelfChangeTierOptions) => Promise<AppTierChangeResultModel>;
+  /** Finish a plan change parked on 3-D Secure, once the prorated charge has been confirmed. */
+  completeTierChange: (appId: string, pendingChangeId: string) => Promise<AppTierChangeResultModel>;
   cancelSubscription: (appId: string) => Promise<AppTierCancelResultModel>;
   subscribeToAddOn: (
     appId: string,
@@ -90,7 +119,18 @@ export interface UseSubscriptionAdminReturn {
     pricingId?: string,
     paymentTransactionId?: string,
   ) => Promise<boolean>;
+  /** Subscribe to one pack, reporting WHY it was refused instead of a bare false. */
+  subscribeToAddOnDetailed: (
+    appId: string,
+    addOnId: string,
+    pricingId?: string,
+    paymentTransactionId?: string,
+  ) => Promise<AddOnSubscribeResultModel>;
   cancelAddOn: (subscriptionId: string) => Promise<boolean>;
+  /** Cancel one pack, saying whether access continues to the end of the paid period. */
+  cancelAddOnDetailed: (subscriptionId: string, immediate?: boolean) => Promise<AddOnSubscriptionCancelResultModel>;
+  /** Take back a scheduled pack cancellation. */
+  reactivateAddOn: (subscriptionId: string) => Promise<AddOnSubscriptionReactivateResultModel>;
 
   // Company-scoped actions
   subscribeCompanyToTier: (
@@ -192,11 +232,18 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   }, []);
 
   // Entitlement-changing mutations must also refresh useFeatures/FeatureGate instances
-  // elsewhere in the app — otherwise they serve the pre-mutation plan for the cache TTL.
+  // elsewhere in the app — otherwise they serve the pre-mutation plan for the cache TTL — and
+  // announce the change on the client's emitter, so anything else in the app (a subscription
+  // panel, a usage meter, the host's own listener) can re-read rather than sit on stale state.
   const wrapMutation = useCallback(
-    async <T>(fn: () => Promise<T>): Promise<T> => {
+    async <T>(reason: EntitlementsChangedReason, appId: string | undefined, fn: () => Promise<T>): Promise<T> => {
       const result = await wrap(fn);
       invalidateFeatures();
+      clientRef.current.events.emit('entitlementsChanged', {
+        // The subscription-scoped endpoints take no appId; they are always about the current app.
+        appId: appId || clientRef.current.config.appId || '',
+        reason,
+      });
       return result;
     },
     [wrap],
@@ -206,13 +253,24 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   // surface them in the hook's error state — otherwise a failed cancel is indistinguishable
   // from a successful one.
   const runCancel = useCallback(
-    async (fn: () => Promise<AppTierCancelResultModel>): Promise<AppTierCancelResultModel> => {
-      const result = await wrapMutation(fn);
+    async (
+      appId: string | undefined,
+      fn: () => Promise<AppTierCancelResultModel>,
+    ): Promise<AppTierCancelResultModel> => {
+      const result = await wrapMutation('cancel', appId, fn);
       if (!result.success) setError(result.errorMessage ?? 'Failed to cancel subscription');
       return result;
     },
     [wrapMutation],
   );
+
+  // Same problem, one step worse: these endpoints answer a bare boolean, so a refusal used to look
+  // exactly like a success. Keep returning the boolean — callers branch on it — but say so.
+  const runFlag = useCallback(async (operation: string, run: Promise<boolean>): Promise<boolean> => {
+    const ok = await run;
+    if (!ok) setError(refusalMessage(operation));
+    return ok;
+  }, []);
 
   // Tier browsing
   const getTiers = useCallback(async (appId: string) => {
@@ -231,6 +289,16 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     const result = await clientRef.current.appTier.getAllAddOns(appId);
     setAddOns(result);
     return result;
+  }, []);
+
+  const getPublicAddOns = useCallback(async (appId: string) => {
+    const result = await clientRef.current.appTier.getPublicAddOns(appId);
+    setAddOns(result);
+    return result;
+  }, []);
+
+  const getTrialEligibility = useCallback(async (appId: string) => {
+    return clientRef.current.appTier.trialEligibility(appId);
   }, []);
 
   // User-scoped (self)
@@ -339,24 +407,32 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
       reason?: string,
       expiresAt?: string,
     ) => {
-      return wrapMutation(() =>
-        clientRef.current.appTier.setFeatureOverride(appId, userId, featureCode, isEnabled, reason, expiresAt),
+      return runFlag(
+        'set the feature override',
+        wrapMutation('manual', appId, () =>
+          clientRef.current.appTier.setFeatureOverride(appId, userId, featureCode, isEnabled, reason, expiresAt),
+        ),
       );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   const removeFeatureOverride = useCallback(
     async (appId: string, featureCode: string, userId?: string) => {
-      return wrapMutation(() => clientRef.current.appTier.removeFeatureOverride(appId, featureCode, userId));
+      return runFlag(
+        'remove the feature override',
+        wrapMutation('manual', appId, () =>
+          clientRef.current.appTier.removeFeatureOverride(appId, featureCode, userId),
+        ),
+      );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   // Actions
   const selfSubscribeTo = useCallback(
     async (appId: string, tierId: string, pricingId?: string, paymentTransactionId?: string) => {
-      return wrapMutation(() =>
+      return wrapMutation('tierChange', appId, () =>
         clientRef.current.appTier.selfSubscribe(appId, tierId, pricingId, paymentTransactionId),
       );
     },
@@ -365,32 +441,105 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
 
   const changeTier = useCallback(
     async (appId: string, tierId: string, pricingId?: string, immediate?: boolean, paymentTransactionId?: string) => {
-      return wrapMutation(() =>
+      return wrapMutation('tierChange', appId, () =>
         clientRef.current.appTier.changeTier(appId, tierId, pricingId, immediate, paymentTransactionId),
       );
     },
     [wrapMutation],
   );
 
+  const changeTierWithOptions = useCallback(
+    async (appId: string, options: SelfChangeTierOptions) => {
+      const result = await wrapMutation('tierChange', appId, () =>
+        clientRef.current.appTier.changeTier(appId, options),
+      );
+      // requiresAction/processing are "not yet", not "no" — they are the 3-D Secure path, so they
+      // must not be reported to the user as a failed change.
+      if (!result.success && !result.requiresAction && !result.processing) {
+        setError(refusalMessage('change the plan', result.errorMessage, result.errorCode));
+      }
+      return result;
+    },
+    [wrapMutation],
+  );
+
+  const completeTierChange = useCallback(
+    async (appId: string, pendingChangeId: string) => {
+      const result = await wrapMutation('tierChange', appId, () =>
+        clientRef.current.appTier.completeTierChange(appId, pendingChangeId),
+      );
+      if (!result.success && !result.requiresAction && !result.processing) {
+        setError(refusalMessage('complete the plan change', result.errorMessage, result.errorCode));
+      }
+      return result;
+    },
+    [wrapMutation],
+  );
+
   const cancelSubscription = useCallback(
     async (appId: string) => {
-      return runCancel(() => clientRef.current.appTier.cancelSubscription(appId));
+      return runCancel(appId, () => clientRef.current.appTier.cancelSubscription(appId));
     },
     [runCancel],
   );
 
   const subscribeToAddOn = useCallback(
     async (appId: string, addOnId: string, pricingId?: string, paymentTransactionId?: string) => {
-      return wrapMutation(() =>
-        clientRef.current.appTier.subscribeToAddOn(appId, addOnId, pricingId, paymentTransactionId),
+      return runFlag(
+        'subscribe to the pack',
+        wrapMutation('addOn', appId, () =>
+          clientRef.current.appTier.subscribeToAddOn(appId, addOnId, pricingId, paymentTransactionId),
+        ),
       );
+    },
+    [wrapMutation, runFlag],
+  );
+
+  const subscribeToAddOnDetailed = useCallback(
+    async (appId: string, addOnId: string, pricingId?: string, paymentTransactionId?: string) => {
+      const result = await wrapMutation('addOn', appId, () =>
+        clientRef.current.appTier.subscribeToAddOnDetailed(appId, addOnId, pricingId, paymentTransactionId),
+      );
+      if (!result.success) {
+        setError(refusalMessage('subscribe to the pack', result.error.message, result.error.code));
+      }
+      return result;
     },
     [wrapMutation],
   );
 
   const cancelAddOn = useCallback(
     async (subscriptionId: string) => {
-      return wrapMutation(() => clientRef.current.appTier.cancelAddOnSubscription(subscriptionId));
+      return runFlag(
+        'cancel the pack',
+        wrapMutation('cancel', undefined, () => clientRef.current.appTier.cancelAddOnSubscription(subscriptionId)),
+      );
+    },
+    [wrapMutation, runFlag],
+  );
+
+  const cancelAddOnDetailed = useCallback(
+    async (subscriptionId: string, immediate?: boolean) => {
+      const result = await wrapMutation('cancel', undefined, () =>
+        clientRef.current.appTier.cancelAddOnDetailed(subscriptionId, immediate),
+      );
+      if (!result.success) {
+        setError(refusalMessage('cancel the pack', result.errorMessage, result.errorCode));
+      }
+      return result;
+    },
+    [wrapMutation],
+  );
+
+  const reactivateAddOn = useCallback(
+    async (subscriptionId: string) => {
+      const result = await wrapMutation('reactivate', undefined, () =>
+        clientRef.current.appTier.reactivateAddOn(subscriptionId),
+      );
+      if (!result.success) {
+        setError(refusalMessage('reactivate the pack', result.errorMessage, result.errorCode));
+      }
+      return result;
     },
     [wrapMutation],
   );
@@ -398,14 +547,16 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
   // Company-scoped actions
   const subscribeCompanyToTier = useCallback(
     async (appId: string, companyId: string, tierId: string, pricingId?: string) => {
-      return wrapMutation(() => clientRef.current.appTier.subscribeCompanyToTier(appId, companyId, tierId, pricingId));
+      return wrapMutation('tierChange', appId, () =>
+        clientRef.current.appTier.subscribeCompanyToTier(appId, companyId, tierId, pricingId),
+      );
     },
     [wrapMutation],
   );
 
   const changeCompanyTier = useCallback(
     async (appId: string, companyId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
-      return wrapMutation(() =>
+      return wrapMutation('tierChange', appId, () =>
         clientRef.current.appTier.changeCompanyTier(appId, companyId, tierId, pricingId, immediate),
       );
     },
@@ -414,102 +565,140 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
 
   const cancelCompanySubscription = useCallback(
     async (appId: string, companyId: string) => {
-      return runCancel(() => clientRef.current.appTier.cancelCompanySubscription(appId, companyId));
+      return runCancel(appId, () => clientRef.current.appTier.cancelCompanySubscription(appId, companyId));
     },
     [runCancel],
   );
 
   const subscribeCompanyToAddOn = useCallback(
     async (appId: string, companyId: string, addOnId: string) => {
-      return wrapMutation(() => clientRef.current.appTier.subscribeCompanyToAddOn(appId, companyId, addOnId));
+      return runFlag(
+        'subscribe the company to the pack',
+        wrapMutation('addOn', appId, () =>
+          clientRef.current.appTier.subscribeCompanyToAddOn(appId, companyId, addOnId),
+        ),
+      );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   const cancelCompanyAddOn = useCallback(
     async (subscriptionId: string, immediate?: boolean) => {
-      return wrapMutation(() => clientRef.current.appTier.cancelCompanyAddOn(subscriptionId, immediate));
+      return runFlag(
+        "cancel the company's pack",
+        wrapMutation('cancel', undefined, () =>
+          clientRef.current.appTier.cancelCompanyAddOn(subscriptionId, immediate),
+        ),
+      );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   // User-scoped admin actions
   const subscribeUserToTier = useCallback(
     async (appId: string, userId: string, tierId: string, pricingId?: string) => {
-      return wrapMutation(() => clientRef.current.appTier.subscribeUserToTier(appId, userId, tierId, pricingId));
+      return wrapMutation('tierChange', appId, () =>
+        clientRef.current.appTier.subscribeUserToTier(appId, userId, tierId, pricingId),
+      );
     },
     [wrapMutation],
   );
 
   const changeUserTier = useCallback(
     async (appId: string, userId: string, tierId: string, pricingId?: string, immediate?: boolean) => {
-      return wrapMutation(() => clientRef.current.appTier.changeUserTier(appId, userId, tierId, pricingId, immediate));
+      return wrapMutation('tierChange', appId, () =>
+        clientRef.current.appTier.changeUserTier(appId, userId, tierId, pricingId, immediate),
+      );
     },
     [wrapMutation],
   );
 
   const cancelUserSubscription = useCallback(
     async (appId: string, userId: string) => {
-      return runCancel(() => clientRef.current.appTier.cancelUserSubscription(appId, userId));
+      return runCancel(appId, () => clientRef.current.appTier.cancelUserSubscription(appId, userId));
     },
     [runCancel],
   );
 
   const subscribeUserToAddOn = useCallback(
     async (appId: string, userId: string, addOnId: string) => {
-      return wrapMutation(() => clientRef.current.appTier.subscribeUserToAddOn(appId, userId, addOnId));
+      return runFlag(
+        'subscribe the user to the pack',
+        wrapMutation('addOn', appId, () => clientRef.current.appTier.subscribeUserToAddOn(appId, userId, addOnId)),
+      );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   const cancelUserAddOn = useCallback(
     async (appId: string, subscriptionId: string) => {
-      return wrapMutation(() => clientRef.current.appTier.cancelUserAddOn(appId, subscriptionId));
+      return runFlag(
+        "cancel the user's pack",
+        wrapMutation('cancel', appId, () => clientRef.current.appTier.cancelUserAddOn(appId, subscriptionId)),
+      );
     },
-    [wrapMutation],
+    [wrapMutation, runFlag],
   );
 
   // Usage limit overrides (admin)
   const updateUsageLimit = useCallback(
     async (appId: string, limitCode: string, newMaxValue: number) => {
-      return wrap(() => clientRef.current.appTier.updateUsageLimit(appId, limitCode, newMaxValue));
+      return runFlag(
+        'update the usage limit',
+        wrap(() => clientRef.current.appTier.updateUsageLimit(appId, limitCode, newMaxValue)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   const resetUsage = useCallback(
     async (appId: string, limitCode: string) => {
-      return wrap(() => clientRef.current.appTier.resetUsage(appId, limitCode));
+      return runFlag(
+        'reset the usage counter',
+        wrap(() => clientRef.current.appTier.resetUsage(appId, limitCode)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   const updateUserUsageLimit = useCallback(
     async (appId: string, userId: string, limitCode: string, newMaxValue: number) => {
-      return wrap(() => clientRef.current.appTier.updateUserUsageLimit(appId, userId, limitCode, newMaxValue));
+      return runFlag(
+        "update the user's usage limit",
+        wrap(() => clientRef.current.appTier.updateUserUsageLimit(appId, userId, limitCode, newMaxValue)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   const resetUserUsage = useCallback(
     async (appId: string, userId: string, limitCode: string) => {
-      return wrap(() => clientRef.current.appTier.resetUserUsage(appId, userId, limitCode));
+      return runFlag(
+        "reset the user's usage counter",
+        wrap(() => clientRef.current.appTier.resetUserUsage(appId, userId, limitCode)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   const updateCompanyUsageLimit = useCallback(
     async (appId: string, companyId: string, limitCode: string, newMaxValue: number) => {
-      return wrap(() => clientRef.current.appTier.updateCompanyUsageLimit(appId, companyId, limitCode, newMaxValue));
+      return runFlag(
+        "update the company's usage limit",
+        wrap(() => clientRef.current.appTier.updateCompanyUsageLimit(appId, companyId, limitCode, newMaxValue)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   const resetCompanyUsage = useCallback(
     async (appId: string, companyId: string, limitCode: string) => {
-      return wrap(() => clientRef.current.appTier.resetCompanyUsage(appId, companyId, limitCode));
+      return runFlag(
+        "reset the company's usage counter",
+        wrap(() => clientRef.current.appTier.resetCompanyUsage(appId, companyId, limitCode)),
+      );
     },
-    [wrap],
+    [wrap, runFlag],
   );
 
   // Settings
@@ -618,7 +807,9 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     getTiers,
     getAvailableAddOns,
     getAllAddOns,
+    getPublicAddOns,
     previewTierChange,
+    getTrialEligibility,
     getMySubscription,
     getMyAddOns,
     getCompanySubscription,
@@ -638,9 +829,14 @@ export function useSubscriptionAdmin(): UseSubscriptionAdminReturn {
     removeFeatureOverride,
     selfSubscribeTo,
     changeTier,
+    changeTierWithOptions,
+    completeTierChange,
     cancelSubscription,
     subscribeToAddOn,
+    subscribeToAddOnDetailed,
     cancelAddOn,
+    cancelAddOnDetailed,
+    reactivateAddOn,
     subscribeCompanyToTier,
     changeCompanyTier,
     cancelCompanySubscription,

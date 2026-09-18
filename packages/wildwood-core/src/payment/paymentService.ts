@@ -32,7 +32,11 @@ export class PaymentService {
 
   // Payment operations
   async initiatePayment(request: InitiatePaymentRequest): Promise<InitiatePaymentResponse> {
-    const { data } = await this.http.post<InitiatePaymentResponse>('api/payment/initiate', request);
+    // The billing address goes up PascalCase, the way every other Wildwood request body names its
+    // properties; the rest of this request has always gone up as-is and stays that way.
+    const { billingAddress, ...rest } = request;
+    const body = billingAddress ? { ...rest, BillingAddress: billingAddress } : rest;
+    const { data } = await this.http.post<InitiatePaymentResponse>('api/payment/initiate', body);
     return data;
   }
 

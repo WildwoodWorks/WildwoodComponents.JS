@@ -1,5 +1,5 @@
 import type { AppTierPricingModel } from '@wildwood/core';
-import { formatPrice, isRawBadgeColor, shouldShowTierStatusBadge } from './tierUtils.js';
+import { formatMoney, isRawBadgeColor, shouldShowTierStatusBadge } from './tierUtils.js';
 
 export interface TierCardHeaderProps {
   name: string;
@@ -50,7 +50,11 @@ export function TierCardHeader({
             <span className="ww-tier-price-amount">Free</span>
           ) : pricing ? (
             <>
-              <span className="ww-tier-price-amount">{formatPrice(pricing.price, currency)}</span>
+              {/* `formatMoney`, not the older `formatPrice`: the symbol comes from Intl, so a
+                  currency outside the seven-entry symbol table (CHF, SEK, ...) renders as itself
+                  instead of silently falling back to a dollar sign. Byte-identical output for the
+                  currencies that table does carry. */}
+              <span className="ww-tier-price-amount">{formatMoney(pricing.price, currency)}</span>
               <span className="ww-tier-price-interval">/{pricing.billingFrequency?.toLowerCase() ?? 'month'}</span>
             </>
           ) : null}

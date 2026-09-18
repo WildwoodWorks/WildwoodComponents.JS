@@ -643,6 +643,16 @@
     border-top: 1px solid var(--ww-border-color, #dee2e6);
 }
 
+/* Progress of the account creation that runs behind the payment's success panel. */
+.ww-signup-step-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+}
+
 /* Success Step */
 .ww-signup-success {
     text-align: center;
@@ -5825,4 +5835,719 @@ img.ww-avatar {
     .ww-consent-actions .ww-consent-btn {
         flex: 1 1 auto;
     }
+}
+
+/* ==========================================================================
+   Subscription admin, add-on packs, usage, and registration-subscription
+   Colours come from --ww-* only, so every theme (and both schemes) applies.
+   ========================================================================== */
+
+/* ── Shared inline loader ── */
+
+.ww-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem 1rem;
+    color: var(--ww-text-muted);
+}
+
+/* ── Badge variants ── */
+
+.ww-badge-danger {
+    background: var(--ww-danger);
+    color: var(--ww-text-inverse);
+}
+
+.ww-badge-warning {
+    background: var(--ww-warning);
+    color: var(--ww-warning-text);
+}
+
+/* ── Subscription admin shell ── */
+
+.ww-sub-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.ww-sub-cancel-notice {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+/* ── Pricing display ── */
+
+.ww-pricing-display {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Placeholder shown while live prices load. Blocks only — never a number that is about to change. */
+.ww-pricing-skeleton {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.ww-pricing-skeleton > div {
+    height: 12rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-tertiary);
+    /* The AI chat's placeholder pulse, reused rather than copied. */
+    animation: ww-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ww-pricing-skeleton > div {
+        animation: none;
+    }
+}
+
+/* ── Add-on packs panel ── */
+
+.ww-addons-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ww-addons-error {
+    margin-bottom: 0;
+}
+
+.ww-addons-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-addons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.ww-addons-grid .ww-addon-card {
+    gap: 0.5rem;
+    padding: 1.25rem;
+}
+
+.ww-addon-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.ww-addon-trial {
+    color: var(--ww-success);
+}
+
+/* ── Pack cards (pick-a-pack grids) ── */
+
+.ww-pack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.ww-pack-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-color);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-primary);
+    color: var(--ww-text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ww-pack-card:hover {
+    border-color: var(--ww-primary);
+    box-shadow: var(--ww-shadow-sm);
+}
+
+.ww-pack-card--selected {
+    border-color: var(--ww-primary);
+    box-shadow: var(--ww-shadow-sm);
+    background: var(--ww-hover-bg);
+}
+
+.ww-pack-card--granted {
+    border-color: var(--ww-success);
+    background: var(--ww-success-bg);
+    cursor: default;
+}
+
+/* ── Registration + subscription wizard ── */
+
+.ww-regsub {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ww-regsub-step {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ww-regsub-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-token-plan-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-success);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-success-bg);
+    color: var(--ww-text-primary);
+}
+
+/* A modal opened from inside a modal (payment over a confirmation) sits above the first overlay. */
+.ww-modal-overlay--stacked {
+    z-index: 10000;
+}
+
+/* The three RegistrationAndSubscriptionComponent views share the .ww-regsub column above. */
+
+.ww-regsub-pricing,
+.ww-regsub-signup,
+.ww-regsub-manage {
+    width: 100%;
+}
+
+.ww-regsub-plans,
+.ww-regsub-packs {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ww-regsub-pack-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-pack-group-title {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-regsub-pack-group-blurb {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+/* Pack card internals. Every child is phrasing content so the multi-select card can be a button. */
+
+.ww-pack-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-pack-card-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--ww-primary);
+}
+
+.ww-pack-card-blurb {
+    color: var(--ww-text-secondary);
+}
+
+.ww-pack-card-meter {
+    color: var(--ww-text-muted);
+    font-size: 0.875rem;
+}
+
+.ww-pack-card-price {
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+/* A pack the operator has defined but not priced. Says so; never implies free. */
+.ww-pack-card-unavailable {
+    font-weight: 400;
+    color: var(--ww-text-muted);
+}
+
+.ww-pack-card-trial {
+    color: var(--ww-success);
+    font-size: 0.875rem;
+}
+
+.ww-pack-card-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-pack-card-feature {
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Shown in place of prices when the catalog cannot be read. Carries a Retry, never a price. */
+.ww-regsub-unavailable {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ww-regsub-notice {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+.ww-regsub-closed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-regsub-closed-message {
+    margin: 0;
+    color: var(--ww-text-primary);
+}
+
+/* ── Usage dashboard ── */
+
+.ww-usage-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.ww-usage-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ww-usage-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-usage-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+.ww-usage-subtitle {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--ww-text-muted);
+}
+
+.ww-usage-tier-badge {
+    flex: 0 0 auto;
+}
+
+.ww-usage-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem 1rem;
+    color: var(--ww-text-muted);
+}
+
+.ww-usage-empty {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    border: 1px dashed var(--ww-border-color);
+    border-radius: var(--ww-border-radius-lg);
+}
+
+.ww-usage-limits {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ww-usage-limit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius);
+    background: var(--ww-bg-primary);
+}
+
+.ww-usage-limit-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.ww-usage-limit-label {
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+.ww-usage-limit-value {
+    font-size: 0.875rem;
+    color: var(--ww-text-secondary);
+}
+
+.ww-usage-limit-percent {
+    color: var(--ww-text-muted);
+}
+
+.ww-usage-limit-message {
+    margin: 0;
+}
+
+.ww-usage-bar-track {
+    width: 100%;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: var(--ww-border-radius-sm);
+    background: var(--ww-bg-tertiary);
+}
+
+.ww-usage-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.3s ease;
+}
+
+.ww-usage-bar-ok {
+    background: var(--ww-success);
+}
+
+.ww-usage-bar-warning {
+    background: var(--ww-warning);
+}
+
+.ww-usage-bar-exceeded {
+    background: var(--ww-danger);
+}
+
+.ww-usage-bar-unlimited {
+    background: var(--ww-info);
+}
+
+.ww-usage-blocked-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--ww-danger-text);
+}
+
+.ww-usage-overage-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--ww-warning-text);
+}
+
+.ww-usage-upgrade-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-usage-upgrade-message {
+    color: var(--ww-text-secondary);
+}
+
+@media (max-width: 640px) {
+    .ww-usage-upgrade-cta,
+    .ww-usage-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ── Registration + subscription: the signup view ── */
+
+.ww-regsub-step-title {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--ww-text-primary);
+}
+
+/* What a registration token set up. Never priced: the visitor is not paying for any of it. */
+
+.ww-token-plan-summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ww-token-plan-summary-title {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-token-plan-tier {
+    margin: 0;
+    color: var(--ww-text-primary);
+}
+
+.ww-token-plan-pricing {
+    color: var(--ww-text-secondary);
+}
+
+.ww-token-plan-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-token-plan-group-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ww-text-secondary);
+}
+
+.ww-token-plan-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* The pack checkout: one quote, one card, one purchase. */
+
+.ww-regsub-pack-checkout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ww-regsub-pack-checkout-failed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-order-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ww-regsub-order-summary-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-regsub-saved-card {
+    margin: 0;
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+.ww-regsub-card-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* One line per pack, including the ones that failed: a basket is not a transaction. */
+
+.ww-pack-outcome-list {
+    list-style: none;
+    margin: 1rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+}
+
+.ww-pack-outcome {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-pack-outcome--failed {
+    border-color: var(--ww-danger);
+}
+
+.ww-pack-outcome--granted,
+.ww-pack-outcome--trialing,
+.ww-pack-outcome--active {
+    border-color: var(--ww-success);
+}
+
+.ww-pack-outcome-name {
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+.ww-pack-outcome-status {
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+.ww-pack-outcome-trial {
+    color: var(--ww-text-muted);
+    font-size: 0.8125rem;
+}
+
+.ww-pack-outcome-error {
+    width: 100%;
+    color: var(--ww-danger-text);
+    font-size: 0.8125rem;
+}
+
+/* ── Registration + subscription: the manage view ── */
+
+.ww-regsub-manage-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.ww-regsub-manage-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-manage-section-title {
+    margin: 0;
+    font-size: 1.125rem;
+    color: var(--ww-text-primary);
+}
+
+/* What the plan change is doing, and what stopped it. */
+
+.ww-regsub-plan-change {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-regsub-plan-change-failed {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ww-regsub-plan-change-reason {
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.ww-regsub-plan-change-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* The card an upgrade needs, and the pack picker, both inside .ww-modal. */
+
+.ww-regsub-payment-modal {
+    max-width: 30rem;
+}
+
+.ww-regsub-pack-picker {
+    max-width: 46rem;
+}
+
+/* Packs: how one is paid for decides what cancelling it does. */
+
+.ww-addons-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+.ww-addon-included {
+    margin-left: 0.25rem;
+}
+
+.ww-addon-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--ww-warning);
+    border-radius: var(--ww-border-radius);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-addon-confirm-message {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+.ww-addon-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* A feature an override grants is included in the account, not in the plan. */
+
+.ww-feature-included {
+    margin-left: 0.5rem;
 }

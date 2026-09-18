@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   AppPaymentConfigurationDto,
+  BillingAddress,
   PaymentProviderDto,
   SavedPaymentMethodDto,
   PaymentCompletionResult,
   InitiatePaymentResponse,
 } from '@wildwood/core';
-import { PaymentProviderType, loadStripe } from '@wildwood/core';
+import { PaymentProviderType } from '@wildwood/core';
 import { usePayment } from '../../hooks/usePayment.js';
+import { useStripeCardElement } from './useStripeCardElement.js';
 
 export interface PaymentComponentProps {
   appId?: string;
@@ -33,7 +35,14 @@ export interface PaymentComponentProps {
   /** Pre-loaded providers (skip API fetch) */
   preloadedProviders?: PaymentProviderDto[];
   preselectedProviderId?: string;
+  /** Fired exactly once per successful payment, as soon as the payment completes. */
   onPaymentSuccess?: (result: PaymentCompletionResult) => void;
+  /**
+   * Renders a "Continue" button on the success panel and is called when it is clicked. Without it the
+   * panel offers no Continue, because advancing used to re-fire `onPaymentSuccess` and run the host's
+   * success handler (a signup, an upgrade) a second time.
+   */
+  onContinue?: (result: PaymentCompletionResult) => void;
   onPaymentFailure?: (error: string) => void;
   onCancel?: () => void;
   className?: string;
@@ -66,48 +75,6 @@ function formatAmount(amount: number, currency: string): string {
   }
 }
 
-// Stripe types (minimal, from @stripe/stripe-js)
-interface StripeInstance {
-  elements: (options?: Record<string, unknown>) => StripeElements;
-  confirmCardPayment: (
-    clientSecret: string,
-    data?: { payment_method: { card: StripeCardElement } },
-  ) => Promise<{
-    paymentIntent?: { id: string; status: string };
-    error?: { message: string; code?: string };
-  }>;
-  confirmCardSetup: (
-    clientSecret: string,
-    data?: { payment_method: { card: StripeCardElement } },
-  ) => Promise<{
-    setupIntent?: { id: string; status: string };
-    error?: { message: string; code?: string };
-  }>;
-}
-
-interface StripeElements {
-  create: (type: 'card', options?: Record<string, unknown>) => StripeCardElement;
-}
-
-interface StripeCardElement {
-  mount: (domElement: string | HTMLElement) => void;
-  unmount: () => void;
-  destroy: () => void;
-  on: (event: string, handler: (e: StripeCardEvent) => void) => void;
-}
-
-interface StripeCardEvent {
-  complete: boolean;
-  error?: { message: string };
-  empty: boolean;
-}
-
-declare global {
-  interface Window {
-    Stripe?: (publishableKey: string) => StripeInstance;
-  }
-}
-
 export function PaymentComponent({
   appId,
   amount,
@@ -128,6 +95,7 @@ export function PaymentComponent({
   preloadedProviders,
   preselectedProviderId,
   onPaymentSuccess,
+  onContinue,
   onPaymentFailure,
   onCancel,
   className,
@@ -178,20 +146,27 @@ export function PaymentComponent({
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [_billingCountry, _setBillingCountry] = useState('US');
-
-  // Stripe Elements state
-  const stripeRef = useRef<StripeInstance | null>(null);
-  const cardElementRef = useRef<StripeCardElement | null>(null);
-  const cardContainerRef = useRef<HTMLDivElement>(null);
-  const [stripeReady, setStripeReady] = useState(false);
-  const [stripeLoading, setStripeLoading] = useState(false);
-  const [stripeError, setStripeError] = useState<string | null>(null);
-  const [cardComplete, setCardComplete] = useState(false);
-  const [cardError, setCardError] = useState<string | null>(null);
+  // No country picker yet — the form collects a US address, and the value still travels with it so the
+  // server and the provider get a complete address.
+  const [billingCountry, _setBillingCountry] = useState('US');
 
   // Is the selected provider Stripe?
   const isStripeProvider = selectedProvider?.providerType === PaymentProviderType.Stripe;
+
+  // Stripe Elements: the card field, loaded and mounted by the shared hook.
+  const {
+    stripe,
+    cardElement,
+    containerRef: cardContainerRef,
+    ready: stripeReady,
+    loading: stripeLoading,
+    error: stripeError,
+    cardComplete,
+    cardError,
+  } = useStripeCardElement({
+    publishableKey: selectedProvider?.publishableKey,
+    enabled: isStripeProvider,
+  });
 
   // Load providers
   useEffect(() => {
@@ -222,106 +197,6 @@ export function PaymentComponent({
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Initialize Stripe Elements when a Stripe provider is selected
-  useEffect(() => {
-    if (!isStripeProvider || !selectedProvider?.publishableKey) return;
-
-    const publishableKey = selectedProvider.publishableKey;
-    let cancelled = false;
-
-    const initStripe = async () => {
-      setStripeLoading(true);
-      setStripeError(null);
-      setStripeReady(false);
-
-      try {
-        // Load Stripe.js from CDN
-        await loadStripe();
-
-        if (cancelled) return;
-
-        if (!window.Stripe) {
-          setStripeError('Failed to load Stripe. Please refresh and try again.');
-          return;
-        }
-
-        // Create Stripe instance
-        const stripe = window.Stripe(publishableKey);
-        stripeRef.current = stripe;
-
-        // Create card element with styling
-        const elements = stripe.elements();
-        const style = {
-          base: {
-            fontSize: '16px',
-            color: getComputedStyle(document.documentElement).getPropertyValue('--ww-text-primary').trim() || '#32325d',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            '::placeholder': {
-              color: getComputedStyle(document.documentElement).getPropertyValue('--ww-text-muted').trim() || '#aab7c4',
-            },
-          },
-          invalid: {
-            color: getComputedStyle(document.documentElement).getPropertyValue('--ww-danger').trim() || '#dc3545',
-            iconColor: getComputedStyle(document.documentElement).getPropertyValue('--ww-danger').trim() || '#dc3545',
-          },
-        };
-
-        const card = elements.create('card', { style });
-        cardElementRef.current = card;
-
-        // Listen for card validation events
-        card.on('change', (event: StripeCardEvent) => {
-          setCardComplete(event.complete);
-          setCardError(event.error?.message ?? null);
-        });
-
-        // Mount when the container is available (max 50 attempts / ~800ms)
-        let mountAttempts = 0;
-        const MAX_MOUNT_ATTEMPTS = 50;
-        const mountCard = () => {
-          if (cancelled) return;
-          if (cardContainerRef.current) {
-            card.mount(cardContainerRef.current);
-            setStripeReady(true);
-          } else if (mountAttempts < MAX_MOUNT_ATTEMPTS) {
-            mountAttempts++;
-            // Container not yet in DOM, retry on next frame
-            requestAnimationFrame(mountCard);
-          } else {
-            setStripeError('Card form container not found. Please refresh and try again.');
-          }
-        };
-        mountCard();
-      } catch (err) {
-        if (!cancelled) {
-          setStripeError(err instanceof Error ? err.message : 'Failed to initialize payment form.');
-        }
-      } finally {
-        if (!cancelled) {
-          setStripeLoading(false);
-        }
-      }
-    };
-
-    initStripe();
-
-    return () => {
-      cancelled = true;
-      if (cardElementRef.current) {
-        try {
-          cardElementRef.current.destroy();
-        } catch {
-          // element may already be destroyed
-        }
-        cardElementRef.current = null;
-      }
-      stripeRef.current = null;
-      setStripeReady(false);
-      setCardComplete(false);
-      setCardError(null);
-    };
-  }, [isStripeProvider, selectedProvider?.publishableKey]);
-
   // Handle payment
   const handlePay = useCallback(async () => {
     setPaymentError(null);
@@ -341,6 +216,26 @@ export function PaymentComponent({
     if (isStripeProvider && !cardComplete) {
       setPaymentError('Please enter your card details.');
       return;
+    }
+
+    // An address the app requires has to be complete before anything is charged: an incomplete one
+    // fails at the provider, after the intent exists.
+    let billing: BillingAddress | undefined;
+    if (requireBillingAddress) {
+      const required = [billingFirstName, billingLastName, billingAddress, billingCity, billingState, billingZip];
+      if (required.some((value) => !value.trim())) {
+        setPaymentError('Please complete your billing address.');
+        return;
+      }
+      billing = {
+        firstName: billingFirstName.trim(),
+        lastName: billingLastName.trim(),
+        street: billingAddress.trim(),
+        city: billingCity.trim(),
+        state: billingState.trim(),
+        zipCode: billingZip.trim(),
+        country: billingCountry.trim(),
+      };
     }
 
     setIsProcessing(true);
@@ -365,6 +260,8 @@ export function PaymentComponent({
           returnUrl,
           cancelUrl,
           metadata,
+          // Only present when the app asks for an address — the key is left off entirely otherwise.
+          ...(billing ? { billingAddress: billing } : {}),
           // Lets a Stripe trial come back as a SetupIntent to confirm, so the card is saved for trial end.
           supportsSetupIntent: isStripeProvider,
         }));
@@ -408,11 +305,11 @@ export function PaymentComponent({
         isStripeProvider &&
         initResult.clientSecretType === 'setup_intent' &&
         initResult.clientSecret &&
-        stripeRef.current &&
-        cardElementRef.current
+        stripe &&
+        cardElement
       ) {
-        const { setupIntent, error: setupError } = await stripeRef.current.confirmCardSetup(initResult.clientSecret, {
-          payment_method: { card: cardElementRef.current },
+        const { setupIntent, error: setupError } = await stripe.confirmCardSetup(initResult.clientSecret, {
+          payment_method: { card: cardElement },
         });
 
         if (setupError || !setupIntent || setupIntent.status !== 'succeeded') {
@@ -445,15 +342,12 @@ export function PaymentComponent({
       }
 
       // Step 2b: For Stripe, confirm payment client-side with card element
-      if (isStripeProvider && initResult.clientSecret && stripeRef.current && cardElementRef.current) {
-        const { paymentIntent, error: stripeConfirmError } = await stripeRef.current.confirmCardPayment(
-          initResult.clientSecret,
-          {
-            payment_method: {
-              card: cardElementRef.current,
-            },
+      if (isStripeProvider && initResult.clientSecret && stripe && cardElement) {
+        const { paymentIntent, error: stripeConfirmError } = await stripe.confirmCardPayment(initResult.clientSecret, {
+          payment_method: {
+            card: cardElement,
           },
-        );
+        });
 
         if (stripeConfirmError) {
           const msg = stripeConfirmError.message ?? 'Card payment failed';
@@ -531,7 +425,17 @@ export function PaymentComponent({
     cancelUrl,
     metadata,
     isStripeProvider,
+    stripe,
+    cardElement,
     cardComplete,
+    requireBillingAddress,
+    billingFirstName,
+    billingLastName,
+    billingAddress,
+    billingCity,
+    billingState,
+    billingZip,
+    billingCountry,
     initiatePayment,
     confirmPayment,
     onPaymentSuccess,
@@ -618,8 +522,8 @@ export function PaymentComponent({
               View Receipt
             </a>
           )}
-          {onPaymentSuccess && (
-            <button type="button" className="ww-btn ww-btn-primary" onClick={() => onPaymentSuccess(paymentResult)}>
+          {onContinue && (
+            <button type="button" className="ww-btn ww-btn-primary" onClick={() => onContinue(paymentResult)}>
               Continue
             </button>
           )}

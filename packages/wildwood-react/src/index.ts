@@ -62,6 +62,21 @@ export { useUsageDashboard } from './hooks/useUsageDashboard.js';
 export type { UseUsageDashboardReturn, UseUsageDashboardOptions } from './hooks/useUsageDashboard.js';
 export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
+// Registration & subscription reads (the logic itself lives in @wildwood/react-shared)
+export {
+  usePublicCatalog,
+  invalidatePublicCatalog,
+  clearPublicCatalogCache,
+  seedPublicCatalog,
+} from './hooks/usePublicCatalog.js';
+export type { UsePublicCatalogOptions, UsePublicCatalogReturn } from './hooks/usePublicCatalog.js';
+export { useRegistrationMode } from './hooks/useRegistrationMode.js';
+export type { UseRegistrationModeOptions, UseRegistrationModeReturn } from './hooks/useRegistrationMode.js';
+export { useRegistrationSubscription } from './hooks/useRegistrationSubscription.js';
+export type {
+  UseRegistrationSubscriptionOptions,
+  UseRegistrationSubscriptionReturn,
+} from './hooks/useRegistrationSubscription.js';
 
 // Routing
 export { ProtectedRoute } from './components/routing/ProtectedRoute.js';
@@ -114,10 +129,12 @@ export { TierPlansPanel } from './components/subscription/admin/TierPlansPanel.j
 export type { TierPlansPanelProps, TierSelectedEventArgs } from './components/subscription/admin/TierPlansPanel.js';
 export { TierChangeConfirmationModal } from './components/subscription/TierChangeConfirmationModal.js';
 export type { TierChangeConfirmationModalProps } from './components/subscription/TierChangeConfirmationModal.js';
+export { CancelResultNotice } from './components/subscription/CancelResultNotice.js';
+export type { CancelResultNoticeProps } from './components/subscription/CancelResultNotice.js';
 export { FeaturesPanel } from './components/subscription/admin/FeaturesPanel.js';
 export type { FeaturesPanelProps } from './components/subscription/admin/FeaturesPanel.js';
 export { AddOnsPanel } from './components/subscription/admin/AddOnsPanel.js';
-export type { AddOnsPanelProps } from './components/subscription/admin/AddOnsPanel.js';
+export type { AddOnsPanelProps, AddOnsPanelLabels } from './components/subscription/admin/AddOnsPanel.js';
 export { UsageLimitsPanel } from './components/subscription/admin/UsageLimitsPanel.js';
 export type { UsageLimitsPanelProps } from './components/subscription/admin/UsageLimitsPanel.js';
 export { OverridesPanel } from './components/subscription/admin/OverridesPanel.js';
@@ -132,6 +149,46 @@ export { OverageSummaryComponent } from './components/usage/OverageSummaryCompon
 export type { OverageSummaryComponentProps } from './components/usage/OverageSummaryComponent.js';
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
+
+// Registration & Subscription — one component, three views
+export { RegistrationAndSubscriptionComponent } from './components/registrationSubscription/RegistrationAndSubscriptionComponent.js';
+export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/PricingView.js';
+export { RegistrationSubscriptionSignup } from './components/registrationSubscription/views/SignupView.js';
+export { RegistrationSubscriptionManage } from './components/registrationSubscription/views/ManageView.js';
+export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice.js';
+export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice.js';
+// The card an upgrade needs, for a host building its own plan surface around the flow.
+export { PaymentModal } from './components/registrationSubscription/parts/PaymentModal.js';
+export type { PaymentModalProps } from './components/registrationSubscription/parts/PaymentModal.js';
+export { usePlanChangeFlow } from './components/registrationSubscription/views/usePlanChangeFlow.js';
+export type {
+  PlanChangeFlow,
+  PlanChangeFlowOptions,
+} from './components/registrationSubscription/views/usePlanChangeFlow.js';
+export {
+  DEFAULT_LABELS as DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS,
+  formatLabel as formatRegistrationSubscriptionLabel,
+} from './components/registrationSubscription/labels.js';
+export type { RegistrationSubscriptionLabels } from './components/registrationSubscription/labels.js';
+export type {
+  RegistrationAndSubscriptionComponentProps,
+  RegistrationSubscriptionView,
+  RegistrationSubscriptionError,
+  RegistrationSubscriptionCommonProps,
+  RegistrationSubscriptionPricingProps,
+  RegistrationSubscriptionSignupProps,
+  RegistrationSubscriptionManageProps,
+  PricingSelection,
+  PricingBilling,
+  PricingPackSelection,
+  AddOnGroup,
+  AddOnPresentation,
+  SignupPlanSelection,
+  SignupPackSelection,
+  RegistrationClosedInfo,
+  ManageLayout,
+  ManageSection,
+} from './components/registrationSubscription/types.js';
 export { FeatureGate } from './components/gating/FeatureGate.js';
 export type { FeatureGateProps } from './components/gating/FeatureGate.js';
 

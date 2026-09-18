@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import type { AppTierModel } from '@wildwood/core';
+import { createWrapper } from './testUtils.js';
 
 const changeTier = vi.fn().mockResolvedValue({ success: true });
 
@@ -42,7 +43,10 @@ const admin = {
   previewTierChange: vi
     .fn()
     .mockResolvedValue({ success: true, paymentRequired: true, proratedChargeToday: 12.5, newPrice: 39 }),
-  changeTier,
+  // The self-service change goes through the options form now, so a proration the bank wants to
+  // see can be parked (`supportsPaymentAction`) instead of refused.
+  changeTierWithOptions: changeTier,
+  completeTierChange: vi.fn().mockResolvedValue({ success: true }),
 };
 
 vi.mock('../hooks/useSubscriptionAdmin.js', () => ({
@@ -102,7 +106,9 @@ describe('SubscriptionAdminComponent upgrade payment', () => {
   it('passes the pricing model, the plan price and the trial to onPaymentRequired, then changes tier with the payment', async () => {
     const onPaymentRequired = vi.fn().mockResolvedValue('txn-1');
     // Tabs mode (the only mode that renders the confirmation modal), opened on the plans tab.
-    render(<SubscriptionAdminComponent appId="app-1" showStatusAboveTabs onPaymentRequired={onPaymentRequired} />);
+    render(<SubscriptionAdminComponent appId="app-1" showStatusAboveTabs onPaymentRequired={onPaymentRequired} />, {
+      wrapper: createWrapper(),
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose Pro' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
@@ -116,6 +122,12 @@ describe('SubscriptionAdminComponent upgrade payment', () => {
       price: 39,
       trialDays: 14,
     });
-    expect(changeTier).toHaveBeenCalledWith('app-1', 'tier-pro', 'atp-pro-monthly', true, 'txn-1');
+    expect(changeTier).toHaveBeenCalledWith('app-1', {
+      newTierId: 'tier-pro',
+      newPricingId: 'atp-pro-monthly',
+      immediate: true,
+      paymentTransactionId: 'txn-1',
+      supportsPaymentAction: true,
+    });
   });
 });

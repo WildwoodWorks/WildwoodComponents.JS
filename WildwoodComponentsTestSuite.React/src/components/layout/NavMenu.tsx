@@ -62,6 +62,11 @@ export function NavMenu() {
         </li>
         <li className="nav-section">Billing</li>
         <li>
+          <NavLink to="/registration-subscription" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Registration &amp; Subscription
+          </NavLink>
+        </li>
+        <li>
           <NavLink to="/payment" className={({ isActive }) => (isActive ? 'active' : '')}>
             Payment
           </NavLink>

@@ -10,7 +10,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'pnpm --filter wildwood-test-suite dev',
+    // The harness package is named wildwood-test-suite-react; the old filter matched no project,
+    // so an e2e run with no server already up failed to start one.
+    command: 'pnpm --filter wildwood-test-suite-react dev',
     url: 'https://localhost:5280',
     reuseExistingServer: true,
     ignoreHTTPSErrors: true,

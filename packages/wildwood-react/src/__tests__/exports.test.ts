@@ -124,6 +124,45 @@ describe('@wildwood/react exports', () => {
   it('exports TokenRegistrationComponent', () => {
     expect(WildwoodReact.TokenRegistrationComponent).toBeDefined();
   });
+  it('exports RegistrationAndSubscriptionComponent', () => {
+    expect(WildwoodReact.RegistrationAndSubscriptionComponent).toBeDefined();
+  });
+  it('exports RegistrationSubscriptionPricing', () => {
+    expect(WildwoodReact.RegistrationSubscriptionPricing).toBeDefined();
+  });
+  it('exports RegistrationSubscriptionSignup', () => {
+    expect(WildwoodReact.RegistrationSubscriptionSignup).toBeDefined();
+  });
+  it('exports RegistrationSubscriptionManage', () => {
+    expect(WildwoodReact.RegistrationSubscriptionManage).toBeDefined();
+  });
+  it('exports PaymentModal', () => {
+    expect(WildwoodReact.PaymentModal).toBeDefined();
+  });
+  it('exports usePlanChangeFlow', () => {
+    expect(WildwoodReact.usePlanChangeFlow).toBeDefined();
+  });
+  it('exports CancelResultNotice', () => {
+    expect(WildwoodReact.CancelResultNotice).toBeDefined();
+  });
+  it('exports ClosedNotice', () => {
+    expect(WildwoodReact.ClosedNotice).toBeDefined();
+  });
+  it('exports the registration + subscription label defaults', () => {
+    expect(WildwoodReact.DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS.pricingUnavailable).toBe(
+      'Pricing is unavailable right now',
+    );
+    expect(WildwoodReact.formatRegistrationSubscriptionLabel).toBeDefined();
+  });
+  it('exports the registration + subscription hooks', () => {
+    expect(WildwoodReact.usePublicCatalog).toBeDefined();
+    expect(WildwoodReact.invalidatePublicCatalog).toBeDefined();
+    expect(WildwoodReact.seedPublicCatalog).toBeDefined();
+    expect(WildwoodReact.clearPublicCatalogCache).toBeDefined();
+    expect(WildwoodReact.useRegistrationMode).toBeDefined();
+    expect(WildwoodReact.useRegistrationSubscription).toBeDefined();
+    expect(WildwoodReact.useSubscriptionAdmin).toBeDefined();
+  });
   it('exports LoadingSpinner', () => {
     expect(WildwoodReact.LoadingSpinner).toBeDefined();
   });

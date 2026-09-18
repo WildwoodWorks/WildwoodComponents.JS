@@ -109,6 +109,13 @@ export interface InitiatePaymentRequest {
   cancelUrl?: string;
   metadata?: Record<string, string>;
   /**
+   * The address to bill the card to, for an app whose payment configuration sets
+   * `requireBillingAddress`. Sent as `BillingAddress`; the server's `InitiatePaymentRequest` has
+   * no such property yet, so today it is carried for the provider layer to pick up rather than
+   * bound — see the changeset for the server follow-up.
+   */
+  billingAddress?: BillingAddress;
+  /**
    * The client can confirm a Stripe SetupIntent. When set and the subscription starts with a free trial,
    * the server returns the trial's SetupIntent secret (`clientSecretType: 'setup_intent'`) so the card is
    * saved for the charge at trial end instead of skipping card collection.

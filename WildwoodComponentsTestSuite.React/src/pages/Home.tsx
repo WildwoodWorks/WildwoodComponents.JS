@@ -62,6 +62,10 @@ export function Home() {
           <li>
             <strong>Payment</strong> — Payment methods and processing
           </li>
+          <li>
+            <strong>Registration &amp; Subscription</strong> — Live-priced pricing, signup and plan management in one
+            component
+          </li>
         </ul>
       </div>
     </div>

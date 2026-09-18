@@ -13,6 +13,11 @@ import { PaymentComponent } from '../payment/PaymentComponent.js';
 import { DisclaimerComponent } from '../disclaimer/DisclaimerComponent.js';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"` (or
+ * `RegistrationSubscriptionSignup` directly) and its `RegistrationSubscriptionSignupProps`.
+ * Still exported and unchanged.
+ */
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
   preSelectedTierId?: string;
@@ -32,6 +37,17 @@ export interface SignupWithSubscriptionComponentProps {
 
 type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'disclaimers' | 'success';
 
+/**
+ * The registration + subscription wizard.
+ *
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"`. The view keeps this
+ * wizard's step copy and locators but reads the app's registration settings itself (no
+ * `requireToken` / `allowOpenRegistration` / `showOptionalTokenEntry` to resolve), validates a
+ * registration token's plan before anything is charged, buys packs after the login on the card
+ * already taken, reports a structured `SignupOutcome`, and handles invite redemption
+ * (`tokenMode="required"`). This component stays exported and behaves exactly as before; nothing
+ * has been removed.
+ */
 export function SignupWithSubscriptionComponent({
   appId,
   preSelectedTierId,
@@ -57,6 +73,10 @@ export function SignupWithSubscriptionComponent({
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
   const [paymentTransactionId, setPaymentTransactionId] = useState<string | undefined>();
   const [paymentExternalId, setPaymentExternalId] = useState<string | undefined>();
+  // Where the signup that runs behind the payment's success panel has got to. 'idle' means no payment has
+  // completed (or the run has handed over to another step), 'running' shows its status beside the panel,
+  // and 'done' arms the panel's Continue button.
+  const [backgroundSignup, setBackgroundSignup] = useState<'idle' | 'running' | 'done'>('idle');
   // The plan a registration token gives this app. Registering with the token subscribes the user to it, so
   // the wizard skips plan selection and payment, and must not self-subscribe over it.
   const [tokenGrant, setTokenGrant] = useState<RegistrationTokenAppGrant | null>(null);
@@ -67,6 +87,9 @@ export function SignupWithSubscriptionComponent({
   // Login/registration can report disclaimers that must be accepted before the account is usable.
   // Captured in a ref so a retry (which skips the already-completed login sub-step) still routes to them.
   const disclaimersPendingRef = useRef(false);
+  // Set when the user pressed Continue before the background signup had finished: advance the moment it
+  // does, instead of leaving them on a panel they have already dismissed.
+  const continueRequestedRef = useRef(false);
 
   // Pre-selected tier: fetch tier details and show summary card instead of tier selection step
   const [preSelectedTier, setPreSelectedTier] = useState<AppTierModel | null>(null);
@@ -144,6 +167,11 @@ export function SignupWithSubscriptionComponent({
   };
 
   // Processing: Register user → login → subscribe
+  //
+  // `background` keeps the wizard on the step it is already on (the payment step, after a payment) so
+  // the payment's success panel stays mounted and its Continue button is actually painted. Without it
+  // the 'processing' step replaces the payment step in the very same commit React batches the payment's
+  // own completion into, and the interstitial never appears.
   const processSignup = useCallback(
     async (
       data: RegistrationFormData,
@@ -151,10 +179,16 @@ export function SignupWithSubscriptionComponent({
       pricing: AppTierPricingModel | null,
       txnId?: string,
       externalId?: string,
+      options?: { background?: boolean },
     ) => {
       if (processingRef.current) return;
       processingRef.current = true;
-      setCurrentStep('processing');
+      const background = options?.background ?? false;
+      if (background) {
+        setBackgroundSignup('running');
+      } else {
+        setCurrentStep('processing');
+      }
       setProcessingError(null);
 
       try {
@@ -264,8 +298,14 @@ export function SignupWithSubscriptionComponent({
         // carries pending disclaimers (mirrors the login flow in AuthenticationComponent); the session
         // JWT is already stored above, so DisclaimerComponent's authenticated accept calls succeed.
         if (disclaimersPendingRef.current) {
+          // A legal gate is not something Continue may sit in front of: take the user there at once.
+          setBackgroundSignup('idle');
           setCurrentStep('disclaimers');
+        } else if (background && !continueRequestedRef.current) {
+          // Ready, but the user is still looking at the payment's success panel. Continue takes them on.
+          setBackgroundSignup('done');
         } else {
+          setBackgroundSignup('idle');
           setCurrentStep('success');
         }
       } catch (err) {
@@ -273,8 +313,15 @@ export function SignupWithSubscriptionComponent({
         // on the spinner.
         const msg = (err instanceof Error && err.message) || 'Signup failed. Please try again.';
         setProcessingError(msg);
+        // A background run has no error view of its own — hand over to the processing step, which offers
+        // Try Again and Start Over.
+        if (background) {
+          setBackgroundSignup('idle');
+          setCurrentStep('processing');
+        }
       } finally {
         processingRef.current = false;
+        continueRequestedRef.current = false;
       }
     },
     [appId, client],
@@ -340,7 +387,8 @@ export function SignupWithSubscriptionComponent({
     [formData],
   );
 
-  // Payment completed successfully
+  // Payment completed successfully. The signup runs in the background so the payment's success panel
+  // ("Payment Successful!" / "Your free trial has started!") stays on screen with its Continue button.
   const handlePaymentSuccess = useCallback(
     (result: PaymentCompletionResult) => {
       const txnId = result.transactionId ?? result.paymentIntentId;
@@ -349,9 +397,30 @@ export function SignupWithSubscriptionComponent({
       setPaymentExternalId(extId);
 
       if (!formData) return;
-      processSignupRef.current(formData, selectedTier, selectedPricing, txnId, extId);
+      // One signup per payment: the panel outlives the payment, so this can be reached more than once.
+      if (processingRef.current || backgroundSignup === 'done') return;
+      processSignupRef.current(formData, selectedTier, selectedPricing, txnId, extId, { background: true });
     },
-    [formData, selectedTier, selectedPricing],
+    [formData, selectedTier, selectedPricing, backgroundSignup],
+  );
+
+  // The payment's Continue button. It never starts a second signup: while one is in flight it only
+  // latches the request, and once one has succeeded it just moves the wizard on. It runs the signup
+  // itself only when none has (a failed attempt has already taken over the screen with its own retry).
+  const handlePaymentContinue = useCallback(
+    (result: PaymentCompletionResult) => {
+      if (processingRef.current) {
+        continueRequestedRef.current = true;
+        return;
+      }
+      if (backgroundSignup === 'done') {
+        setBackgroundSignup('idle');
+        setCurrentStep(disclaimersPendingRef.current ? 'disclaimers' : 'success');
+        return;
+      }
+      handlePaymentSuccess(result);
+    },
+    [backgroundSignup, handlePaymentSuccess],
   );
 
   // Payment failed
@@ -560,18 +629,30 @@ export function SignupWithSubscriptionComponent({
             showAmount={false}
             requireBillingAddress={requireBillingAddress}
             onPaymentSuccess={handlePaymentSuccess}
+            onContinue={handlePaymentContinue}
             onPaymentFailure={handlePaymentFailure}
             onCancel={handleBack}
           />
 
-          <div className="ww-signup-step-nav">
-            <button type="button" className="ww-btn ww-btn-link" onClick={handleBack}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Back
-            </button>
-          </div>
+          {/* The account is being created behind the payment's success panel — say so beside it. */}
+          {backgroundSignup === 'running' && (
+            <div className="ww-signup-step-status" role="status">
+              <span className="ww-spinner ww-spinner-sm" />
+              <span className="ww-text-muted">{processingStatus}</span>
+            </div>
+          )}
+
+          {/* Once the card has been taken there is nothing to go back to. */}
+          {backgroundSignup === 'idle' && (
+            <div className="ww-signup-step-nav">
+              <button type="button" className="ww-btn ww-btn-link" onClick={handleBack}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -607,6 +688,8 @@ export function SignupWithSubscriptionComponent({
                     registeredRef.current = false;
                     loggedInRef.current = false;
                     disclaimersPendingRef.current = false;
+                    continueRequestedRef.current = false;
+                    setBackgroundSignup('idle');
                     // A fresh start must not carry the previous attempt's payment or plan into the next one.
                     setPaymentTransactionId(undefined);
                     setPaymentExternalId(undefined);

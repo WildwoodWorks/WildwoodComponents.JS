@@ -15,6 +15,16 @@ export function getCurrencySymbol(currency?: string): string {
   return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
 }
 
+/**
+ * Format a price from {@link CURRENCY_SYMBOLS}.
+ *
+ * @deprecated Use `formatMoney` from `features/catalog.ts`. This function reads a seven-entry symbol
+ * table and falls back to `'$'` for everything else, so an app billing in CHF or SEK is quoted in
+ * dollars. `formatMoney` takes the symbol from `Intl` instead, and its output is byte-identical for
+ * every currency this table does carry (USD, EUR, GBP, JPY, INR, CAD, AUD), JPY's zero decimals
+ * included. Still exported, and still used by the React Native components and the deprecated web
+ * `AppTierComponent` / `SignupWithSubscriptionComponent`.
+ */
 export function formatPrice(amount: number, currency: string): string {
   const symbol = CURRENCY_SYMBOLS[currency] ?? '$';
   return currency === 'JPY' ? `${symbol}${Math.round(amount)}` : `${symbol}${amount.toFixed(2)}`;

@@ -16,6 +16,18 @@ export const STATUS_LABEL: Record<string, string> = {
 // subscribers out of cancelling entirely; Pending* changes are cancelled via the plans tab.
 export const CANCELLABLE_STATUSES = ['Active', 'Trialing', 'PastDue'];
 
+/**
+ * Statuses in which a subscription still grants what it pays for. A row scheduled to cancel keeps
+ * access to the end of the period, so it counts; a Cancelled or Expired row grants nothing and the
+ * plan or pack behind it is on offer again. One list so the panels agree on what "subscribed" means.
+ */
+export const ACCESS_GRANTING_STATUSES = ['Active', 'Trialing', 'PendingCancellation'];
+
+/** True when the status is one of {@link ACCESS_GRANTING_STATUSES}. */
+export function grantsAccess(status: string | null | undefined): boolean {
+  return !!status && ACCESS_GRANTING_STATUSES.includes(status);
+}
+
 /** Copy for the scheduled-cancellation notice shown while status is PendingCancellation. */
 export function pendingCancellationNotice(subscription: UserTierSubscriptionModel): string {
   const until = subscription.pendingChangeDate ?? subscription.endDate;
