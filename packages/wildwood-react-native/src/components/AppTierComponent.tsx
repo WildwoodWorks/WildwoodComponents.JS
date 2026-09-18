@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Linking } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import {
-  formatPrice,
+  formatMoney,
   isEnterpriseTier,
   hasAnnualPricing,
   getSelectedPricing,
@@ -15,6 +15,11 @@ import type { OnPaymentRequired } from './subscription/paymentSeam';
 import { useWildwoodTheme } from '../styles/ThemeContext';
 import type { WildwoodTheme } from '../styles/theme';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="manage"` (or
+ * `RegistrationSubscriptionManage` directly), available from this release. Still exported and
+ * unchanged.
+ */
 export interface AppTierComponentProps {
   autoLoad?: boolean;
   showFeatures?: boolean;
@@ -36,6 +41,14 @@ export interface AppTierComponentProps {
   style?: ViewStyle;
 }
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="manage"`, available from this
+ * release, which runs a plan change through preview, confirmation, a card step and completion.
+ *
+ * This component stays exported and behaves exactly as before: it previews the change, hands a
+ * payment the host's way through `onPaymentRequired`, and applies the change with whatever
+ * transaction id comes back.
+ */
 export function AppTierComponent({
   autoLoad = true,
   showFeatures = true,
@@ -97,6 +110,9 @@ export function AppTierComponent({
       try {
         const outcome = await runTierChangeWithPayment({
           tier,
+          // The plan the card is being asked for: its price, pricing model and trial travel to the
+          // host's payment sheet so the payment starts THIS plan's subscription.
+          pricing: getSelectedPricing(tier, billingAnnual),
           previewTierChange: (tierId) => previewTierChange(tierId),
           applyChange: (paymentTransactionId) =>
             selfService
@@ -117,7 +133,7 @@ export function AppTierComponent({
         setChanging(false);
       }
     },
-    [previewTierChange, changeTier, selfSubscribe, selfService, onPaymentRequired, onTierChanged],
+    [billingAnnual, previewTierChange, changeTier, selfSubscribe, selfService, onPaymentRequired, onTierChanged],
   );
 
   const handleContactPress = useCallback((url: string) => {
@@ -230,7 +246,7 @@ export function AppTierComponent({
                     ) : pricing ? (
                       <View>
                         <Text style={styles.tierPrice}>
-                          {formatPrice(pricing.price, currency)}
+                          {formatMoney(pricing.price, currency)}
                           {pricing.billingFrequency ? (
                             <Text style={styles.tierBillingFrequency}>/{pricing.billingFrequency.toLowerCase()}</Text>
                           ) : null}

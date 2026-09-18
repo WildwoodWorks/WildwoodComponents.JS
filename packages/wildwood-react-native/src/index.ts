@@ -75,6 +75,91 @@ export type {
   IapPurchaseState,
 } from './hooks/useInAppPurchases';
 
+// ---------------------------------------------------------------------------
+// Registration & Subscription — the DOM-free logic layer, shared with the web
+// ---------------------------------------------------------------------------
+
+// Reads: the live public catalog, and how the app's settings let a signup screen offer registration.
+export {
+  usePublicCatalog,
+  invalidatePublicCatalog,
+  clearPublicCatalogCache,
+  seedPublicCatalog,
+} from './hooks/usePublicCatalog';
+export type { UsePublicCatalogOptions, UsePublicCatalogReturn } from './hooks/usePublicCatalog';
+export { useRegistrationMode } from './hooks/useRegistrationMode';
+export type { UseRegistrationModeOptions, UseRegistrationModeReturn } from './hooks/useRegistrationMode';
+export { useRegistrationSubscription } from './hooks/useRegistrationSubscription';
+export type {
+  UseRegistrationSubscriptionOptions,
+  UseRegistrationSubscriptionReturn,
+} from './hooks/useRegistrationSubscription';
+export { resolveSignupRegistrationMode } from '@wildwood/react-shared';
+export type {
+  SignupTokenMode,
+  SignupRegistrationMode,
+  SignupRegistrationSettings,
+  ResolveSignupRegistrationModeOptions,
+} from '@wildwood/react-shared';
+
+// The pure state machines behind the signup, pack-checkout and plan-change flows, and the step
+// tokens that make a repeated callback a no-op. No React, no client — a host can drive its own UI
+// with them.
+export { issueStepToken, isCurrentStep } from '@wildwood/react-shared';
+export type { StepToken } from '@wildwood/react-shared';
+export { signupTransition, initialSignupState, signupPlanNeedsPayment } from '@wildwood/react-shared';
+export type {
+  SignupStep,
+  SignupState,
+  SignupEvent,
+  SignupSelection,
+  SignupTokenGrant,
+  SignupPackStatus,
+  SignupPackOutcome,
+  SignupOutcome,
+  SignupOutcomeTier,
+  SignupCatalogNames,
+  SignupMachineOptions,
+  SignupPaymentOrder,
+  ResolvedSignupOptions,
+} from '@wildwood/react-shared';
+export { packCheckoutTransition, initialPackCheckoutState, currentPackCheckoutItem } from '@wildwood/react-shared';
+export type {
+  PackCheckoutStep,
+  PackCheckoutState,
+  PackCheckoutEvent,
+  PackCheckoutMachineOptions,
+} from '@wildwood/react-shared';
+export {
+  planChangeTransition,
+  initialPlanChangeState,
+  MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS,
+} from '@wildwood/react-shared';
+export type {
+  PlanChangeStep,
+  PlanChangeState,
+  PlanChangeEvent,
+  PlanChangeMachineOptions,
+} from '@wildwood/react-shared';
+
+// One rule for what "subscribed" means across the panels, and why entitlements changed.
+export { grantsAccess, ACCESS_GRANTING_STATUSES } from '@wildwood/react-shared';
+export type { EntitlementsChangedReason } from '@wildwood/react-shared';
+
+// Copy: every string the registration + subscription surfaces say, plus the two functions that layer
+// a host's overrides onto it and fill its `{placeholder}` slots.
+export {
+  DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS,
+  formatRegistrationSubscriptionLabel,
+  resolveRegistrationSubscriptionLabels,
+} from '@wildwood/react-shared';
+export type { RegistrationSubscriptionLabels } from '@wildwood/react-shared';
+
+// The seam a stack with no payment SDK plugs into (React Native has none in the box: a host wires
+// its own, e.g. @stripe/stripe-react-native).
+export type { PaymentActionAdapter, PaymentActionOutcome } from '@wildwood/react-shared';
+export type { RegistrationSubscriptionError, PricingBilling } from '@wildwood/react-shared';
+
 // Components
 export { AuthenticationComponent } from './components/AuthenticationComponent';
 export type { AuthenticationComponentProps } from './components/AuthenticationComponent';
@@ -165,6 +250,31 @@ export type { TierCardFooterProps } from './components/tier/TierCardFooter';
 export { defaultTheme, themes, woodlandWarm, coolBlue, fallColors, resolveTheme } from './styles/theme';
 export type { WildwoodTheme } from './styles/theme';
 export { useWildwoodTheme } from './styles/ThemeContext';
+
+// Catalog helpers from @wildwood/core. Pure and UI-free, and the only supported way to turn what
+// the server quoted into what a screen shows — a native host building its own plan or pack UI needs
+// them alongside the hooks above, and `formatMoney` is what every component here now formats with
+// (the older `formatPrice` reads a seven-entry symbol table and quotes everything else in dollars).
+export {
+  MAX_ADDON_SELECTION,
+  CATALOG_QUERY_KEYS,
+  buildPublicCatalog,
+  resolvePriceOption,
+  formatMoney,
+  trialLabel,
+  parseAddOnIdList,
+  selectPacks,
+  encodeCatalogSelection,
+  decodeCatalogSelection,
+} from '@wildwood/core';
+export type {
+  PublicCatalog,
+  BuildPublicCatalogInput,
+  CatalogPriceOption,
+  PriceOptionQuery,
+  CatalogSelection,
+  DecodedCatalogSelection,
+} from '@wildwood/core';
 
 // Re-export core types that React Native consumers commonly need
 export type {

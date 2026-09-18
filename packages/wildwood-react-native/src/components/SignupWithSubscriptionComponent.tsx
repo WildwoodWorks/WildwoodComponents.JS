@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Linking } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import type { AppTierModel, AppTierPricingModel } from '@wildwood/core';
-import { formatPrice } from '@wildwood/core';
+import type { AppTierModel, AppTierPricingModel, RegistrationTokenAppGrant } from '@wildwood/core';
+import { formatMoney, trialLabel } from '@wildwood/core';
 import { PricingDisplayComponent } from './PricingDisplayComponent';
 import { DisclaimerComponent } from './DisclaimerComponent';
+import { activateSignupPlan, findTokenPlanGrant, signupSuccessMessage } from './signupPlan';
 import { useWildwood } from '../hooks/useWildwood';
 import { usePayment } from '../hooks/usePayment';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"` (or
+ * `RegistrationSubscriptionSignup` directly), available from this release. Still exported and
+ * unchanged apart from the fixes noted on the component.
+ */
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
   preSelectedTierId?: string;
@@ -34,6 +40,14 @@ const STEP_LABELS: Record<Step, string> = {
   success: 'Complete',
 };
 
+/**
+ * The registration + subscription wizard.
+ *
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"`, available from this
+ * release: it reads the app's registration settings itself, validates a registration token's plan
+ * before anything is charged, buys packs on the card already taken and reports a structured
+ * outcome. This component stays exported; nothing has been removed.
+ */
 export function SignupWithSubscriptionComponent({
   appId,
   preSelectedTierId,
@@ -67,6 +81,9 @@ export function SignupWithSubscriptionComponent({
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState('');
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
+  // The plan a registration token gives this app. Registering with the token subscribes the user to
+  // it, so the wizard skips plan selection and payment, and must not self-subscribe over it.
+  const [tokenGrant, setTokenGrant] = useState<RegistrationTokenAppGrant | null>(null);
   const processingRef = useRef(false);
   const registeredRef = useRef(false);
   const loggedInRef = useRef(false);
@@ -120,6 +137,10 @@ export function SignupWithSubscriptionComponent({
 
   const requiresPayment =
     selectedTier != null && !selectedTier.isFreeTier && selectedPricing != null && selectedPricing.price > 0;
+  const selectedTrialDays = requiresPayment ? (selectedPricing?.trialDays ?? 0) : 0;
+
+  // A token that carries a plan is only read when the wizard will actually register with it.
+  const usesRegistrationToken = requireToken && token.trim().length > 0;
 
   const visibleSteps: Step[] = (() => {
     const steps: Step[] = ['register'];
@@ -226,13 +247,21 @@ export function SignupWithSubscriptionComponent({
           }
         }
 
-        if (tier) {
-          setProcessingStatus('Activating your plan...');
-          const subscribeResult = await client.appTier.selfSubscribe(appIdForRequest, tier.id, pricing?.id, txnId);
-          if (!subscribeResult.success) {
-            console.warn('Tier subscription failed:', subscribeResult.errorMessage);
-            setSubscriptionFailed(true);
-          }
+        // Activate the plan the wizard chose — unless a registration token already granted one, in
+        // which case subscribing again would cancel the plan the token just set up. A refusal is
+        // non-fatal: the account exists, and the success step says activation is pending.
+        if (tier && !tokenGrant) setProcessingStatus('Activating your plan...');
+        const activation = await activateSignupPlan({
+          tier,
+          pricing,
+          tokenGrant,
+          paymentTransactionId: txnId,
+          selfSubscribe: (tierId, pricingId, paymentTransactionId) =>
+            client.appTier.selfSubscribe(appIdForRequest, tierId, pricingId, paymentTransactionId),
+        });
+        if (activation.failed) {
+          console.warn('Tier subscription failed:', activation.errorMessage);
+          setSubscriptionFailed(true);
         }
 
         // Gate on disclaimer acceptance before declaring success. The registration/login response
@@ -244,12 +273,14 @@ export function SignupWithSubscriptionComponent({
           setCurrentStep('success');
         }
       } catch (err) {
-        setProcessingError(err instanceof Error ? err.message : 'Signup failed');
+        // Never an empty message: the error view only renders when there is one, so '' would leave
+        // the user on the spinner.
+        setProcessingError((err instanceof Error && err.message) || 'Signup failed. Please try again.');
       } finally {
         processingRef.current = false;
       }
     },
-    [appId, client, firstName, lastName, email, password, token, requireToken],
+    [appId, client, firstName, lastName, email, password, token, requireToken, tokenGrant],
   );
 
   const processSignupRef = useRef(processSignup);
@@ -280,8 +311,27 @@ export function SignupWithSubscriptionComponent({
     return true;
   };
 
-  const handleRegisterContinue = useCallback(() => {
+  const handleRegisterContinue = useCallback(async () => {
     if (!validateForm()) return;
+
+    // A token that carries a plan for this app decides the plan itself: registering with it
+    // subscribes the user, so there is nothing to choose or pay for. If the details can't be read
+    // (`null`, not "invalid"), fall through to the normal flow — the token still grants access.
+    if (usesRegistrationToken) {
+      setProcessingError(null);
+      setProcessingStatus('Checking your registration token...');
+      setCurrentStep('processing');
+      const details = await client.auth.getRegistrationTokenDetails(token);
+      const grant = findTokenPlanGrant(details, resolvedAppId);
+      if (grant) {
+        setTokenGrant(grant);
+        processSignupRef.current(null, null);
+        return;
+      }
+      setCurrentStep('register');
+    }
+    setTokenGrant(null);
+
     if (effectiveSkipTierSelection) {
       if (requiresPayment) {
         setCurrentStep('payment');
@@ -291,7 +341,16 @@ export function SignupWithSubscriptionComponent({
     } else {
       setCurrentStep('select-tier');
     }
-  }, [effectiveSkipTierSelection, requiresPayment, selectedTier, selectedPricing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    client,
+    resolvedAppId,
+    token,
+    usesRegistrationToken,
+    effectiveSkipTierSelection,
+    requiresPayment,
+    selectedTier,
+    selectedPricing,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTierSelected = useCallback((tier: AppTierModel, pricing: AppTierPricingModel | null) => {
     setSelectedTier(tier);
@@ -351,8 +410,13 @@ export function SignupWithSubscriptionComponent({
   }, [selectedTier, selectedPricing, currency, getAppPaymentConfiguration, initiatePayment]);
 
   const handleRetry = useCallback(() => {
+    // A retry honours the token's plan too: there is nothing to subscribe to or pay for.
+    if (tokenGrant) {
+      processSignup(null, null);
+      return;
+    }
     processSignup(selectedTier, selectedPricing, paymentTransactionId, paymentExternalId);
-  }, [selectedTier, selectedPricing, processSignup, paymentTransactionId, paymentExternalId]);
+  }, [tokenGrant, selectedTier, selectedPricing, processSignup, paymentTransactionId, paymentExternalId]);
 
   const handleBack = useCallback(() => {
     if (currentStep === 'select-tier') {
@@ -458,7 +522,7 @@ export function SignupWithSubscriptionComponent({
                 <Text style={styles.priceAmount}>Free</Text>
               ) : preSelectedTierPricing ? (
                 <>
-                  <Text style={styles.priceAmount}>{formatPrice(preSelectedTierPricing.price, currency)}</Text>
+                  <Text style={styles.priceAmount}>{formatMoney(preSelectedTierPricing.price, currency)}</Text>
                   <Text style={styles.pricePeriod}>
                     /{preSelectedTierPricing.billingFrequency?.toLowerCase() ?? 'month'}
                   </Text>
@@ -466,6 +530,9 @@ export function SignupWithSubscriptionComponent({
               ) : null}
             </View>
           </View>
+          {!preSelectedTier.isFreeTier && (preSelectedTierPricing?.trialDays ?? 0) > 0 ? (
+            <Text style={styles.planTrial}>{trialLabel(preSelectedTierPricing?.trialDays)}</Text>
+          ) : null}
           <Pressable onPress={handleChangePlan}>
             <Text style={styles.changePlanLink}>Change plan</Text>
           </Pressable>
@@ -604,10 +671,15 @@ export function SignupWithSubscriptionComponent({
             <View style={styles.orderSummaryRow}>
               <Text style={styles.orderSummaryName}>{selectedTier.name}</Text>
               <Text style={styles.orderSummaryPrice}>
-                {formatPrice(selectedPricing.price, currency)}
+                {formatMoney(selectedPricing.price, currency)}
                 <Text style={styles.pricePeriod}>/{selectedPricing.billingFrequency?.toLowerCase() ?? 'month'}</Text>
               </Text>
             </View>
+            {selectedTrialDays > 0 ? (
+              <Text style={styles.orderSummaryTrial}>
+                {`${trialLabel(selectedTrialDays)}. Due today: ${formatMoney(0, currency)}`}
+              </Text>
+            ) : null}
           </View>
 
           {paymentError ? (
@@ -627,7 +699,7 @@ export function SignupWithSubscriptionComponent({
                 <Text style={styles.primaryButtonText}> Processing...</Text>
               </View>
             ) : (
-              <Text style={styles.primaryButtonText}>Pay {formatPrice(selectedPricing.price, currency)}</Text>
+              <Text style={styles.primaryButtonText}>Pay {formatMoney(selectedPricing.price, currency)}</Text>
             )}
           </Pressable>
 
@@ -656,6 +728,12 @@ export function SignupWithSubscriptionComponent({
                     registeredRef.current = false;
                     loggedInRef.current = false;
                     disclaimersPendingRef.current = false;
+                    // A fresh start must not carry the previous attempt's payment or plan into the
+                    // next one.
+                    setPaymentTransactionId(undefined);
+                    setPaymentExternalId(undefined);
+                    setSubscriptionFailed(false);
+                    setTokenGrant(null);
                     setCurrentStep('register');
                   }}
                 >
@@ -679,11 +757,12 @@ export function SignupWithSubscriptionComponent({
           <Text style={styles.successIcon}>{'\u2713'}</Text>
           <Text style={styles.processingTitle}>You're All Set!</Text>
           <Text style={styles.mutedText}>
-            {skipTierSelection && !hasPreSelectedTier
-              ? 'Your account has been created successfully.'
-              : subscriptionFailed
-                ? 'Your account is ready! Plan activation is pending.'
-                : 'Your account has been created and your plan is active.'}
+            {signupSuccessMessage({
+              tokenGrant,
+              accountOnly: skipTierSelection && !hasPreSelectedTier,
+              subscriptionFailed,
+              trialDays: selectedTrialDays,
+            })}
           </Text>
           <Pressable style={styles.primaryButtonLg} onPress={onComplete}>
             <Text style={styles.primaryButtonText}>Get Started</Text>
@@ -749,6 +828,7 @@ const styles = StyleSheet.create({
   priceAmount: { fontSize: 20, fontWeight: '700', color: '#007AFF' },
   pricePeriod: { fontSize: 13, color: '#666' },
   changePlanLink: { color: '#007AFF', fontSize: 14, fontWeight: '600' },
+  planTrial: { fontSize: 13, fontWeight: '600', color: '#166534', marginBottom: 8 },
 
   // Form
   formContainer: { gap: 14 },
@@ -785,6 +865,7 @@ const styles = StyleSheet.create({
   },
   orderSummaryName: { fontSize: 14, color: '#333' },
   orderSummaryPrice: { fontSize: 16, fontWeight: '700', color: '#007AFF' },
+  orderSummaryTrial: { fontSize: 13, fontWeight: '600', color: '#166534', marginTop: 8 },
 
   // Navigation
   navRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },

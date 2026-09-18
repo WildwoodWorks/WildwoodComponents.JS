@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-// Can't import full index (react-native not available in vitest).
-// Test individual hooks that only depend on react + @wildwood/core.
+// Individual hooks that only depend on react + @wildwood/core.
 import { usePlatformDetection } from '../hooks/usePlatformDetection';
 import { useWildwoodComponent } from '../hooks/useWildwoodComponent';
 import { useFeedback } from '../hooks/useFeedback';
 import { useAttribution } from '../hooks/useAttribution';
+
+// The package entry itself — react-native resolves to the mock under vitest, so what a host would
+// import is what is asserted here.
+import * as reactNative from '../index';
 
 // Test theme/styles (no react-native dependency)
 import { defaultTheme, resolveTheme, themes } from '../styles/theme';
@@ -25,6 +28,60 @@ describe('@wildwood/react-native hooks', () => {
 
   it('useAttribution is a function', () => {
     expect(typeof useAttribution).toBe('function');
+  });
+});
+
+describe('@wildwood/react-native registration & subscription exports', () => {
+  // The DOM-free logic layer lives in @wildwood/react-shared and @wildwood/core. React Native hosts
+  // build their own screens over it, so the package entry has to hand it out rather than leaving
+  // them to depend on the shared package directly.
+  it.each([
+    'usePublicCatalog',
+    'invalidatePublicCatalog',
+    'seedPublicCatalog',
+    'clearPublicCatalogCache',
+    'useRegistrationMode',
+    'useRegistrationSubscription',
+    'resolveSignupRegistrationMode',
+    'signupTransition',
+    'initialSignupState',
+    'signupPlanNeedsPayment',
+    'packCheckoutTransition',
+    'initialPackCheckoutState',
+    'currentPackCheckoutItem',
+    'planChangeTransition',
+    'initialPlanChangeState',
+    'issueStepToken',
+    'isCurrentStep',
+    'grantsAccess',
+    'formatRegistrationSubscriptionLabel',
+    'resolveRegistrationSubscriptionLabels',
+    'buildPublicCatalog',
+    'resolvePriceOption',
+    'formatMoney',
+    'trialLabel',
+    'parseAddOnIdList',
+    'selectPacks',
+    'encodeCatalogSelection',
+    'decodeCatalogSelection',
+  ])('exports %s as a function', (name) => {
+    expect(typeof (reactNative as Record<string, unknown>)[name]).toBe('function');
+  });
+
+  it('exports the shared constants', () => {
+    expect(reactNative.ACCESS_GRANTING_STATUSES).toEqual(['Active', 'Trialing', 'PendingCancellation']);
+    expect(reactNative.MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS).toBeGreaterThan(0);
+    expect(reactNative.MAX_ADDON_SELECTION).toBe(25);
+    expect(reactNative.CATALOG_QUERY_KEYS).toBeDefined();
+    expect(reactNative.DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS).toBeDefined();
+  });
+
+  it('keeps the money the components format with in one place', () => {
+    // Same function the components call, so a host's own screen quotes what the SDK's screens quote.
+    expect(reactNative.formatMoney(79, 'CHF')).not.toContain('$');
+    expect(reactNative.trialLabel(14)).toBe('14-day free trial');
+    expect(reactNative.grantsAccess('PendingCancellation')).toBe(true);
+    expect(reactNative.grantsAccess('Expired')).toBe(false);
   });
 });
 

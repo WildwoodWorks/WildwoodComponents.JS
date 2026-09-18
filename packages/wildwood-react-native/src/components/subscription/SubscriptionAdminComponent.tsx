@@ -11,13 +11,14 @@ import { OverridesPanel } from './OverridesPanel';
 import { TierPlansPanel } from './TierPlansPanel';
 import type { TierSelectedEventArgs } from './TierPlansPanel';
 import { TierChangeConfirmationModal } from './TierChangeConfirmationModal';
-import { PAYMENT_CALLBACK_MISSING_MESSAGE, paymentAmountForPreview } from './paymentSeam';
-import type { PaymentRequiredArgs } from './paymentSeam';
+import { PAYMENT_CALLBACK_MISSING_MESSAGE, findTierPricing, paymentArgsForTierChange } from './paymentSeam';
+import type { PaymentRequiredArgs } from '@wildwood/react-shared';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
-// Re-exported from its original home so existing deep imports keep resolving.
-export type { PaymentRequiredArgs };
+// Declared in `@wildwood/react-shared` with the flows that hand it out, and re-exported from here
+// (and from the payment seam) so existing imports keep resolving.
+export type { PaymentRequiredArgs } from '@wildwood/react-shared';
 
 export interface SubscriptionAdminComponentProps {
   appId: string;
@@ -139,12 +140,11 @@ export function SubscriptionAdminComponent({
             admin.clearError();
             throw new Error(PAYMENT_CALLBACK_MISSING_MESSAGE);
           }
-          const txnId = await onPaymentRequired({
-            tierId: pendingArgs.tierId,
-            tierName: pendingArgs.tierName,
-            pricingId: pendingArgs.pricingId,
-            price: paymentAmountForPreview(preview),
-          });
+          // The payment starts the new plan's own subscription, billed at the plan's price, so hand
+          // over the pricing model (not the tier-pricing link id) and the price and trial that
+          // subscription will have.
+          const pricing = findTierPricing(admin.tiers, pendingArgs.tierId, pendingArgs.pricingId);
+          const txnId = await onPaymentRequired(paymentArgsForTierChange(pendingArgs, preview, pricing));
           if (!txnId) {
             setConfirmLoading(false);
             return;

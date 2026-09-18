@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { formatMoney } from '@wildwood/core';
 import type { TierChangePreviewModel } from '@wildwood/core';
 
 export interface TierChangeConfirmationModalProps {
@@ -9,13 +10,14 @@ export interface TierChangeConfirmationModalProps {
   loading?: boolean;
 }
 
+/**
+ * One money formatter for the whole preview, the platform's own: an amount the server left out is
+ * zero IN THE PREVIEW'S CURRENCY (the old hard-coded `'$0.00'` quoted dollars to a customer being
+ * billed in francs), and an ISO code Intl does not know says the code and the amount rather than
+ * throwing inside the modal.
+ */
 function formatCurrency(amount: number | undefined | null, currency: string): string {
-  if (amount == null) return '$0.00';
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
-  } catch {
-    return `$${amount.toFixed(2)}`;
-  }
+  return formatMoney(amount ?? 0, currency);
 }
 
 export function TierChangeConfirmationModal({

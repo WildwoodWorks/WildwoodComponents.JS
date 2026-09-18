@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet } from
 import type { ViewStyle } from 'react-native';
 import type { AppTierModel, AppTierPricingModel } from '@wildwood/core';
 import {
-  formatPrice,
+  formatMoney,
   isEnterpriseTier,
   hasAnnualPricing,
   getSelectedPricing,
@@ -11,6 +11,11 @@ import {
 } from '@wildwood/core';
 import { useWildwood } from '../hooks/useWildwood';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="pricing"` (or
+ * `RegistrationSubscriptionPricing` directly), available from this release. Still exported and
+ * unchanged.
+ */
 export interface PricingDisplayComponentProps {
   appId?: string;
   title?: string;
@@ -26,6 +31,12 @@ export interface PricingDisplayComponentProps {
   style?: ViewStyle;
 }
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="pricing"`, available from this
+ * release, which renders the same tier grid off the live public catalog, adds packs and a
+ * loading/unavailable state that never shows a price the server did not just quote. This component
+ * stays exported and behaves exactly as before; nothing has been removed.
+ */
 export function PricingDisplayComponent({
   appId,
   title,
@@ -159,7 +170,7 @@ export function PricingDisplayComponent({
                     ) : pricing ? (
                       <View>
                         <Text style={styles.tierPrice}>
-                          {formatPrice(pricing.price, currency)}
+                          {formatMoney(pricing.price, currency)}
                           {pricing.billingFrequency ? (
                             <Text style={styles.tierInterval}>/{pricing.billingFrequency.toLowerCase()}</Text>
                           ) : null}

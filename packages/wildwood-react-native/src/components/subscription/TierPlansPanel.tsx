@@ -4,15 +4,11 @@ import type { ViewStyle } from 'react-native';
 import type { AppTierModel } from '@wildwood/core';
 import { hasAnnualPricing, getSelectedPricing } from '@wildwood/core';
 import { TierCard } from '../tier/TierCard';
+import type { TierSelectedEventArgs } from '@wildwood/react-shared';
 
-export interface TierSelectedEventArgs {
-  tierId: string;
-  tierName: string;
-  pricingId?: string;
-  price?: number;
-  isFreeTier: boolean;
-  isChange: boolean;
-}
+// Declared in `@wildwood/react-shared` with the plan-change flow that consumes it — one shape for
+// web and native — and re-exported from here so existing imports keep resolving.
+export type { TierSelectedEventArgs } from '@wildwood/react-shared';
 
 export interface TierPlansPanelProps {
   tiers: AppTierModel[];
