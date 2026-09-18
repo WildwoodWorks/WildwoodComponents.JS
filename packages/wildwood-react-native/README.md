@@ -110,6 +110,70 @@ import { captureScreen } from 'react-native-view-shot';
 />
 ```
 
+## Taking card payments
+
+`PaymentComponent` initiates the payment, follows a provider's redirect and reports the result on its
+own. What it cannot do is show a card sheet or a bank's 3-D Secure challenge: that needs a native
+payment SDK, a rebuild and (on iOS) merchant configuration, so **this package depends on no payment
+SDK at all** — the same injection pattern as `captureScreenshot` and `onProviderSignIn`.
+
+**Without a handler nothing is required of the app** and nothing changes: the component never tells
+the server it can confirm an intent, never asks for a `SetupIntent`, and opens the provider's own page
+when one is offered.
+
+**With a handler** the component asks for a `SetupIntent` when the plan starts a free trial (so the
+card is saved for the charge at trial end rather than charged today), confirms the intent through your
+SDK, then has the server verify it. Wire it once on the provider, or per component:
+
+```tsx
+// HOST CODE — @stripe/stripe-react-native is YOUR dependency, not the SDK's.
+import { StripeProvider, confirmPayment, confirmSetupIntent } from '@stripe/stripe-react-native';
+import { WildwoodProvider, type PaymentActionAdapter } from '@wildwood/react-native';
+
+// Module scope: a fresh object each render re-renders every consumer.
+const stripeActions: PaymentActionAdapter = {
+  async confirmPayment(clientSecret) {
+    const { error } = await confirmPayment(clientSecret, { paymentMethodType: 'Card' });
+    if (!error) return { status: 'succeeded' };
+    return error.code === 'Canceled' ? { status: 'cancelled' } : { status: 'failed', message: error.message };
+  },
+  async confirmCardSetup(clientSecret) {
+    const { error } = await confirmSetupIntent(clientSecret, { paymentMethodType: 'Card' });
+    if (!error) return { status: 'succeeded' };
+    return error.code === 'Canceled' ? { status: 'cancelled' } : { status: 'failed', message: error.message };
+  },
+};
+
+<StripeProvider publishableKey={PUBLISHABLE_KEY}>
+  <WildwoodProvider config={config} paymentActionHandler={stripeActions}>
+    <MyApp />
+  </WildwoodProvider>
+</StripeProvider>;
+```
+
+`PaymentSheet` works just as well — the adapter only has to resolve `succeeded`, `failed` (with a
+message to show) or `cancelled`. **`cancelled` is not a failure**: the customer is returned to the form
+with nothing said, and the next attempt confirms the same intent rather than starting a second
+subscription. A handler that implements `confirmPayment` but not `confirmCardSetup` is treated as no
+handler for trials — a `SetupIntent` nothing can confirm leaves a trial with no saved card.
+
+```tsx
+<PaymentComponent
+  amount={99}
+  currency="USD"
+  pricingModelId={pricingId}
+  isSubscription
+  trialDays={14}
+  description="Pro plan"
+  onPaymentSuccess={(result) => subscribe(result.transactionId)}
+  onContinue={() => navigation.navigate('Home')} // no Continue button without this
+/>
+```
+
+`onPaymentSuccess` / `onPaymentComplete` fire exactly once per payment; `onContinue` is what advances
+the host. Omit `amount` for the free-form payment screen (the customer types the amount), and pass
+`billingAddress` for an app whose payment configuration requires one.
+
 ## Theme System
 
 `StyleSheet`-based instead of CSS, but the token names mirror the web package's `--ww-*` custom

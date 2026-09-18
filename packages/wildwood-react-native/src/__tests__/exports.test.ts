@@ -43,6 +43,7 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     'useRegistrationMode',
     'useRegistrationSubscription',
     'resolveSignupRegistrationMode',
+    'usePaymentActionHandler',
     'signupTransition',
     'initialSignupState',
     'signupPlanNeedsPayment',

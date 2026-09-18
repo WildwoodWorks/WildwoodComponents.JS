@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Linking, Platform } from 'react-native';
 import { createWildwoodClient, type AttributionPlatform, type ThemeName, type WildwoodConfig } from '@wildwood/core';
+import type { PaymentActionAdapter } from '@wildwood/react-shared';
 import { WildwoodContext } from './WildwoodContext';
+import { PaymentActionContext } from './PaymentActionContext';
 import { ThemeContext } from '../styles/ThemeContext';
 import { resolveTheme, type WildwoodTheme } from '../styles/theme';
 
 export interface WildwoodProviderProps {
   config: WildwoodConfig;
   children: ReactNode;
+  /**
+   * How a card sheet or a bank's 3-D Secure challenge is put in front of the customer on this
+   * device. This package ships no payment SDK, so wire one here (typically over
+   * `@stripe/stripe-react-native`) and every Wildwood surface below the provider can take a card;
+   * a component's own `paymentActionHandler` prop overrides it.
+   *
+   * Omit it and nothing breaks and nothing new is asked of the app: the components never claim they
+   * can confirm an intent, never ask the server for a SetupIntent, and send the customer to the
+   * provider's own page when one is offered. Hoist the object to module scope — a fresh literal each
+   * render re-renders every consumer.
+   */
+  paymentActionHandler?: PaymentActionAdapter;
   /**
    * Component colours and shape. Accepts a built-in theme name ('woodland-warm' | 'cool-blue' |
    * 'fall-colors') or a partial token override, which is layered over the default exactly as
@@ -27,7 +41,7 @@ function nativeAttributionPlatform(): AttributionPlatform {
   return 'unknown';
 }
 
-export function WildwoodProvider({ config, children, theme }: WildwoodProviderProps) {
+export function WildwoodProvider({ config, children, theme, paymentActionHandler }: WildwoodProviderProps) {
   const client = useMemo(() => {
     // React Native should use 'memory' storage by default
     // Consumers can pass a custom StorageAdapter for AsyncStorage
@@ -101,7 +115,9 @@ export function WildwoodProvider({ config, children, theme }: WildwoodProviderPr
 
   return (
     <WildwoodContext.Provider value={client}>
-      <ThemeContext.Provider value={resolvedTheme}>{children}</ThemeContext.Provider>
+      <PaymentActionContext.Provider value={paymentActionHandler}>
+        <ThemeContext.Provider value={resolvedTheme}>{children}</ThemeContext.Provider>
+      </PaymentActionContext.Provider>
     </WildwoodContext.Provider>
   );
 }

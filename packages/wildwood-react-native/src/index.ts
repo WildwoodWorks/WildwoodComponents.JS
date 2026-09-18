@@ -156,8 +156,11 @@ export {
 export type { RegistrationSubscriptionLabels } from '@wildwood/react-shared';
 
 // The seam a stack with no payment SDK plugs into (React Native has none in the box: a host wires
-// its own, e.g. @stripe/stripe-react-native).
+// its own, e.g. @stripe/stripe-react-native). Wire it once on `WildwoodProvider`
+// (`paymentActionHandler`), or per component through the prop of the same name; `usePaymentActionHandler`
+// reads whichever is in force, so a host screen follows the same rule the components do.
 export type { PaymentActionAdapter, PaymentActionOutcome } from '@wildwood/react-shared';
+export { usePaymentActionHandler, PaymentActionContext } from './provider/PaymentActionContext';
 export type { RegistrationSubscriptionError, PricingBilling } from '@wildwood/react-shared';
 
 // Components
