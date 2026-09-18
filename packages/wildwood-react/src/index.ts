@@ -132,6 +132,36 @@ export { OverageSummaryComponent } from './components/usage/OverageSummaryCompon
 export type { OverageSummaryComponentProps } from './components/usage/OverageSummaryComponent.js';
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
+
+// Registration & Subscription — one component, three views (pricing ships now; signup and manage follow)
+export { RegistrationAndSubscriptionComponent } from './components/registrationSubscription/RegistrationAndSubscriptionComponent.js';
+export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/PricingView.js';
+export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice.js';
+export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice.js';
+export {
+  DEFAULT_LABELS as DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS,
+  formatLabel as formatRegistrationSubscriptionLabel,
+} from './components/registrationSubscription/labels.js';
+export type { RegistrationSubscriptionLabels } from './components/registrationSubscription/labels.js';
+export type {
+  RegistrationAndSubscriptionComponentProps,
+  RegistrationSubscriptionView,
+  RegistrationSubscriptionError,
+  RegistrationSubscriptionCommonProps,
+  RegistrationSubscriptionPricingProps,
+  RegistrationSubscriptionSignupProps,
+  RegistrationSubscriptionManageProps,
+  PricingSelection,
+  PricingBilling,
+  PricingPackSelection,
+  AddOnGroup,
+  AddOnPresentation,
+  SignupPlanSelection,
+  SignupPackSelection,
+  RegistrationClosedInfo,
+  ManageLayout,
+  ManageSection,
+} from './components/registrationSubscription/types.js';
 export { FeatureGate } from './components/gating/FeatureGate.js';
 export type { FeatureGateProps } from './components/gating/FeatureGate.js';
 

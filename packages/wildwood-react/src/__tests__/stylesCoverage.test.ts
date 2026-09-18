@@ -20,16 +20,27 @@ const COMPONENTS = [
   'components/registration/SignupWithSubscriptionComponent.tsx',
   'components/usage/UsageDashboardComponent.tsx',
   'components/pricing/PricingDisplayComponent.tsx',
+  'components/registrationSubscription/views/PricingView.tsx',
+  'components/registrationSubscription/views/SignupView.tsx',
+  'components/registrationSubscription/views/ManageView.tsx',
+  'components/registrationSubscription/parts/PlanGrid.tsx',
+  'components/registrationSubscription/parts/PackGrid.tsx',
+  'components/registrationSubscription/parts/PricingSkeleton.tsx',
+  'components/registrationSubscription/parts/ClosedNotice.tsx',
 ];
 
 /**
  * Every `ww-*` token the file mentions as a class. Classes are not all written in a `className`
- * attribute (helpers return them as bare strings), so the whole source is scanned and the two other
+ * attribute (helpers return them as bare strings), so the whole source is scanned and the other
  * things that wear a `ww-` name are removed first: CSS custom properties (`--ww-*`, read through
- * `getPropertyValue`) and element ids (`id=` / `htmlFor=`).
+ * `getPropertyValue`), element ids (`id=` / `htmlFor=`) and the stable `data-ww-*` hooks the
+ * registration + subscription views expose for tests.
  */
 function classesUsedIn(source: string): Set<string> {
-  const cleaned = source.replace(/--ww-[a-zA-Z0-9-]+/g, '').replace(/\b(?:id|htmlFor)=(["'])[^"']*\1/g, '');
+  const cleaned = source
+    .replace(/--ww-[a-zA-Z0-9-]+/g, '')
+    .replace(/\bdata-ww-[a-zA-Z0-9-]+/g, '')
+    .replace(/\b(?:id|htmlFor)=(["'])[^"']*\1/g, '');
   return new Set(cleaned.match(/\bww-[a-z0-9]+(?:-[a-z0-9]+)*\b/g) ?? []);
 }
 

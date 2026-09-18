@@ -6030,6 +6030,119 @@ img.ww-avatar {
     z-index: 10000;
 }
 
+/* The three RegistrationAndSubscriptionComponent views share the .ww-regsub column above. */
+
+.ww-regsub-pricing,
+.ww-regsub-signup,
+.ww-regsub-manage {
+    width: 100%;
+}
+
+.ww-regsub-plans,
+.ww-regsub-packs {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ww-regsub-pack-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-pack-group-title {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-regsub-pack-group-blurb {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+/* Pack card internals. Every child is phrasing content so the multi-select card can be a button. */
+
+.ww-pack-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-pack-card-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--ww-primary);
+}
+
+.ww-pack-card-blurb {
+    color: var(--ww-text-secondary);
+}
+
+.ww-pack-card-meter {
+    color: var(--ww-text-muted);
+    font-size: 0.875rem;
+}
+
+.ww-pack-card-price {
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+/* A pack the operator has defined but not priced. Says so; never implies free. */
+.ww-pack-card-unavailable {
+    font-weight: 400;
+    color: var(--ww-text-muted);
+}
+
+.ww-pack-card-trial {
+    color: var(--ww-success);
+    font-size: 0.875rem;
+}
+
+.ww-pack-card-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-pack-card-feature {
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Shown in place of prices when the catalog cannot be read. Carries a Retry, never a price. */
+.ww-regsub-unavailable {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ww-regsub-notice {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+.ww-regsub-closed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-regsub-closed-message {
+    margin: 0;
+    color: var(--ww-text-primary);
+}
+
 /* ── Usage dashboard ── */
 
 .ww-usage-dashboard {
