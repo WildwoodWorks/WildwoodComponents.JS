@@ -251,6 +251,24 @@ describe('RegistrationSubscriptionPricing - prices', () => {
     expect(container.textContent).not.toContain(formatMoney(PRO_MONTHLY, 'EUR'));
   });
 
+  it('prices the plan grid and the packs alike in a currency with no built-in symbol', async () => {
+    // CHF is outside the SDK's seven-entry symbol table, which is exactly where the old
+    // `formatPrice` quoted francs with a dollar sign. Both grids go through `formatMoney` now, so
+    // one Swiss app does not get a plan card in dollars beside a pack card in francs.
+    const swissTiers = ALL_TIERS.map((model) => ({ ...model, currency: 'CHF' }) as AppTierModel);
+    const swissPacks = ALL_PACKS.map((model) => ({ ...model, currency: 'CHF' }) as AppTierAddOnModel);
+    const { container } = renderPricing({ showAddOns: true }, stubClient(swissTiers, swissPacks));
+
+    await screen.findByText('Pro');
+    // textContent rather than a text query: Intl separates a code-only currency from its amount
+    // with a non-breaking space, which testing-library's default normalizer would collapse.
+    const price = tierCard(container, 'Pro').querySelector('.ww-tier-price-amount');
+    expect(price?.textContent).toBe(formatMoney(PRO_MONTHLY, 'CHF'));
+    expect(container.querySelector('.ww-pack-card-price')?.textContent).toContain(formatMoney(DOCS_PACK_PRICE, 'CHF'));
+    // Not one dollar sign anywhere: the fallback symbol is what this guards against.
+    expect(container.textContent ?? '').not.toContain('$');
+  });
+
   it('renders an SSR snapshot on the first paint, with no flash and no request', async () => {
     const stubs = stubClient();
     const snapshot = buildPublicCatalog({ appId: 'test-app-id', tiers: ALL_TIERS, addOns: ALL_PACKS });

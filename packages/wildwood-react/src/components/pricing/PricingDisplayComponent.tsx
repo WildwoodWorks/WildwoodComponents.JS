@@ -4,6 +4,11 @@ import { useWildwood } from '../../hooks/useWildwood.js';
 import { TierCard } from '../tier/TierCard.js';
 import { getSelectedPricing, computeAnnualDiscount, hasAnnualPricing } from '../tier/tierUtils.js';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="pricing"` (or
+ * `RegistrationSubscriptionPricing` directly) and its `RegistrationSubscriptionPricingProps`.
+ * Still exported and unchanged.
+ */
 export interface PricingDisplayComponentProps {
   appId?: string;
   title?: string;
@@ -20,6 +25,15 @@ export interface PricingDisplayComponentProps {
   className?: string;
 }
 
+/**
+ * A public pricing grid.
+ *
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="pricing"`, which renders the
+ * same `TierCard` grid (same markup, same CTAs) off the live public catalog, adds packs, JSON-LD
+ * offers, an SSR-seedable `initialCatalog` and a loading/unavailable state that never shows a
+ * price the server did not just quote. This component stays exported and behaves exactly as
+ * before; nothing has been removed.
+ */
 export function PricingDisplayComponent({
   appId,
   title,

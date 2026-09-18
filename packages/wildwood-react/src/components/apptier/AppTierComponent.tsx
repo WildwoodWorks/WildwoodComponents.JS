@@ -6,6 +6,11 @@ import { TierCard } from '../tier/TierCard.js';
 import { TierCardFeatures } from '../tier/TierCardFeatures.js';
 import { formatPrice, getSelectedPricing, computeAnnualDiscount, hasAnnualPricing } from '../tier/tierUtils.js';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="manage"` (or
+ * `RegistrationSubscriptionManage` directly) and its `RegistrationSubscriptionManageProps`.
+ * Still exported and unchanged.
+ */
 export interface AppTierComponentProps {
   title?: string;
   subtitle?: string;
@@ -31,6 +36,18 @@ export interface AppTierComponentProps {
 
 type Step = 'tiers' | 'confirm' | 'payment' | 'success' | 'cancel-confirm';
 
+/**
+ * Tier comparison, selection and a payment step.
+ *
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="manage"`, which runs a plan
+ * change through preview, confirmation, its own card modal, 3-D Secure and completion.
+ *
+ * Known bug, and the reason this should not be used for anything priced: the payment step here
+ * passes no `pricingModelId` (and no `isSubscription`) to `PaymentComponent`, so a paid plan is
+ * charged once instead of starting the plan's recurring subscription and its free trial. The
+ * manage view sends the plan's pricing model. Left as it is deliberately — fixing it would change
+ * what existing hosts charge — so this component stays exported and behaves exactly as before.
+ */
 export function AppTierComponent({
   title,
   subtitle,

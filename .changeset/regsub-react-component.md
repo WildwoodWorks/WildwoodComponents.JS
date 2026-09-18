@@ -114,4 +114,35 @@ for - a registration token's, an admin's - reads "Included with your registratio
 renewal date, offers no Reactivate, and says what cancelling it really does. Features an override
 grants read as "Included" rather than as part of a plan that does not carry them.
 
-`PricingDisplayComponent` and `SignupWithSubscriptionComponent` are unchanged.
+**Deprecations.** Three components are now marked `@deprecated`, pointing at the view that replaces
+them. All three keep working, keep their behaviour and stay exported — nothing has been removed, so a
+site can move one page at a time:
+
+- `PricingDisplayComponent` -> `view="pricing"`
+- `SignupWithSubscriptionComponent` -> `view="signup"`
+- `AppTierComponent` -> `view="manage"`. This one also carries a known payment bug: its payment step
+  passes no `pricingModelId` (and no `isSubscription`) to `PaymentComponent`, so a paid plan is
+  charged once instead of starting the plan's recurring subscription and its free trial. It is left
+  as it is deliberately, because fixing it would change what existing hosts charge; the manage view
+  sends the plan's pricing model, so anything priced belongs there.
+
+`TokenRegistrationComponent` is NOT deprecated: it is still the right thing for a bare token form,
+and the signup view renders it for the registration form and the optional token card.
+
+Also new: `usePublicCatalog` (with `invalidatePublicCatalog`, `seedPublicCatalog`,
+`clearPublicCatalogCache`), `useRegistrationMode` and `useRegistrationSubscription` are re-exported
+from `@wildwood/react`, so a host does not have to import the logic layer from
+`@wildwood/react-shared` to prime a catalog or read the registration mode itself.
+
+Docs and harness: the README gains a Registration & Subscription section — the three views and their
+props, the signup order, the `SignupOutcome`, the dynamic-pricing rules, the `data-ww-view` /
+`data-ww-step` test hooks, SSR and prerendering with `initialCatalog`, and a migration recipe per
+site shape (a signup page with `?tier`/`?pricing`/`?token`, a landing pricing section, a
+subscription page, an invite page and a pack-first signup). Storybook covers the pricing views from
+a `buildPublicCatalog` snapshot (no server), the signup, invite and manage views, and `ClosedNotice`;
+the React test harness gains a Registration & Subscription page with a view switcher and the props as
+controls, and the end-to-end suite a route-mocked smoke test of the pricing grid, the grouped packs,
+the open and closed signup forms and the `data-ww-view` attributes.
+
+One detail worth naming: `TokenPlanSummary` keys its granted packs and features by the add-on id and
+feature code rather than by display name, so two grants that share a name cannot collide.

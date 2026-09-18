@@ -13,6 +13,11 @@ import { PaymentComponent } from '../payment/PaymentComponent.js';
 import { DisclaimerComponent } from '../disclaimer/DisclaimerComponent.js';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
+/**
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"` (or
+ * `RegistrationSubscriptionSignup` directly) and its `RegistrationSubscriptionSignupProps`.
+ * Still exported and unchanged.
+ */
 export interface SignupWithSubscriptionComponentProps {
   appId?: string;
   preSelectedTierId?: string;
@@ -32,6 +37,17 @@ export interface SignupWithSubscriptionComponentProps {
 
 type Step = 'register' | 'select-tier' | 'payment' | 'processing' | 'disclaimers' | 'success';
 
+/**
+ * The registration + subscription wizard.
+ *
+ * @deprecated Use `RegistrationAndSubscriptionComponent` with `view="signup"`. The view keeps this
+ * wizard's step copy and locators but reads the app's registration settings itself (no
+ * `requireToken` / `allowOpenRegistration` / `showOptionalTokenEntry` to resolve), validates a
+ * registration token's plan before anything is charged, buys packs after the login on the card
+ * already taken, reports a structured `SignupOutcome`, and handles invite redemption
+ * (`tokenMode="required"`). This component stays exported and behaves exactly as before; nothing
+ * has been removed.
+ */
 export function SignupWithSubscriptionComponent({
   appId,
   preSelectedTierId,

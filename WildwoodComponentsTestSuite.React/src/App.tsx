@@ -21,10 +21,14 @@ import { SubscriptionAdminTest } from './pages/SubscriptionAdminTest';
 import { NotificationToastTest } from './pages/NotificationToastTest';
 import { PaymentFormTest } from './pages/PaymentFormTest';
 import { SignupWithSubscriptionTest } from './pages/SignupWithSubscriptionTest';
+import { RegistrationAndSubscriptionTest } from './pages/RegistrationAndSubscriptionTest';
 import { UsageDashboardTest } from './pages/UsageDashboardTest';
 
 const config = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL,
+  // Same origin when no API base URL is configured: the dev server proxies /api, which keeps the
+  // harness usable (and its requests interceptable by an end-to-end run) without an .env file.
+  // An undefined baseUrl would make every request throw before it was sent.
+  baseUrl: import.meta.env.VITE_API_BASE_URL || window.location.origin,
   appId: import.meta.env.VITE_APP_ID || '',
   enableAutoTokenRefresh: true,
   sessionExpirationMinutes: 60,
@@ -55,6 +59,7 @@ export function App() {
           <Route path="notification-toast" element={<NotificationToastTest />} />
           <Route path="payment-form" element={<PaymentFormTest />} />
           <Route path="signup-with-subscription" element={<SignupWithSubscriptionTest />} />
+          <Route path="registration-subscription" element={<RegistrationAndSubscriptionTest />} />
           <Route path="usage-dashboard" element={<UsageDashboardTest />} />
         </Route>
       </Routes>

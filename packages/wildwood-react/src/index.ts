@@ -62,6 +62,21 @@ export { useUsageDashboard } from './hooks/useUsageDashboard.js';
 export type { UseUsageDashboardReturn, UseUsageDashboardOptions } from './hooks/useUsageDashboard.js';
 export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
+// Registration & subscription reads (the logic itself lives in @wildwood/react-shared)
+export {
+  usePublicCatalog,
+  invalidatePublicCatalog,
+  clearPublicCatalogCache,
+  seedPublicCatalog,
+} from './hooks/usePublicCatalog.js';
+export type { UsePublicCatalogOptions, UsePublicCatalogReturn } from './hooks/usePublicCatalog.js';
+export { useRegistrationMode } from './hooks/useRegistrationMode.js';
+export type { UseRegistrationModeOptions, UseRegistrationModeReturn } from './hooks/useRegistrationMode.js';
+export { useRegistrationSubscription } from './hooks/useRegistrationSubscription.js';
+export type {
+  UseRegistrationSubscriptionOptions,
+  UseRegistrationSubscriptionReturn,
+} from './hooks/useRegistrationSubscription.js';
 
 // Routing
 export { ProtectedRoute } from './components/routing/ProtectedRoute.js';

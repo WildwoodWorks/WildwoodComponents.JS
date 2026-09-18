@@ -27,8 +27,13 @@ and failure outcomes), `completeTierChange` for a plan change parked on 3-D Secu
 `AppTierActionError`: the server's own `errorCode` when it sent one, `NotSupported` for a 404 that
 carries none (a server older than this SDK), `RequestFailed` otherwise. `changeTier` takes an
 options form that posts `SupportsPaymentAction`; its positional form is unchanged.
-`subscribeToAddOn` and `cancelAddOnSubscription` are deprecated in favour of the detailed variants,
-which say why something was refused instead of answering a bare `false`.
+
+**Deprecations.** `subscribeToAddOn` and `cancelAddOnSubscription` answer a bare `boolean`, which
+cannot say why the server refused: use `subscribeToAddOnDetailed` and `cancelAddOnDetailed`.
+`formatPrice` is deprecated in favour of `formatMoney`: it reads a seven-entry symbol table and
+falls back to `'$'`, so an app billing in CHF or SEK is quoted in dollars, and `formatMoney`'s
+output is byte-identical for every currency that table does carry. All three still work and are
+still exported; nothing has been removed.
 
 Types follow: `currency` on `AppTierModel`/`AppTierAddOnModel`, `userId`, `appId`,
 `appTierAddOnPricingId`, `paymentTransactionId` and `userPaymentProviderId` on
@@ -37,3 +42,8 @@ Types follow: `currency` on `AppTierModel`/`AppTierAddOnModel`, `userId`, `appId
 unions. The emitter gains `entitlementsChanged` (`appId` + reason), and `InitiatePaymentRequest`
 gains `billingAddress`, sent as `BillingAddress` — the server's `InitiatePaymentRequest` has no
 billing-address property yet, so it needs one before the value is bound rather than ignored.
+
+The README documents the catalog helpers, `parseSignupParams`, `getStripeInstance`, the new
+`AppTierService` methods with the structured-error rule (`NotSupported` on a bare 404 means "this
+deployment does not have that endpoint yet"), the `entitlementsChanged` event and the
+`billingAddress` follow-up.

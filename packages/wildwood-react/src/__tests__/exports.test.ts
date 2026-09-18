@@ -154,6 +154,15 @@ describe('@wildwood/react exports', () => {
     );
     expect(WildwoodReact.formatRegistrationSubscriptionLabel).toBeDefined();
   });
+  it('exports the registration + subscription hooks', () => {
+    expect(WildwoodReact.usePublicCatalog).toBeDefined();
+    expect(WildwoodReact.invalidatePublicCatalog).toBeDefined();
+    expect(WildwoodReact.seedPublicCatalog).toBeDefined();
+    expect(WildwoodReact.clearPublicCatalogCache).toBeDefined();
+    expect(WildwoodReact.useRegistrationMode).toBeDefined();
+    expect(WildwoodReact.useRegistrationSubscription).toBeDefined();
+    expect(WildwoodReact.useSubscriptionAdmin).toBeDefined();
+  });
   it('exports LoadingSpinner', () => {
     expect(WildwoodReact.LoadingSpinner).toBeDefined();
   });

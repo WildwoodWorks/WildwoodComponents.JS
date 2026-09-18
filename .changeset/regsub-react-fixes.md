@@ -29,6 +29,8 @@ flight it only records the request and advances when it lands.
 rendered, typed into, and never sent. They are now validated before anything is charged (an
 incomplete address stops the request with "Please complete your billing address.") and travel with
 `initiatePayment` as `billingAddress`; the key is left off entirely when the app does not ask for one.
+Server follow-up: WildwoodAPI's own `InitiatePaymentRequest` has no billing-address property yet, so
+until it gains one the value is sent and ignored rather than stored.
 
 **The tier-change confirmation modal only appeared in the tabbed layout.** In a stacked
 (`displayMode` other than `tabs`) layout, picking a plan previewed the change and then showed
@@ -46,6 +48,12 @@ and sees exactly what it saw before. The self-service change now posts through
 reports itself in one notice (with Try Again) instead of the data layer's copy of the same message.
 Everything else - the panels, the add-on handlers, overrides, usage, the cancel notice,
 `displayMode`, `showStatusAboveTabs`, `onMergeUsage` and `onSubscriptionChanged` - is untouched.
+
+Two knock-on effects arrive through its data layer, `useSubscriptionAdmin` (see the
+`@wildwood/react-shared` entry): a mutation that answers a bare `false` now also sets `error`, so a
+refused pack subscribe or cancel says so instead of appearing to work, and every
+entitlement-changing mutation emits `entitlementsChanged` on the client's emitter alongside the
+feature-cache invalidation it already did.
 
 **`AddOnsPanel` cancel now confirms first**, in the words that fit how the pack is paid for: a
 billed pack says access continues to the end of the current billing period, and a pack nobody paid
@@ -71,6 +79,16 @@ override grants as "Included", so it does not read as part of a plan that does n
   `ww-alert ww-alert-danger`, cleared when the next attempt starts, instead of the panel showing
   nothing at all. Both callbacks may resolve `boolean | void`.
 - Prices use the pack's own `currency` when it carries one, through `formatMoney`.
+
+**A plan card quoted francs in dollars.** `TierCard`'s header formatted with the older `formatPrice`,
+which reads a seven-entry symbol table and falls back to `'$'` for everything else — so an app
+billing in CHF or SEK showed `$79.00` on the plan grid while the packs, the order summary and the
+manage panels (already on `formatMoney`) showed the real currency. Both the header and
+`TierChangeConfirmationModal` now use core's `formatMoney`, whose symbol comes from `Intl`. Output is
+byte-identical for USD, EUR, GBP, JPY, INR, CAD and AUD (JPY's zero decimals included), so existing
+locators and snapshots are unaffected; the modal also stops answering a missing amount with a
+hard-coded `'$0.00'` and now says zero in the preview's own currency. Every plan grid on the platform
+shares that header, so `PricingDisplayComponent` and `AppTierComponent` are fixed too.
 
 **Missing stylesheet rules.** `ww-addons-*`, `ww-loading`, `ww-badge-danger`/`-warning`,
 `ww-sub-admin`, `ww-sub-cancel-notice`, `ww-pricing-display` and every `ww-usage-*` class the usage

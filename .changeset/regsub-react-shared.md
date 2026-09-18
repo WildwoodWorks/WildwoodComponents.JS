@@ -61,7 +61,10 @@ callback that fires twice are both no-ops.
 until now a refused pack subscribe, cancel, feature override or usage-limit change was
 indistinguishable from one that worked. They still return the boolean. Every entitlement-changing
 mutation also emits `entitlementsChanged` on the client's emitter with the reason that fits
-(`tierChange`, `addOn`, `cancel`, `reactivate` or `manual`) alongside the `invalidateFeatures()` it
-already did. New members: `changeTierWithOptions`, `completeTierChange`, `subscribeToAddOnDetailed`,
+(`tierChange`, `addOn`, `cancel`, `reactivate` or `manual` — the union's sixth member, `signup`, is
+the signup flow's) alongside the `invalidateFeatures()` it already did. New members: `changeTierWithOptions`, `completeTierChange`, `subscribeToAddOnDetailed`,
 `cancelAddOnDetailed`, `reactivateAddOn`, `getTrialEligibility` and `getPublicAddOns` — the detailed
 ones put the server's own refusal (or its error code) in `error` and return the result.
+
+The package also gains a README, covering the hooks above, the three machines and their step tokens,
+`resolveSignupRegistrationMode`'s table of registration paths, and the `useSubscriptionAdmin` change.
