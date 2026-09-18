@@ -8,6 +8,7 @@ import type {
   AISessionSummary,
   AIConfiguration,
   TTSVoice,
+  SpeechTranscriptionResult,
   RequestOptions,
 } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
@@ -63,6 +64,16 @@ export interface UseAIReturn {
     speed?: number,
     configurationId?: string,
   ) => Promise<{ audioBase64: string; contentType: string } | null>;
+  /**
+   * Transcribe a recorded audio clip server-side (POST api/stt/transcribe). Never rejects:
+   * failures arrive as `{ success: false, errorMessage }`, so `useAI().error` is left alone.
+   */
+  transcribeAudio: (
+    audio: Blob,
+    contentType?: string,
+    configurationId?: string,
+    language?: string,
+  ) => Promise<SpeechTranscriptionResult>;
 }
 
 export function useAI(): UseAIReturn {
@@ -253,6 +264,13 @@ export function useAI(): UseAIReturn {
     [client],
   );
 
+  const transcribeAudio = useCallback(
+    async (audio: Blob, contentType?: string, configurationId?: string, language?: string) => {
+      return client.ai.transcribeAudio(audio, contentType, configurationId, language);
+    },
+    [client],
+  );
+
   return {
     sessions,
     loading,
@@ -273,5 +291,6 @@ export function useAI(): UseAIReturn {
     getTTSVoices,
     getTTSVoicesForConfiguration,
     synthesizeSpeech,
+    transcribeAudio,
   };
 }

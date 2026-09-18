@@ -237,6 +237,7 @@ export type {
   AISession,
   AISessionSummary,
   AIConfiguration,
+  SpeechTranscriptionResult,
   MessageThread,
   SecureMessage,
   PlatformInfo,
