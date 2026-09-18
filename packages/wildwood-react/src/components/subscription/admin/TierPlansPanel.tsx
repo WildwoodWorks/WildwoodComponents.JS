@@ -2,17 +2,13 @@
 
 import { useState, useCallback } from 'react';
 import type { AppTierModel } from '@wildwood/core';
+import type { TierSelectedEventArgs } from '@wildwood/react-shared';
 import { TierCard } from '../../tier/TierCard.js';
 import { getSelectedPricing, hasAnnualPricing } from '../../tier/tierUtils.js';
 
-export interface TierSelectedEventArgs {
-  tierId: string;
-  tierName: string;
-  pricingId?: string;
-  price?: number;
-  isFreeTier: boolean;
-  isChange: boolean;
-}
+// Declared in `@wildwood/react-shared` with the plan-change flow that consumes it, and re-exported
+// from here so the path hosts already import it from still answers.
+export type { TierSelectedEventArgs } from '@wildwood/react-shared';
 
 export interface TierPlansPanelProps {
   tiers: AppTierModel[];

@@ -128,7 +128,11 @@ export type {
 // StrictMode double-invocations and duplicated callbacks no-ops.
 export { issueStepToken, isCurrentStep } from './registrationSubscription/stepTokens.js';
 export type { StepToken } from './registrationSubscription/stepTokens.js';
-export { signupTransition, initialSignupState } from './registrationSubscription/signupMachine.js';
+export {
+  signupTransition,
+  initialSignupState,
+  signupPlanNeedsPayment,
+} from './registrationSubscription/signupMachine.js';
 export type {
   SignupStep,
   SignupState,
@@ -141,6 +145,7 @@ export type {
   SignupOutcomeTier,
   SignupCatalogNames,
   SignupMachineOptions,
+  SignupPaymentOrder,
   ResolvedSignupOptions,
 } from './registrationSubscription/signupMachine.js';
 export {
@@ -165,3 +170,34 @@ export type {
   PlanChangeEvent,
   PlanChangeMachineOptions,
 } from './registrationSubscription/planChangeMachine.js';
+
+// Copy. Every string the registration + subscription surfaces say, and the two functions that
+// layer a host's overrides onto it and fill its `{placeholder}` slots.
+export {
+  DEFAULT_LABELS as DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS,
+  formatLabel as formatRegistrationSubscriptionLabel,
+  resolveLabels as resolveRegistrationSubscriptionLabels,
+} from './registrationSubscription/labels.js';
+export type { RegistrationSubscriptionLabels } from './registrationSubscription/labels.js';
+
+// The shapes the flows speak in. A view's own props stay in the package that renders them.
+export type {
+  RegistrationSubscriptionError,
+  PricingBilling,
+  SignupPlanSelection,
+  SignupPackSelection,
+  PaymentRequiredArgs,
+  TierSelectedEventArgs,
+} from './registrationSubscription/types.js';
+
+// The seam a stack with no payment SDK plugs into. See `paymentActions.ts` for what "no adapter"
+// means for each flow.
+export type { PaymentActionAdapter, PaymentActionOutcome } from './registrationSubscription/paymentActions.js';
+
+// The drivers: the half of each flow that touches the world, shared by every React stack.
+export { useSignupFlow } from './registrationSubscription/useSignupFlow.js';
+export type { SignupFlow, SignupFlowOptions, ResolvedPlan } from './registrationSubscription/useSignupFlow.js';
+export { usePlanChangeFlow, COMPLETE_RETRY_DELAY_MS } from './registrationSubscription/usePlanChangeFlow.js';
+export type { PlanChangeFlow, PlanChangeFlowOptions } from './registrationSubscription/usePlanChangeFlow.js';
+export { usePackCheckoutFlow, toPackOutcomes } from './registrationSubscription/usePackCheckoutFlow.js';
+export type { PackCheckoutFlow, PackCheckoutFlowOptions } from './registrationSubscription/usePackCheckoutFlow.js';

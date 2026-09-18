@@ -21,16 +21,21 @@ import type { RegistrationSubscriptionLabels } from './labels.js';
 /** Which surface the component renders. The prop is the discriminant of its props union. */
 export type RegistrationSubscriptionView = 'pricing' | 'signup' | 'manage';
 
-/** What a failure inside the component is reported as. `code` is stable; `message` is for people. */
-export interface RegistrationSubscriptionError {
-  /** A stable, machine-readable reason, e.g. `catalog_unavailable`. */
-  code: string;
-  /** What went wrong, in words a host can show. */
-  message: string;
-}
+// The shapes the flows speak in moved to `@wildwood/react-shared` with the flows themselves, and
+// are re-exported here so this file stays the one place a host reads the component's API from.
+export type {
+  RegistrationSubscriptionError,
+  PricingBilling,
+  SignupPlanSelection,
+  SignupPackSelection,
+} from '@wildwood/react-shared';
 
-/** The billing cycle a pricing selection was made under. */
-export type PricingBilling = 'monthly' | 'annual';
+import type {
+  PricingBilling,
+  RegistrationSubscriptionError,
+  SignupPackSelection,
+  SignupPlanSelection,
+} from '@wildwood/react-shared';
 
 /** Props every view shares. */
 export interface RegistrationSubscriptionCommonProps {
@@ -130,16 +135,6 @@ export interface RegistrationSubscriptionPricingProps extends RegistrationSubscr
 // ───────────────────────────────────────────────────────────────────────────────
 // Signup view
 // ───────────────────────────────────────────────────────────────────────────────
-
-/** Whether the signup flow asks the visitor to choose a plan. */
-export type SignupPlanSelection = 'choose' | 'skip';
-
-/**
- * Whether the signup flow offers packs. `'multi'` is the pack grid, ticked and continued once —
- * the same wording the pricing view uses, because it is the same grid. Packs a signup link already
- * chose are bought either way; `'none'` only takes the step where they are picked out of the flow.
- */
-export type SignupPackSelection = 'multi' | 'none';
 
 /** What {@link RegistrationSubscriptionSignupProps.renderClosed} is told about a closed app. */
 export interface RegistrationClosedInfo {

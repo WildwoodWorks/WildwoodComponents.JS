@@ -1,7 +1,7 @@
 // The signup flow, as a pure reducer.
 //
-// The order is pay-first, because the plan's card has to be taken BEFORE the account exists —
-// otherwise a card that fails leaves a half-made account on a plan nobody paid for:
+// The default order is pay-first, because the plan's card has to be taken BEFORE the account exists
+// — otherwise a card that fails leaves a half-made account on a plan nobody paid for:
 //
 //   1 mode + catalog loaded
 //   2 register form (mounted once the mode is known)
@@ -14,6 +14,12 @@
 //   8 disclaimers
 //   9 pack checkout (after login, because packs are bought as the signed-in user)
 //  10 success
+//
+// `paymentOrder: 'afterAccount'` swaps 6 and 7, and is what the store-billed stacks want: a
+// StoreKit or Play purchase that succeeds before a registration that then fails strands a paid
+// subscription with no account to attach it to, which is worse than an account with no plan. The
+// payment step then sits between the account and the disclaimers, and a customer who walks away
+// from it still finishes the signup — with the plan's activation pending, said in so many words.
 //
 // Step 2 is a gate, not just an order: nothing past the form may run until it has been submitted.
 // A signup link that preselects a plan offers "change plan" beside the form, so a visitor can be at
@@ -84,7 +90,20 @@ export interface SignupOutcome {
   tier: SignupOutcomeTier | null;
   packs: SignupPackOutcome[];
   tokenGrant?: SignupTokenGrant;
+  /**
+   * The account exists but its plan does not: an account-first signup whose payment step was
+   * abandoned. Set only when it happened, so a success screen can say "plan activation is pending"
+   * instead of "your plan is active".
+   */
+  planActivationPending?: boolean;
 }
+
+/**
+ * When the plan's card is taken. `'beforeAccount'` is the web order — nothing is created until the
+ * money is in. `'afterAccount'` is the store-billed order — nothing is charged until there is an
+ * account to attach it to.
+ */
+export type SignupPaymentOrder = 'beforeAccount' | 'afterAccount';
 
 /** Display names from the catalog, so an outcome can name a tier/pack without re-reading it. */
 export interface SignupCatalogNames {
@@ -99,6 +118,8 @@ export interface SignupMachineOptions {
   planSelection?: 'choose' | 'skip';
   /** `'none'` hides the pack step. */
   packSelection?: 'choose' | 'none';
+  /** When the plan's card is taken. Default `'beforeAccount'`. */
+  paymentOrder?: SignupPaymentOrder;
   /** A selection the signup link already made. */
   selection?: Partial<SignupSelection>;
 }
@@ -108,6 +129,7 @@ export interface ResolvedSignupOptions {
   tokenMode: SignupTokenMode;
   planSelection: 'choose' | 'skip';
   packSelection: 'choose' | 'none';
+  paymentOrder: SignupPaymentOrder;
 }
 
 export interface SignupState {
@@ -145,6 +167,24 @@ export interface SignupState {
   email: string;
   userId: string;
   paymentTransactionId?: string;
+
+  /**
+   * The `payment` step is the ACCOUNT-FIRST one: the account already exists, so completing it
+   * carries on to the disclaimers rather than to `creating`, and abandoning it is allowed.
+   * Always false in the pay-first order.
+   */
+  paymentAfterAccount: boolean;
+  /**
+   * What `ACCOUNT_CREATED` said about disclaimers, remembered across an account-first payment step
+   * so the machine still knows where to go once the card is done with.
+   */
+  pendingDisclaimers: boolean;
+  /**
+   * The account was created but its plan was not paid for: the customer walked away from the card.
+   * Cleared again if they go back to the card and it goes through, so a retry that succeeds does
+   * not leave a paying customer being told their plan is still pending.
+   */
+  planActivationPending: boolean;
 
   /** The registration token as typed, once validated. */
   tokenValue?: string;
@@ -189,6 +229,13 @@ export type SignupEvent =
   | { type: 'PLAN_CHOSEN'; tierId?: string; pricingId?: string; requiresPayment?: boolean }
   | { type: 'PACKS_CHOSEN'; addOnIds: string[] }
   | { type: 'PAYMENT_COMPLETED'; paymentTransactionId: string }
+  /**
+   * The customer walked away from the plan's card. Only ever valid on the ACCOUNT-FIRST payment
+   * step: there the account already exists, so the signup finishes with the plan unactivated
+   * rather than throwing away a registration that succeeded. Ignored in the pay-first order, where
+   * abandoning the card is simply a step back.
+   */
+  | { type: 'PAYMENT_ABANDONED' }
   | { type: 'ACCOUNT_CREATED'; token: StepToken; userId: string; requiresDisclaimers?: boolean }
   | { type: 'ACCOUNT_FAILED'; token: StepToken; message: string }
   | { type: 'DISCLAIMERS_ACCEPTED' }
@@ -213,6 +260,7 @@ export function initialSignupState(options: SignupMachineOptions = {}): SignupSt
     tokenMode: options.tokenMode ?? 'auto',
     planSelection: options.planSelection ?? 'choose',
     packSelection: options.packSelection ?? 'choose',
+    paymentOrder: options.paymentOrder ?? 'beforeAccount',
   };
   const addOnIds = dedupe(options.selection?.addOnIds);
   return {
@@ -233,6 +281,9 @@ export function initialSignupState(options: SignupMachineOptions = {}): SignupSt
     formSubmitted: false,
     email: '',
     userId: '',
+    paymentAfterAccount: false,
+    pendingDisclaimers: false,
+    planActivationPending: false,
     tokenChecking: false,
     tokenError: null,
     packsToBuy: addOnIds,
@@ -242,6 +293,17 @@ export function initialSignupState(options: SignupMachineOptions = {}): SignupSt
     error: null,
     retryFrom: null,
   };
+}
+
+/**
+ * Whether the plan still has to be paid for — the one question both payment positions ask, so the
+ * pay-first step and the account-first one can never disagree about whether there is a card to
+ * take. Exported because a driver has to ask it too: its `creating` work must leave the plan's
+ * activation to an account-first payment step that is about to run.
+ */
+export function signupPlanNeedsPayment(state: SignupState): boolean {
+  // A granted plan is paid for by whoever issued the token, and a free plan takes no card.
+  return state.planRequiresPayment && state.tokenGrant == null && !!state.selection.tierId;
 }
 
 /** Whether a step is passed over for this flow. */
@@ -263,8 +325,10 @@ function isSkipped(state: SignupState, step: FormStep): boolean {
       // Invite redemption is "take what the invite gives", not a shopping trip.
       return state.options.packSelection === 'none' || state.options.tokenMode === 'required';
     case 'payment':
-      // A granted plan is paid for by whoever issued the token, and a free plan takes no card.
-      return !state.planRequiresPayment || state.tokenGrant != null || !state.selection.tierId;
+      // Account-first: the card is taken after `creating`, not inside the form's order, so the
+      // form never walks a payment step at all.
+      if (state.options.paymentOrder === 'afterAccount') return true;
+      return !signupPlanNeedsPayment(state);
     default:
       return false;
   }
@@ -330,6 +394,8 @@ function finish(state: SignupState, bought: SignupPackOutcome[]): SignupState {
       tier: resolveTier(state),
       packs: [...granted, ...bought],
       tokenGrant: state.tokenGrant,
+      // Left off entirely when it did not happen, so the ordinary outcome carries no dead flag.
+      planActivationPending: state.planActivationPending ? true : undefined,
     },
   };
 }
@@ -338,6 +404,17 @@ function finish(state: SignupState, bought: SignupPackOutcome[]): SignupState {
 function afterDisclaimers(state: SignupState): SignupState {
   if (state.packsToBuy.length > 0) return enter(state, 'packCheckout');
   return finish(state, []);
+}
+
+/**
+ * Leaving the ACCOUNT-FIRST payment step, whether the card was given or walked away from: on to
+ * the disclaimers `ACCOUNT_CREATED` asked for, or straight past them — exactly where that event
+ * would have gone had there been no card to take.
+ */
+function afterAccountPayment(state: SignupState): SignupState {
+  const next: SignupState = { ...state, paymentAfterAccount: false };
+  if (next.pendingDisclaimers) return enter(next, 'disclaimers');
+  return afterDisclaimers(next);
 }
 
 /** Both the mode and the catalog are in: open the form, or say sign-up is closed. */
@@ -451,16 +528,43 @@ export function signupTransition(state: SignupState, event: SignupEvent): Signup
       return advance(next, 'packs');
     }
 
-    case 'PAYMENT_COMPLETED':
+    case 'PAYMENT_COMPLETED': {
       if (state.step !== 'payment') return state;
-      return advance({ ...state, paymentTransactionId: event.paymentTransactionId }, 'payment');
+      const paid: SignupState = { ...state, paymentTransactionId: event.paymentTransactionId };
+      // Account-first: the account is already made, so the card is the last thing before the
+      // disclaimers rather than another form step on the way to creating one. A card that goes
+      // through also un-pends the plan: this may be the second visit to the step, after a first one
+      // the customer walked away from, and the outcome must not still call the plan pending.
+      if (state.paymentAfterAccount) return afterAccountPayment({ ...paid, planActivationPending: false });
+      return advance(paid, 'payment');
+    }
+
+    case 'PAYMENT_ABANDONED':
+      // Pay-first has nothing to abandon INTO: no account exists yet, so backing out of the card
+      // is a `GO_TO`, not this.
+      if (state.step !== 'payment' || !state.paymentAfterAccount) return state;
+      return afterAccountPayment({ ...state, planActivationPending: true });
 
     case 'ACCOUNT_CREATED': {
       if (state.step !== 'creating' || !isCurrentStep(state.token, event.token)) return state;
-      const next: SignupState = { ...state, token: null, userId: event.userId };
       // Default true: the plan's order puts disclaimers after account creation, and a host that
       // knows there are none passes false rather than rendering an empty step.
-      if (event.requiresDisclaimers !== false) return enter(next, 'disclaimers');
+      const requiresDisclaimers = event.requiresDisclaimers !== false;
+      const next: SignupState = {
+        ...state,
+        token: null,
+        userId: event.userId,
+        // Remembered, because an account-first card step runs between here and there.
+        pendingDisclaimers: requiresDisclaimers,
+      };
+      if (
+        state.options.paymentOrder === 'afterAccount' &&
+        !state.paymentTransactionId &&
+        signupPlanNeedsPayment(state)
+      ) {
+        return enter({ ...next, paymentAfterAccount: true }, 'payment');
+      }
+      if (requiresDisclaimers) return enter(next, 'disclaimers');
       return afterDisclaimers(next);
     }
 
@@ -480,15 +584,30 @@ export function signupTransition(state: SignupState, event: SignupEvent): Signup
       if (state.step !== 'packCheckout' || !isCurrentStep(state.token, event.token)) return state;
       return fail(state, event.message, 'packCheckout');
 
-    case 'GO_TO':
+    case 'GO_TO': {
       if (state.step === 'loading' || state.step === 'closed' || state.step === 'done') return state;
+      if (event.step === 'payment' && state.options.paymentOrder === 'afterAccount') {
+        // There is no pre-account card step in that order, so the card can only be re-opened where
+        // the machine itself put it: at the step, or at the disclaimers an abandoned card dropped
+        // the flow into. Past the disclaimers the signup is buying packs — re-opening the plan's
+        // card there would come back through disclaimers already accepted and restart a checkout
+        // that may already be charging. `done` is refused by the guard above: the outcome is out.
+        if (state.step !== 'payment' && state.step !== 'disclaimers') return state;
+        // Only while the card is genuinely still outstanding: an account to attach it to, a plan
+        // that has to be paid for, and nothing taken for it yet.
+        if (!state.userId || state.paymentTransactionId || !signupPlanNeedsPayment(state)) return state;
+        return enter({ ...state, tokenError: null, paymentAfterAccount: true }, 'payment');
+      }
       return enter({ ...state, tokenError: null }, event.step);
+    }
 
     case 'RETRY': {
       if (state.step !== 'failed' || !state.retryFrom) return state;
       if (state.retryFrom === 'loading') {
         return { ...state, step: 'loading', token: null, error: null, retryFrom: null };
       }
+      // `retryFrom` is only ever an async step (loading, creating, packCheckout), so re-entering it
+      // never lands on a payment step and the account-first latch is left exactly as it was.
       return enter(state, state.retryFrom);
     }
 
@@ -497,6 +616,7 @@ export function signupTransition(state: SignupState, event: SignupEvent): Signup
         tokenMode: state.options.tokenMode,
         planSelection: state.options.planSelection,
         packSelection: state.options.packSelection,
+        paymentOrder: state.options.paymentOrder,
       });
       // The latch belongs to the visit, not the attempt: starting over must not suddenly claim
       // they were already signed in.
