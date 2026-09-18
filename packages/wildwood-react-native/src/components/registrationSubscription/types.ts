@@ -8,21 +8,37 @@
 //  · `className` — React Native has no class names. `style` and `testID` take its place.
 //  · `initialCatalog` / SSR seeding — there is no server render to seed from.
 //  · `includeJsonLd` — schema.org offers are a page's structured data, not an app screen's.
+//  · `returnUrl` — the web carries it without ever navigating to it, for a host that reads it back
+//    off the props. A native screen has no URL to come back to: where a finished signup goes is the
+//    navigator's business, and `onSignupComplete` is where a host hangs that. Carrying a dead URL
+//    prop here would only imply the component might open it.
 //
 // Everything else mirrors the web props name-for-name, so one set of docs describes both stacks.
 
 import type { ReactNode } from 'react';
 import type { ViewStyle } from 'react-native';
-import type { AppTierAddOnModel } from '@wildwood/core';
+import type { AppTierAddOnModel, IapProductMapping } from '@wildwood/core';
 import type {
+  PaymentActionAdapter,
   PricingBilling,
   RegistrationSubscriptionError,
   RegistrationSubscriptionLabels,
+  EntitlementsChangedReason,
+  SignupOutcome,
+  SignupPackSelection,
+  SignupPaymentOrder,
+  SignupPlanSelection,
+  SignupTokenMode,
 } from '@wildwood/react-shared';
 
 // Re-exported so a host reads the component's whole API from this module, exactly as the web's
 // `types.ts` re-exports the shapes that moved to the shared package.
-export type { PricingBilling, RegistrationSubscriptionError } from '@wildwood/react-shared';
+export type {
+  PricingBilling,
+  RegistrationSubscriptionError,
+  SignupPlanSelection,
+  SignupPackSelection,
+} from '@wildwood/react-shared';
 
 /** Which surface is being rendered. Also the value its root's `testID` carries. */
 export type RegistrationSubscriptionView = 'pricing' | 'signup' | 'manage';
@@ -114,4 +130,75 @@ export interface RegistrationSubscriptionPricingProps extends RegistrationSubscr
   errorFallback?: ReactNode;
   /** Called when the visitor picks a plan, a pack, or a set of packs. */
   onSelect: (selection: PricingSelection) => void;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Signup view
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** What {@link RegistrationSubscriptionSignupProps.renderClosed} is told about a closed app. */
+export interface RegistrationClosedInfo {
+  /** The copy the component would have shown. */
+  message: string;
+  /** The component's `contactUrl`, if it was given one. */
+  contactUrl?: string;
+}
+
+export interface RegistrationSubscriptionSignupProps extends RegistrationSubscriptionCommonProps {
+  /** The plan a pricing screen already chose. Ignored when the app does not sell it. */
+  preSelectedTierId?: string;
+  /** The pricing option within that plan (the annual one, typically). */
+  preSelectedPricingId?: string;
+  /** Packs a pricing screen already chose. Deduped and capped at 25, then vetted against the catalog. */
+  preSelectedAddOnIds?: string[];
+  /** An invitation token from the signup link. */
+  registrationToken?: string;
+  /** Pre-fills the username and email fields, e.g. from an invitation. */
+  prefillEmail?: string;
+  /** `'skip'` leaves the plan to the host: a single-plan product, or one chosen elsewhere. */
+  planSelection?: SignupPlanSelection;
+  /** Whether the visitor may pick packs on the way in. Default `'none'`. */
+  packSelection?: SignupPackSelection;
+  /** `'required'` is invite redemption: a token is the only way in. Default `'auto'`. */
+  tokenMode?: SignupTokenMode;
+  /**
+   * When the plan's card is taken. Default `'afterAccount'` on React Native, where the web defaults
+   * to `'beforeAccount'`: a store purchase that succeeds before a registration that then fails
+   * strands a paid subscription with nobody to attach it to, and a store refund is a support ticket
+   * rather than a void. An account with no plan is the cheaper of the two failures, so the account
+   * is made first and the card taken after it. A host that bills by card only and wants the web
+   * order back passes `'beforeAccount'`.
+   */
+  paymentOrder?: SignupPaymentOrder;
+  /**
+   * Carried through to the payment step for an app whose payment configuration wants a billing
+   * address. This package ships NO address form — the native payment screen collects an amount and
+   * hands the card to the host's payment-action handler — so the flag is passed on and nothing is
+   * collected for it here. A host that needs one collects it and supplies it to its own handler.
+   */
+  requireBillingAddress?: boolean;
+  /**
+   * Store products to buy a plan with when the app is sold through the App Store or Google Play
+   * (`requiresAppStorePayment`). Maps each tier (and optionally each pricing option) to a store
+   * product id, exactly as {@link useInAppPurchases} takes them. Without it there is no product to
+   * buy a store-billed plan with, and the payment step says the purchase has to be finished
+   * elsewhere rather than offering a card the store would refuse.
+   */
+  iapProducts?: IapProductMapping[];
+  /**
+   * How a card sheet or 3-D Secure challenge is shown on this device. Overrides `WildwoodProvider`'s
+   * handler. Without one, packs are only bought against a card already on file and a challenge is
+   * reported rather than attempted — see the README.
+   */
+  paymentActionHandler?: PaymentActionAdapter;
+  /** Called instead of rendering the form when the visitor already has a session. */
+  onAlreadySignedIn?: () => void;
+  /** Called once the account exists and everything asked for has been granted or reported. */
+  onSignupComplete?: (outcome: SignupOutcome) => void;
+  /** Called when the visitor backs out. */
+  onCancel?: () => void;
+  /** Called after the new user's entitlements change, so the host can refresh its own gates. */
+  onEntitlementsChanged?: (reason: EntitlementsChangedReason) => void;
+  /** Replaces the built-in "registration is closed" notice. */
+  renderClosed?: (info: RegistrationClosedInfo) => ReactNode;
 }

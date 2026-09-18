@@ -78,6 +78,24 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     }
   });
 
+  it('exports the signup view and the one part the web exports beside it', () => {
+    expect(typeof reactNative.RegistrationSubscriptionSignup).toBe('function');
+    // `ClosedNotice` is public on both stacks: a host may want to say "registration is closed" on a
+    // screen of its own without mounting the flow. Everything else the signup is built from stays
+    // internal, exactly as it is in @wildwood/react.
+    expect(typeof reactNative.ClosedNotice).toBe('function');
+    for (const internal of [
+      'PlanSummaryCard',
+      'TokenPlanSummary',
+      'OrderSummary',
+      'PackCheckout',
+      'PackOutcomeList',
+      'PackPicker',
+    ]) {
+      expect((reactNative as Record<string, unknown>)[internal]).toBeUndefined();
+    }
+  });
+
   it('exports the shared constants', () => {
     expect(reactNative.ACCESS_GRANTING_STATUSES).toEqual(['Active', 'Trialing', 'PendingCancellation']);
     expect(reactNative.MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS).toBeGreaterThan(0);

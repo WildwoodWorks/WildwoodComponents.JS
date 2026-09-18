@@ -245,12 +245,23 @@ export type {
 // and its props. `PlanGrid`, `PackGrid` and `PricingSkeleton` stay internal there too, so a host
 // builds its own grid from the exported catalog helpers rather than from a part that may move.
 export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/RegistrationSubscriptionPricing';
+// The signup surface. `ClosedNotice` is exported for a host that wants to say "registration is
+// closed" on a screen of its own, exactly as the web package exports it; the rest of the parts
+// (`PlanSummaryCard`, `TokenPlanSummary`, `OrderSummary`, `PackCheckout`, `PackOutcomeList`,
+// `PackPicker`) stay internal there too.
+export { RegistrationSubscriptionSignup } from './components/registrationSubscription/views/RegistrationSubscriptionSignup';
+export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice';
+export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice';
 export type {
   RegistrationSubscriptionView,
   RegistrationSubscriptionCommonProps,
   RegistrationSubscriptionPricingProps,
+  RegistrationSubscriptionSignupProps,
+  RegistrationClosedInfo,
   PricingSelection,
   PricingPackSelection,
+  SignupPlanSelection,
+  SignupPackSelection,
   AddOnGroup,
   AddOnPresentation,
 } from './components/registrationSubscription/types';
