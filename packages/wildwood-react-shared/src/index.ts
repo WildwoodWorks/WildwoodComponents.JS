@@ -41,6 +41,7 @@ export { useSubscriptionAdmin } from './hooks/useSubscriptionAdmin.js';
 export type { UseSubscriptionAdminReturn } from './hooks/useSubscriptionAdmin.js';
 // Subscription status display constants shared by the web and native status panels
 export { STATUS_LABEL, CANCELLABLE_STATUSES, pendingCancellationNotice } from './subscription/statusDisplay.js';
+export type { EntitlementsChangedReason } from './subscription/entitlements.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useTwoFactorLogic } from './hooks/useTwoFactorLogic.js';
@@ -89,3 +90,72 @@ export type {
   UseAuthenticationLogicOptions,
   UseAuthenticationLogicReturn,
 } from './hooks/useAuthenticationLogic.js';
+
+// ---------------------------------------------------------------------------
+// Registration & Subscription — the DOM-free logic layer
+// ---------------------------------------------------------------------------
+
+// How a signup screen may offer registration, from the app's live authentication settings.
+export { resolveSignupRegistrationMode } from './authentication/registrationMode.js';
+export type {
+  SignupTokenMode,
+  SignupRegistrationMode,
+  SignupRegistrationSettings,
+  ResolveSignupRegistrationModeOptions,
+} from './authentication/registrationMode.js';
+export { useRegistrationMode } from './hooks/useRegistrationMode.js';
+export type { UseRegistrationModeOptions, UseRegistrationModeReturn } from './hooks/useRegistrationMode.js';
+export {
+  usePublicCatalog,
+  invalidatePublicCatalog,
+  clearPublicCatalogCache,
+  seedPublicCatalog,
+} from './hooks/usePublicCatalog.js';
+export type { UsePublicCatalogOptions, UsePublicCatalogReturn } from './hooks/usePublicCatalog.js';
+export { useRegistrationSubscription } from './hooks/useRegistrationSubscription.js';
+export type {
+  UseRegistrationSubscriptionOptions,
+  UseRegistrationSubscriptionReturn,
+} from './hooks/useRegistrationSubscription.js';
+
+// Pure state machines. No React, no client — the hooks and views drive them, and step tokens make
+// StrictMode double-invocations and duplicated callbacks no-ops.
+export { issueStepToken, isCurrentStep } from './registrationSubscription/stepTokens.js';
+export type { StepToken } from './registrationSubscription/stepTokens.js';
+export { signupTransition, initialSignupState } from './registrationSubscription/signupMachine.js';
+export type {
+  SignupStep,
+  SignupState,
+  SignupEvent,
+  SignupSelection,
+  SignupTokenGrant,
+  SignupPackStatus,
+  SignupPackOutcome,
+  SignupOutcome,
+  SignupOutcomeTier,
+  SignupCatalogNames,
+  SignupMachineOptions,
+  ResolvedSignupOptions,
+} from './registrationSubscription/signupMachine.js';
+export {
+  packCheckoutTransition,
+  initialPackCheckoutState,
+  currentPackCheckoutItem,
+} from './registrationSubscription/packCheckoutMachine.js';
+export type {
+  PackCheckoutStep,
+  PackCheckoutState,
+  PackCheckoutEvent,
+  PackCheckoutMachineOptions,
+} from './registrationSubscription/packCheckoutMachine.js';
+export {
+  planChangeTransition,
+  initialPlanChangeState,
+  MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS,
+} from './registrationSubscription/planChangeMachine.js';
+export type {
+  PlanChangeStep,
+  PlanChangeState,
+  PlanChangeEvent,
+  PlanChangeMachineOptions,
+} from './registrationSubscription/planChangeMachine.js';
