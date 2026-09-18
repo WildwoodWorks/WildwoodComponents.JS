@@ -69,6 +69,15 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     expect(typeof (reactNative as Record<string, unknown>)[name]).toBe('function');
   });
 
+  it('exports the pricing view, and only the parts the web package exports too', () => {
+    // The view a host renders. `PlanGrid`, `PackGrid` and `PricingSkeleton` are internal in
+    // @wildwood/react as well — a host builds its own grid from the catalog helpers above.
+    expect(typeof reactNative.RegistrationSubscriptionPricing).toBe('function');
+    for (const internal of ['PlanGrid', 'PackGrid', 'PricingSkeleton']) {
+      expect((reactNative as Record<string, unknown>)[internal]).toBeUndefined();
+    }
+  });
+
   it('exports the shared constants', () => {
     expect(reactNative.ACCESS_GRANTING_STATUSES).toEqual(['Active', 'Trialing', 'PendingCancellation']);
     expect(reactNative.MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS).toBeGreaterThan(0);

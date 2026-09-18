@@ -240,6 +240,21 @@ export type {
   PlanChangeNoticeContent,
   PlanChangeNoticeKind,
 } from './components/registrationSubscription/parts/PlanChangeNotice';
+
+// Registration & Subscription — the pricing surface. The same set the web package exports: the view
+// and its props. `PlanGrid`, `PackGrid` and `PricingSkeleton` stay internal there too, so a host
+// builds its own grid from the exported catalog helpers rather than from a part that may move.
+export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/RegistrationSubscriptionPricing';
+export type {
+  RegistrationSubscriptionView,
+  RegistrationSubscriptionCommonProps,
+  RegistrationSubscriptionPricingProps,
+  PricingSelection,
+  PricingPackSelection,
+  AddOnGroup,
+  AddOnPresentation,
+} from './components/registrationSubscription/types';
+
 export { UsageLimitsPanel } from './components/subscription/UsageLimitsPanel';
 export type { UsageLimitsPanelProps } from './components/subscription/UsageLimitsPanel';
 export { OverridesPanel } from './components/subscription/OverridesPanel';
