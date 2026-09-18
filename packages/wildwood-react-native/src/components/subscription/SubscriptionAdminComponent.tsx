@@ -1,7 +1,19 @@
+// SubscriptionAdminComponent - the native twin of @wildwood/react's admin surface.
+//
+// The plan change itself is the shared `usePlanChangeFlow`, so this component, the web admin
+// component and (from Stage 9) the native manage view all drive one implementation: preview,
+// confirm, collect a card when one is needed, change.
+//
+// No `PaymentActionAdapter` is supplied here. React Native ships no payment SDK in the box, so the
+// flow never tells the server it can answer a 3-D Secure challenge, and a change that needs a card
+// with no host `onPaymentRequired` wired says so through `PlanChangeNotice` instead of throwing the
+// old "Wire the onPaymentRequired callback" error. A host that DOES pass `onPaymentRequired` keeps
+// exactly the behaviour it had.
+
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Linking } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import type { TierChangePreviewModel, AppTierCancelResultModel } from '@wildwood/core';
+import type { AppTierCancelResultModel } from '@wildwood/core';
 import { useSubscriptionAdmin } from '../../hooks/useSubscriptionAdmin';
 import { SubscriptionStatusPanel } from './SubscriptionStatusPanel';
 import { FeaturesPanel } from './FeaturesPanel';
@@ -9,9 +21,10 @@ import { AddOnsPanel } from './AddOnsPanel';
 import { UsageLimitsPanel } from './UsageLimitsPanel';
 import { OverridesPanel } from './OverridesPanel';
 import { TierPlansPanel } from './TierPlansPanel';
-import type { TierSelectedEventArgs } from './TierPlansPanel';
 import { TierChangeConfirmationModal } from './TierChangeConfirmationModal';
-import { PAYMENT_CALLBACK_MISSING_MESSAGE, findTierPricing, paymentArgsForTierChange } from './paymentSeam';
+import { CancelResultNotice } from './CancelResultNotice';
+import { PlanChangeNotice } from '../registrationSubscription/parts/PlanChangeNotice';
+import { usePlanChangeFlow, DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS } from '@wildwood/react-shared';
 import type { PaymentRequiredArgs } from '@wildwood/react-shared';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
@@ -51,9 +64,6 @@ export function SubscriptionAdminComponent({
 }: SubscriptionAdminComponentProps) {
   const admin = useSubscriptionAdmin();
   const [activeTab, setActiveTab] = useState<Tab>(showStatusAboveTabs ? 'tiers' : 'subscription');
-  const [preview, setPreview] = useState<TierChangePreviewModel | null>(null);
-  const [pendingArgs, setPendingArgs] = useState<TierSelectedEventArgs | null>(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
   // Result of the most recent cancel action, shown as a dismissible notice near the status
   // panel (mirrors the Swift lastCancelResult card): scheduled vs immediate, plus store
   // instructions when the subscription is store-billed (requiresUserAction).
@@ -69,6 +79,17 @@ export function SubscriptionAdminComponent({
     await admin.refreshAll(appId, companyId, userId);
     onSubscriptionChanged?.();
   }, [admin, appId, companyId, userId, onSubscriptionChanged]);
+
+  // No `paymentActions`: this stack has no card SDK, so the change is posted in the plain form and a
+  // challenge that arrives anyway is reported rather than swallowed (see the shared hook).
+  const flow = usePlanChangeFlow({
+    appId,
+    userId,
+    companyId,
+    admin,
+    onPaymentRequired,
+    onChanged: handleRefresh,
+  });
 
   const handleCancelSubscription = useCallback(async () => {
     let result: AppTierCancelResultModel;
@@ -86,101 +107,23 @@ export function SubscriptionAdminComponent({
     await handleRefresh();
   }, [admin, appId, companyId, userId, handleRefresh]);
 
-  const handleTierSelected = useCallback(
-    async (args: TierSelectedEventArgs) => {
-      try {
-        const result = await admin.previewTierChange(appId, args.tierId, args.pricingId, userId);
-        if (!result.success) {
-          admin.clearError();
-          throw new Error(result.errorMessage ?? 'Failed to preview tier change');
-        }
-        setPendingArgs(args);
-        setPreview(result);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn('Preview failed:', msg);
-      }
-    },
-    [admin, appId, userId],
-  );
-
-  const handleConfirmChange = useCallback(
-    async (options: { immediate: boolean; bypassPayment: boolean }) => {
-      if (!pendingArgs) return;
-      setConfirmLoading(true);
-      admin.clearError();
-
-      try {
-        const doChange = async (txnId?: string) => {
-          if (pendingArgs.isChange) {
-            if (userId) {
-              await admin.changeUserTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate);
-            } else if (companyId) {
-              await admin.changeCompanyTier(
-                appId,
-                companyId,
-                pendingArgs.tierId,
-                pendingArgs.pricingId,
-                options.immediate,
-              );
-            } else {
-              await admin.changeTier(appId, pendingArgs.tierId, pendingArgs.pricingId, options.immediate, txnId);
-            }
-          } else if (userId) {
-            await admin.subscribeUserToTier(appId, userId, pendingArgs.tierId, pendingArgs.pricingId);
-          } else if (companyId) {
-            await admin.subscribeCompanyToTier(appId, companyId, pendingArgs.tierId, pendingArgs.pricingId);
-          } else {
-            await admin.selfSubscribeTo(appId, pendingArgs.tierId, pendingArgs.pricingId, txnId);
-          }
-        };
-
-        if (preview?.paymentRequired && !options.bypassPayment) {
-          if (!onPaymentRequired) {
-            admin.clearError();
-            throw new Error(PAYMENT_CALLBACK_MISSING_MESSAGE);
-          }
-          // The payment starts the new plan's own subscription, billed at the plan's price, so hand
-          // over the pricing model (not the tier-pricing link id) and the price and trial that
-          // subscription will have.
-          const pricing = findTierPricing(admin.tiers, pendingArgs.tierId, pendingArgs.pricingId);
-          const txnId = await onPaymentRequired(paymentArgsForTierChange(pendingArgs, preview, pricing));
-          if (!txnId) {
-            setConfirmLoading(false);
-            return;
-          }
-          await doChange(txnId);
-        } else {
-          await doChange();
-        }
-
-        setPreview(null);
-        setPendingArgs(null);
-        await handleRefresh();
-      } catch {
-        // Error surfaces via admin.error
-      } finally {
-        setConfirmLoading(false);
-      }
-    },
-    [admin, appId, companyId, userId, pendingArgs, preview, onPaymentRequired, handleRefresh],
-  );
-
-  const handleCancelConfirmation = useCallback(() => {
-    setPreview(null);
-    setPendingArgs(null);
-  }, []);
-
+  // Pack actions answer the panel with a boolean, so a refusal is SHOWN on the row instead of
+  // looking as if the purchase went through. The self-service calls are the Detailed ones: they
+  // carry the server's structured refusal (which the hook also puts on `admin.error`).
   const handleAddOnSubscribe = useCallback(
     async (addOnId: string, pricingId?: string) => {
       if (userId) {
-        await admin.subscribeUserToAddOn(appId, userId, addOnId);
+        const ok = await admin.subscribeUserToAddOn(appId, userId, addOnId);
+        if (!ok) return false;
       } else if (companyId) {
-        await admin.subscribeCompanyToAddOn(appId, companyId, addOnId);
+        const ok = await admin.subscribeCompanyToAddOn(appId, companyId, addOnId);
+        if (!ok) return false;
       } else {
-        await admin.subscribeToAddOn(appId, addOnId, pricingId);
+        const result = await admin.subscribeToAddOnDetailed(appId, addOnId, pricingId);
+        if (!result.success) return false;
       }
       await handleRefresh();
+      return true;
     },
     [admin, appId, companyId, userId, handleRefresh],
   );
@@ -188,15 +131,30 @@ export function SubscriptionAdminComponent({
   const handleAddOnCancel = useCallback(
     async (subscriptionId: string) => {
       if (userId) {
-        await admin.cancelUserAddOn(appId, subscriptionId);
+        const ok = await admin.cancelUserAddOn(appId, subscriptionId);
+        if (!ok) return false;
       } else if (companyId) {
-        await admin.cancelCompanyAddOn(subscriptionId);
+        const ok = await admin.cancelCompanyAddOn(subscriptionId);
+        if (!ok) return false;
       } else {
-        await admin.cancelAddOn(subscriptionId);
+        // End of the paid period, not immediately: the pack is paid up to it.
+        const result = await admin.cancelAddOnDetailed(subscriptionId, false);
+        if (!result.success) return false;
       }
       await handleRefresh();
+      return true;
     },
     [admin, appId, companyId, userId, handleRefresh],
+  );
+
+  const handleAddOnReactivate = useCallback(
+    async (subscriptionId: string) => {
+      const result = await admin.reactivateAddOn(subscriptionId);
+      if (!result.success) return false;
+      await handleRefresh();
+      return true;
+    },
+    [admin, handleRefresh],
   );
 
   const handleToggleFeature = useCallback(
@@ -284,6 +242,7 @@ export function SubscriptionAdminComponent({
         currency={currency}
         onSubscribe={handleAddOnSubscribe}
         onCancel={handleAddOnCancel}
+        onReactivate={handleAddOnReactivate}
       />
     </>
   );
@@ -300,36 +259,31 @@ export function SubscriptionAdminComponent({
 
   // Dismissible cancel-result notice, rendered near the status panel. Only successful
   // cancels render here — a failed cancel surfaces through the admin.error alert.
-  const cancelNotice = lastCancelResult?.success ? (
-    <View style={styles.cancelNotice}>
-      <View style={styles.cancelNoticeBody}>
-        <Text style={styles.cancelNoticeText}>
-          {lastCancelResult.isScheduled
-            ? `Your cancellation is scheduled — access continues until ${
-                lastCancelResult.effectiveDate
-                  ? new Date(lastCancelResult.effectiveDate).toLocaleDateString()
-                  : 'the end of the billing period'
-              }.`
-            : 'Your subscription has been cancelled.'}
-          {lastCancelResult.requiresUserAction
-            ? ` ${lastCancelResult.userActionInstructions ?? 'Also cancel the subscription in your store settings.'}`
-            : ''}
-        </Text>
-        {lastCancelResult.requiresUserAction && lastCancelResult.userActionUrl ? (
-          <Pressable
-            onPress={() => {
-              Linking.openURL(lastCancelResult.userActionUrl!).catch((err) => console.warn('Failed to open URL:', err));
-            }}
-          >
-            <Text style={styles.cancelNoticeLink}>Open subscription settings</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <Pressable onPress={() => setLastCancelResult(null)}>
-        <Text style={styles.cancelNoticeDismiss}>{'✕'}</Text>
-      </Pressable>
-    </View>
+  const cancelNotice = <CancelResultNotice result={lastCancelResult} onDismiss={() => setLastCancelResult(null)} />;
+
+  const planChangeNotice = <PlanChangeNotice flow={flow} labels={DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS} />;
+
+  // Every layout renders the confirmation modal: a tier picked in a stacked layout previewed and
+  // then showed nothing when only the tabbed return carried it.
+  const confirmationModal = flow.preview ? (
+    <TierChangeConfirmationModal
+      preview={flow.preview}
+      onConfirm={flow.confirm}
+      onCancel={flow.cancel}
+      loading={flow.busy}
+    />
   ) : null;
+
+  // A failed change speaks through the plan-change notice, not twice.
+  const errorAlert =
+    admin.error && flow.step !== 'failed' ? (
+      <View style={styles.alertDanger}>
+        <Text style={styles.alertDangerText}>{admin.error}</Text>
+        <Pressable onPress={() => admin.clearError()}>
+          <Text style={styles.alertDismiss}>{'✕'}</Text>
+        </Pressable>
+      </View>
+    ) : null;
 
   const overridesContent = isAdmin ? (
     <OverridesPanel
@@ -344,14 +298,8 @@ export function SubscriptionAdminComponent({
   if (displayMode !== 'tabs') {
     return (
       <ScrollView style={[styles.scroll, style]} contentContainerStyle={styles.scrollContent}>
-        {admin.error ? (
-          <View style={styles.alertDanger}>
-            <Text style={styles.alertDangerText}>{admin.error}</Text>
-            <Pressable onPress={() => admin.clearError()}>
-              <Text style={styles.alertDismiss}>{'\u2715'}</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {errorAlert}
+        {planChangeNotice}
         {cancelNotice}
         {displayMode === 'subscription' ? (
           <SubscriptionStatusPanel
@@ -367,12 +315,13 @@ export function SubscriptionAdminComponent({
             loading={admin.loading}
             showBillingToggle={showBillingToggle}
             currency={currency}
-            onTierSelected={handleTierSelected}
+            onTierSelected={flow.selectTier}
           />
         ) : null}
         {displayMode === 'features' ? featuresContent : null}
         {displayMode === 'usage' ? usageContent : null}
         {displayMode === 'overrides' ? overridesContent : null}
+        {confirmationModal}
       </ScrollView>
     );
   }
@@ -393,14 +342,9 @@ export function SubscriptionAdminComponent({
 
   return (
     <ScrollView style={[styles.scroll, style]} contentContainerStyle={styles.scrollContent}>
-      {admin.error ? (
-        <View style={styles.alertDanger}>
-          <Text style={styles.alertDangerText}>{admin.error}</Text>
-          <Pressable onPress={() => admin.clearError()}>
-            <Text style={styles.alertDismiss}>{'\u2715'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {errorAlert}
+
+      {planChangeNotice}
 
       {cancelNotice}
 
@@ -443,7 +387,7 @@ export function SubscriptionAdminComponent({
             loading={admin.loading}
             showBillingToggle={showBillingToggle}
             currency={currency}
-            onTierSelected={handleTierSelected}
+            onTierSelected={flow.selectTier}
           />
         ) : null}
         {activeTab === 'features' ? featuresContent : null}
@@ -451,14 +395,7 @@ export function SubscriptionAdminComponent({
         {activeTab === 'overrides' ? overridesContent : null}
       </View>
 
-      {preview ? (
-        <TierChangeConfirmationModal
-          preview={preview}
-          onConfirm={handleConfirmChange}
-          onCancel={handleCancelConfirmation}
-          loading={confirmLoading}
-        />
-      ) : null}
+      {confirmationModal}
     </ScrollView>
   );
 }
@@ -480,19 +417,6 @@ const styles = StyleSheet.create({
   },
   alertDangerText: { color: '#991B1B', fontSize: 14, flex: 1 },
   alertDismiss: { color: '#991B1B', fontSize: 18, paddingLeft: 8 },
-  cancelNotice: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cancelNoticeBody: { flex: 1, gap: 6 },
-  cancelNoticeText: { color: '#1D4ED8', fontSize: 14 },
-  cancelNoticeLink: { color: '#1D4ED8', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
-  cancelNoticeDismiss: { color: '#1D4ED8', fontSize: 18, paddingLeft: 8 },
   statusAbove: {
     backgroundColor: '#fff',
     borderRadius: 12,

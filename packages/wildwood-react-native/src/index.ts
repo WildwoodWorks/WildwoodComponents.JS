@@ -226,7 +226,17 @@ export type { SubscriptionStatusPanelProps } from './components/subscription/Sub
 export { FeaturesPanel } from './components/subscription/FeaturesPanel';
 export type { FeaturesPanelProps } from './components/subscription/FeaturesPanel';
 export { AddOnsPanel } from './components/subscription/AddOnsPanel';
-export type { AddOnsPanelProps } from './components/subscription/AddOnsPanel';
+export type { AddOnsPanelProps, AddOnsPanelLabels } from './components/subscription/AddOnsPanel';
+export { CancelResultNotice } from './components/subscription/CancelResultNotice';
+export type { CancelResultNoticeProps } from './components/subscription/CancelResultNotice';
+// Says what a plan change is doing, and - the one thing the web does not need - that a card cannot
+// be collected on this stack. Reused by the manage view.
+export { PlanChangeNotice } from './components/registrationSubscription/parts/PlanChangeNotice';
+export type {
+  PlanChangeNoticeProps,
+  PlanChangeNoticeContent,
+  PlanChangeNoticeKind,
+} from './components/registrationSubscription/parts/PlanChangeNotice';
 export { UsageLimitsPanel } from './components/subscription/UsageLimitsPanel';
 export type { UsageLimitsPanelProps } from './components/subscription/UsageLimitsPanel';
 export { OverridesPanel } from './components/subscription/OverridesPanel';
