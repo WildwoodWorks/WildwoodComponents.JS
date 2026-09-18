@@ -431,6 +431,17 @@ export function SubscriptionAdminComponent({
     />
   ) : null;
 
+  // Every layout renders the confirmation modal: a tier picked in a stacked layout previewed and
+  // then showed nothing when only the tabbed return carried it.
+  const confirmationModal = preview ? (
+    <TierChangeConfirmationModal
+      preview={preview}
+      onConfirm={handleConfirmChange}
+      onCancel={handleCancelConfirmation}
+      loading={confirmLoading}
+    />
+  ) : null;
+
   // Single panel mode
   if (displayMode !== 'tabs') {
     return (
@@ -469,6 +480,7 @@ export function SubscriptionAdminComponent({
         )}
         {displayMode === 'usage' && usageLimitsPanel}
         {displayMode === 'overrides' && overridesPanel}
+        {confirmationModal}
       </div>
     );
   }
@@ -552,14 +564,7 @@ export function SubscriptionAdminComponent({
         {activeTab === 'overrides' && overridesPanel}
       </div>
 
-      {preview && (
-        <TierChangeConfirmationModal
-          preview={preview}
-          onConfirm={handleConfirmChange}
-          onCancel={handleCancelConfirmation}
-          loading={confirmLoading}
-        />
-      )}
+      {confirmationModal}
     </div>
   );
 }

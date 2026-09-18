@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   AppPaymentConfigurationDto,
+  BillingAddress,
   PaymentProviderDto,
   SavedPaymentMethodDto,
   PaymentCompletionResult,
@@ -33,7 +34,14 @@ export interface PaymentComponentProps {
   /** Pre-loaded providers (skip API fetch) */
   preloadedProviders?: PaymentProviderDto[];
   preselectedProviderId?: string;
+  /** Fired exactly once per successful payment, as soon as the payment completes. */
   onPaymentSuccess?: (result: PaymentCompletionResult) => void;
+  /**
+   * Renders a "Continue" button on the success panel and is called when it is clicked. Without it the
+   * panel offers no Continue, because advancing used to re-fire `onPaymentSuccess` and run the host's
+   * success handler (a signup, an upgrade) a second time.
+   */
+  onContinue?: (result: PaymentCompletionResult) => void;
   onPaymentFailure?: (error: string) => void;
   onCancel?: () => void;
   className?: string;
@@ -128,6 +136,7 @@ export function PaymentComponent({
   preloadedProviders,
   preselectedProviderId,
   onPaymentSuccess,
+  onContinue,
   onPaymentFailure,
   onCancel,
   className,
@@ -178,7 +187,9 @@ export function PaymentComponent({
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [_billingCountry, _setBillingCountry] = useState('US');
+  // No country picker yet — the form collects a US address, and the value still travels with it so the
+  // server and the provider get a complete address.
+  const [billingCountry, _setBillingCountry] = useState('US');
 
   // Stripe Elements state
   const stripeRef = useRef<StripeInstance | null>(null);
@@ -343,6 +354,26 @@ export function PaymentComponent({
       return;
     }
 
+    // An address the app requires has to be complete before anything is charged: an incomplete one
+    // fails at the provider, after the intent exists.
+    let billing: BillingAddress | undefined;
+    if (requireBillingAddress) {
+      const required = [billingFirstName, billingLastName, billingAddress, billingCity, billingState, billingZip];
+      if (required.some((value) => !value.trim())) {
+        setPaymentError('Please complete your billing address.');
+        return;
+      }
+      billing = {
+        firstName: billingFirstName.trim(),
+        lastName: billingLastName.trim(),
+        street: billingAddress.trim(),
+        city: billingCity.trim(),
+        state: billingState.trim(),
+        zipCode: billingZip.trim(),
+        country: billingCountry.trim(),
+      };
+    }
+
     setIsProcessing(true);
     try {
       // Step 1: Initiate payment on the server → get clientSecret (or reuse the one a declined attempt created)
@@ -365,6 +396,8 @@ export function PaymentComponent({
           returnUrl,
           cancelUrl,
           metadata,
+          // Only present when the app asks for an address — the key is left off entirely otherwise.
+          ...(billing ? { billingAddress: billing } : {}),
           // Lets a Stripe trial come back as a SetupIntent to confirm, so the card is saved for trial end.
           supportsSetupIntent: isStripeProvider,
         }));
@@ -532,6 +565,14 @@ export function PaymentComponent({
     metadata,
     isStripeProvider,
     cardComplete,
+    requireBillingAddress,
+    billingFirstName,
+    billingLastName,
+    billingAddress,
+    billingCity,
+    billingState,
+    billingZip,
+    billingCountry,
     initiatePayment,
     confirmPayment,
     onPaymentSuccess,
@@ -618,8 +659,8 @@ export function PaymentComponent({
               View Receipt
             </a>
           )}
-          {onPaymentSuccess && (
-            <button type="button" className="ww-btn ww-btn-primary" onClick={() => onPaymentSuccess(paymentResult)}>
+          {onContinue && (
+            <button type="button" className="ww-btn ww-btn-primary" onClick={() => onContinue(paymentResult)}>
               Continue
             </button>
           )}
