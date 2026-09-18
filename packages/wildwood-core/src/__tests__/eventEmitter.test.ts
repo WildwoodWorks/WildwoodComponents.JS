@@ -68,6 +68,16 @@ describe('WildwoodEventEmitter', () => {
     expect(handler).toHaveBeenCalledWith(null);
   });
 
+  it('handles entitlementsChanged with the app and the reason', () => {
+    const emitter = new WildwoodEventEmitter();
+    const handler = vi.fn();
+
+    emitter.on('entitlementsChanged', handler);
+    emitter.emit('entitlementsChanged', { appId: 'app-1', reason: 'addOn' });
+
+    expect(handler).toHaveBeenCalledWith({ appId: 'app-1', reason: 'addOn' });
+  });
+
   it('off() removes a specific handler', () => {
     const emitter = new WildwoodEventEmitter();
     const handler = vi.fn();
@@ -119,7 +129,9 @@ describe('WildwoodEventEmitter', () => {
   it('catches errors thrown by handlers without breaking other handlers', () => {
     const emitter = new WildwoodEventEmitter();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const badHandler = vi.fn(() => { throw new Error('boom'); });
+    const badHandler = vi.fn(() => {
+      throw new Error('boom');
+    });
     const goodHandler = vi.fn();
 
     emitter.on('tokenRefreshed', badHandler);

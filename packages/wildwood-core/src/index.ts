@@ -157,6 +157,10 @@ export {
 } from './payment/scriptLoader.js';
 export type { ScriptLoadOptions } from './payment/scriptLoader.js';
 
+// Stripe.js (lazy, browser-only)
+export { getStripeInstance, resetStripeInstanceCache } from './payment/stripe.js';
+export type { StripeLike, StripeElementsLike, StripeElementLike, StripeConfirmResult } from './payment/stripe.js';
+
 // Notifications (client-side toast queue)
 export { NotificationService } from './notifications/notificationService.js';
 export { NotificationType, NotificationActionStyle, NotificationPosition } from './notifications/types.js';
@@ -194,7 +198,36 @@ export type {
 
 // Features
 export { DisclaimerService } from './features/disclaimerService.js';
-export { AppTierService } from './features/appTierService.js';
+export { AppTierService, toAppTierActionError } from './features/appTierService.js';
+
+// Public catalog (pure, SSR-safe)
+export {
+  ACTIVE_TIER_STATUS,
+  MAX_ADDON_SELECTION,
+  CATALOG_QUERY_KEYS,
+  asSearchParams,
+  buildPublicCatalog,
+  resolvePriceOption,
+  formatMoney,
+  trialLabel,
+  catalogToJsonLdOffers,
+  parseAddOnIdList,
+  selectPacks,
+  encodeCatalogSelection,
+  decodeCatalogSelection,
+} from './features/catalog.js';
+export type {
+  PublicCatalog,
+  BuildPublicCatalogInput,
+  CatalogPriceOption,
+  PriceOptionQuery,
+  CatalogSelection,
+  DecodedCatalogSelection,
+  JsonLdOffer,
+  JsonLdOfferOptions,
+} from './features/catalog.js';
+export { parseSignupParams } from './features/signupParams.js';
+export type { SignupParams } from './features/signupParams.js';
 
 // Consent Management
 export { ConsentService } from './consent/consentService.js';
@@ -273,6 +306,24 @@ export type {
   AppTierChangeResultModel,
   AppTierCancelResultModel,
   TierChangePreviewModel,
+  SelfChangeTierOptions,
+  TierChangeErrorCode,
+  TrialEligibilityModel,
+  AppTierActionError,
+  AddOnCheckoutItemInput,
+  AddOnCheckoutQuoteLineModel,
+  AddOnCheckoutSavedCardModel,
+  AddOnCheckoutQuoteModel,
+  AddOnCheckoutPaymentMethodModel,
+  AddOnCheckoutItemStatus,
+  AddOnCheckoutItemResultModel,
+  AddOnCheckoutResultModel,
+  AddOnCheckoutRequestModel,
+  AddOnCheckoutErrorCode,
+  AddOnSubscriptionErrorCode,
+  AddOnSubscribeResultModel,
+  AddOnSubscriptionCancelResultModel,
+  AddOnSubscriptionReactivateResultModel,
 } from './features/types.js';
 
 // Feedback
