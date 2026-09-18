@@ -33,6 +33,10 @@ const COMPONENTS = [
   'components/registrationSubscription/parts/CardSetupForm.tsx',
   'components/registrationSubscription/parts/PackCheckout.tsx',
   'components/registrationSubscription/parts/PackOutcomeList.tsx',
+  'components/registrationSubscription/parts/PackPicker.tsx',
+  'components/registrationSubscription/parts/PaymentModal.tsx',
+  'components/registrationSubscription/parts/PlanChangeNotice.tsx',
+  'components/subscription/CancelResultNotice.tsx',
 ];
 
 /**

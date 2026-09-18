@@ -114,10 +114,12 @@ export { TierPlansPanel } from './components/subscription/admin/TierPlansPanel.j
 export type { TierPlansPanelProps, TierSelectedEventArgs } from './components/subscription/admin/TierPlansPanel.js';
 export { TierChangeConfirmationModal } from './components/subscription/TierChangeConfirmationModal.js';
 export type { TierChangeConfirmationModalProps } from './components/subscription/TierChangeConfirmationModal.js';
+export { CancelResultNotice } from './components/subscription/CancelResultNotice.js';
+export type { CancelResultNoticeProps } from './components/subscription/CancelResultNotice.js';
 export { FeaturesPanel } from './components/subscription/admin/FeaturesPanel.js';
 export type { FeaturesPanelProps } from './components/subscription/admin/FeaturesPanel.js';
 export { AddOnsPanel } from './components/subscription/admin/AddOnsPanel.js';
-export type { AddOnsPanelProps } from './components/subscription/admin/AddOnsPanel.js';
+export type { AddOnsPanelProps, AddOnsPanelLabels } from './components/subscription/admin/AddOnsPanel.js';
 export { UsageLimitsPanel } from './components/subscription/admin/UsageLimitsPanel.js';
 export type { UsageLimitsPanelProps } from './components/subscription/admin/UsageLimitsPanel.js';
 export { OverridesPanel } from './components/subscription/admin/OverridesPanel.js';
@@ -133,12 +135,21 @@ export type { OverageSummaryComponentProps } from './components/usage/OverageSum
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
 
-// Registration & Subscription — one component, three views (pricing and signup ship now; manage follows)
+// Registration & Subscription — one component, three views
 export { RegistrationAndSubscriptionComponent } from './components/registrationSubscription/RegistrationAndSubscriptionComponent.js';
 export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/PricingView.js';
 export { RegistrationSubscriptionSignup } from './components/registrationSubscription/views/SignupView.js';
+export { RegistrationSubscriptionManage } from './components/registrationSubscription/views/ManageView.js';
 export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice.js';
 export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice.js';
+// The card an upgrade needs, for a host building its own plan surface around the flow.
+export { PaymentModal } from './components/registrationSubscription/parts/PaymentModal.js';
+export type { PaymentModalProps } from './components/registrationSubscription/parts/PaymentModal.js';
+export { usePlanChangeFlow } from './components/registrationSubscription/views/usePlanChangeFlow.js';
+export type {
+  PlanChangeFlow,
+  PlanChangeFlowOptions,
+} from './components/registrationSubscription/views/usePlanChangeFlow.js';
 export {
   DEFAULT_LABELS as DEFAULT_REGISTRATION_SUBSCRIPTION_LABELS,
   formatLabel as formatRegistrationSubscriptionLabel,

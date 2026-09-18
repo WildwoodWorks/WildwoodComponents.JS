@@ -146,7 +146,7 @@ export interface RegistrationSubscriptionLabels {
   /** Leaves the finished signup. */
   getStarted: string;
 
-  // ── Manage view (stage 19) ─────────────────────────────────────────────────
+  // ── Manage view ────────────────────────────────────────────────────────────
 
   /** Names the plan the user is on. */
   currentPlan: string;
@@ -168,6 +168,47 @@ export interface RegistrationSubscriptionLabels {
   sectionFeatures: string;
   /** Section/tab: per-user feature overrides (admins only). */
   sectionOverrides: string;
+
+  /** Title of the built-in card modal. `{tier}` is the plan being moved to. */
+  upgradeToPlan: string;
+  /** Accessible name of that modal's close button. */
+  closePayment: string;
+  /** Said while the prorated charge is being confirmed with the bank. */
+  authenticatingChange: string;
+  /** Said while the server finishes applying a paid-for change. */
+  applyingChange: string;
+  /** Heading over a failed plan change. */
+  planChangeFailed: string;
+  /** Said when the parked change's payment window closed before it was finished. */
+  planChangeExpired: string;
+  /** Said when the prorated charge was refused. */
+  planChangePaymentFailed: string;
+  /** Said when another change replaced the one being finished. */
+  planChangeSuperseded: string;
+  /** Said when the parked change is no longer on the server. */
+  planChangeNotFound: string;
+  /** Said when a change is already under way on this subscription. */
+  planChangeInProgress: string;
+  /** Said when a payment went through but carried no id to complete the change with. */
+  paymentUnconfirmed: string;
+  /** Opens the pack picker from the packs panel. */
+  addPacks: string;
+  /** Heading of the pack picker. */
+  addPacksTitle: string;
+  /** Badge on a pack nothing bills: a registration token's, or an admin grant. */
+  packIncluded: string;
+  /** Confirmation copy before cancelling a pack nothing bills. */
+  packCancelIncluded: string;
+  /** Confirmation copy before cancelling a pack that is billed. */
+  packCancelBilled: string;
+  /** Confirms a pack cancellation. */
+  packCancelConfirm: string;
+  /** Backs out of a pack cancellation. */
+  packCancelKeep: string;
+  /** Takes back a scheduled pack cancellation. */
+  packReactivate: string;
+  /** Marks a feature an override grants outside the plan. */
+  featureIncluded: string;
 
   // ── Shared ─────────────────────────────────────────────────────────────────
 
@@ -258,6 +299,28 @@ export const DEFAULT_LABELS: RegistrationSubscriptionLabels = {
   sectionUsage: 'Usage',
   sectionFeatures: 'Features',
   sectionOverrides: 'Overrides',
+
+  upgradeToPlan: 'Upgrade to {tier}',
+  closePayment: 'Cancel payment',
+  authenticatingChange: 'Confirming the charge with your bank...',
+  applyingChange: 'Applying your new plan...',
+  planChangeFailed: 'The plan change could not be completed',
+  planChangeExpired: 'The payment window closed - please start the change again',
+  planChangePaymentFailed: 'That payment was not completed, so your plan has not changed. Please try again.',
+  planChangeSuperseded: 'This plan was changed somewhere else. Refresh and try again.',
+  planChangeNotFound: 'That plan change is no longer available. Please start it again.',
+  planChangeInProgress: 'A change to this plan is already under way. Give it a moment and refresh.',
+  paymentUnconfirmed:
+    'Your payment went through but the plan change could not be confirmed automatically. Please contact support with your receipt.',
+  addPacks: 'Add packs',
+  addPacksTitle: 'Add packs to your plan',
+  packIncluded: 'Included with your registration',
+  packCancelIncluded: 'This pack was included with your registration. Cancelling removes it from your account.',
+  packCancelBilled: 'You keep access until the end of the current billing period.',
+  packCancelConfirm: 'Cancel pack',
+  packCancelKeep: 'Keep pack',
+  packReactivate: 'Reactivate',
+  featureIncluded: 'Included',
 
   viewNotAvailable: 'This view is not available yet',
 };

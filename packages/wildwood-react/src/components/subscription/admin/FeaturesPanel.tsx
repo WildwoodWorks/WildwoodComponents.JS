@@ -9,6 +9,8 @@ export interface FeaturesPanelProps {
   isAdmin?: boolean;
   loading?: boolean;
   className?: string;
+  /** Marks a feature an override grants outside the plan. Defaults to "Included". */
+  includedLabel?: string;
   onToggleFeature?: (featureCode: string, isEnabled: boolean, reason?: string, expiresAt?: string) => Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export function FeaturesPanel({
   isAdmin = false,
   loading,
   className,
+  includedLabel = 'Included',
   onToggleFeature,
 }: FeaturesPanelProps) {
   const [confirmingFeature, setConfirmingFeature] = useState<string | null>(null);
@@ -45,6 +48,13 @@ export function FeaturesPanel({
 
   const hasOverride = useCallback(
     (featureCode: string) => featureOverrides.some((o) => o.featureCode === featureCode),
+    [featureOverrides],
+  );
+
+  // A feature an override GRANTS is not part of the plan, so "Enabled" alone reads as if the plan
+  // carried it. It is included in this account, and everyone - not just an admin - is told so.
+  const isIncluded = useCallback(
+    (featureCode: string) => featureOverrides.some((o) => o.featureCode === featureCode && o.isEnabled),
     [featureOverrides],
   );
 
@@ -164,6 +174,9 @@ export function FeaturesPanel({
                           <span className="ww-feature-override-badge" title={getOverrideTooltip(f.featureCode)}>
                             &#x1f6e1;
                           </span>
+                        )}
+                        {f.isEnabled && isIncluded(f.featureCode) && (
+                          <span className="ww-badge ww-badge-info ww-feature-included">{includedLabel}</span>
                         )}
                       </span>
                       {f.description && <span className="ww-feature-card-desc">{f.description}</span>}

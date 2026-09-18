@@ -1,9 +1,8 @@
 // The public API of `RegistrationAndSubscriptionComponent`.
 //
-// All three views are declared here, in one file, on purpose: the pricing view ships first
-// (stage 17) and the signup and manage views follow, and a host that adopts the component early
-// should not have to rewrite its props when they land. Only the pricing view has an implementation
-// behind it today; the other two render a placeholder.
+// All three views are declared here, in one file, on purpose: a host reading the component's API
+// sees every surface it has, and the props of one view never have to be hunted for in another
+// module. All three are implemented.
 //
 // Nothing in this file imports anything with a runtime cost — it is types only, so a landing page
 // that pulls in the pricing view does not drag the admin surfaces along with it.
@@ -129,7 +128,7 @@ export interface RegistrationSubscriptionPricingProps extends RegistrationSubscr
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// Signup view (stage 18)
+// Signup view
 // ───────────────────────────────────────────────────────────────────────────────
 
 /** Whether the signup flow asks the visitor to choose a plan. */
@@ -186,33 +185,36 @@ export interface RegistrationSubscriptionSignupProps extends RegistrationSubscri
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// Manage view (stage 19)
+// Manage view
 // ───────────────────────────────────────────────────────────────────────────────
 
 /** How the manage view arranges its sections. */
 export type ManageLayout = 'tabs' | 'stacked';
 
 /** The panels the manage view can show. */
-export type ManageSection = 'status' | 'plans' | 'packs' | 'usage' | 'features' | 'overrides';
+export type ManageSection = 'subscription' | 'plans' | 'features' | 'addOns' | 'usage' | 'overrides';
 
 export interface RegistrationSubscriptionManageProps extends RegistrationSubscriptionCommonProps {
   /** `'tabs'` is one panel at a time; `'stacked'` renders them all down the page. Default `'tabs'`. */
   layout?: ManageLayout;
-  /** Which panels to show, in order. Defaults to everything the viewer is allowed to see. */
+  /**
+   * Which panels to show, in order. Defaults to everything the viewer is allowed to see: `overrides`
+   * needs `isAdmin` and `addOns` needs `showAddOns`, whether they are asked for or defaulted.
+   */
   sections?: ManageSection[];
   /** Keep the subscription card above the tab bar instead of behind a tab. */
   showStatusAboveTabs?: boolean;
-  /** Unlocks the admin-only panels (overrides, another user's subscription). */
+  /** Unlocks the admin-only panels (overrides, usage editing). */
   isAdmin?: boolean;
   /** Whose subscription to manage. Defaults to the signed-in user. */
   userId?: string;
   /** The company whose subscription to manage, for company-level plans. */
   companyId?: string;
-  /** Let the user add and drop packs themselves. */
+  /** Let the user buy packs themselves, through the component's own card-once checkout. */
   allowPackSelfService?: boolean;
-  /** Offer cancellation. */
+  /** Offer cancellation. Default true; false hides the subscription's cancel button. */
   allowCancel?: boolean;
-  /** Show the packs panel. */
+  /** Show the packs panel. Default true. */
   showAddOns?: boolean;
   /** Overlay the host's own real-time usage on the server's limit statuses before they render. */
   onMergeUsage?: (
@@ -222,6 +224,10 @@ export interface RegistrationSubscriptionManageProps extends RegistrationSubscri
   /**
    * Called when a change needs a card and none is on file. Return a payment transaction id to
    * complete the change, or null to abandon it.
+   *
+   * Optional, and rarely wanted: the view has its own card modal and uses it when this is left
+   * out. A host that passes one keeps full control — its answer is taken instead, exactly as the
+   * older `SubscriptionAdminComponent` behaved.
    */
   onPaymentRequired?: (args: PaymentRequiredArgs) => Promise<string | null | undefined>;
   /** Called after the subscription changes, so the host can refresh whatever else shows it. */

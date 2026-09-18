@@ -6451,3 +6451,103 @@ img.ww-avatar {
     color: var(--ww-danger-text);
     font-size: 0.8125rem;
 }
+
+/* ── Registration + subscription: the manage view ── */
+
+.ww-regsub-manage-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.ww-regsub-manage-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-manage-section-title {
+    margin: 0;
+    font-size: 1.125rem;
+    color: var(--ww-text-primary);
+}
+
+/* What the plan change is doing, and what stopped it. */
+
+.ww-regsub-plan-change {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius-lg);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-regsub-plan-change-failed {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ww-regsub-plan-change-reason {
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.ww-regsub-plan-change-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* The card an upgrade needs, and the pack picker, both inside .ww-modal. */
+
+.ww-regsub-payment-modal {
+    max-width: 30rem;
+}
+
+.ww-regsub-pack-picker {
+    max-width: 46rem;
+}
+
+/* Packs: how one is paid for decides what cancelling it does. */
+
+.ww-addons-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+.ww-addon-included {
+    margin-left: 0.25rem;
+}
+
+.ww-addon-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--ww-warning);
+    border-radius: var(--ww-border-radius);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-addon-confirm-message {
+    margin: 0;
+    color: var(--ww-text-secondary);
+}
+
+.ww-addon-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* A feature an override grants is included in the account, not in the plan. */
+
+.ww-feature-included {
+    margin-left: 0.5rem;
+}

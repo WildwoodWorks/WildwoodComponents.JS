@@ -34,6 +34,28 @@ incomplete address stops the request with "Please complete your billing address.
 (`displayMode` other than `tabs`) layout, picking a plan previewed the change and then showed
 nothing. Every layout renders it now.
 
+**`SubscriptionAdminComponent` threw when a change needed a card and the host had wired no
+`onPaymentRequired`** ("Payment is required for this tier change. Wire the onPaymentRequired
+callback to collect payment."), so the upgrade simply died. Its plan change is now the shared
+`usePlanChangeFlow`, the same one the manage view of `RegistrationAndSubscriptionComponent` uses:
+it collects the card in the built-in `PaymentModal` instead of throwing, and a prorated charge the
+bank wants to see is confirmed and the parked change completed rather than refused. This is a
+behaviour change, and the only one: a host that passes `onPaymentRequired` still owns the card step
+and sees exactly what it saw before. The self-service change now posts through
+`changeTierWithOptions` with `supportsPaymentAction`, and a failed or still-completing change
+reports itself in one notice (with Try Again) instead of the data layer's copy of the same message.
+Everything else - the panels, the add-on handlers, overrides, usage, the cancel notice,
+`displayMode`, `showStatusAboveTabs`, `onMergeUsage` and `onSubscriptionChanged` - is untouched.
+
+**`AddOnsPanel` cancel now confirms first**, in the words that fit how the pack is paid for: a
+billed pack says access continues to the end of the current billing period, and a pack nobody paid
+for (no `paymentTransactionId`: a registration token's, or an admin's) reads "Included with your
+registration", shows no renewal date, and says that cancelling removes it. New optional
+`onReactivate` (offered on a billed pack whose cancellation is scheduled) and `onAddPacks` (a
+surface that buys packs through a checkout of its own). A pack no longer renders a Subscribe button
+when no `onSubscribe` was given - it did nothing at all. `FeaturesPanel` marks a feature an
+override grants as "Included", so it does not read as part of a plan that does not carry it.
+
 **`AddOnsPanel`.**
 
 - The trial comes from the pricing option that is actually bought (falling back to the pack), so the

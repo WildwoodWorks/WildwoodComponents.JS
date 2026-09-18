@@ -148,6 +148,41 @@ describe('planChangeMachine', () => {
     expect(state.retryFrom).toBe('completing');
   });
 
+  it('starts the completion budget over on a manual retry', () => {
+    let state = previewed(preview());
+    state = planChangeTransition(state, { type: 'CONFIRMED' });
+    state = planChangeTransition(state, {
+      type: 'CHANGE_RESULT',
+      token: state.token!,
+      result: changeResult({ requiresAction: true, clientSecret: 's', pendingChangeId: 'pending-1' }),
+    });
+    state = planChangeTransition(state, { type: 'AUTHENTICATED', token: state.token! });
+
+    for (let i = 0; i < MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS; i += 1) {
+      state = planChangeTransition(state, {
+        type: 'COMPLETE_RESULT',
+        token: state.token!,
+        result: changeResult({ processing: true }),
+      });
+    }
+    expect(state.step).toBe('failed');
+
+    // The budget belongs to one automatic run of retries: the customer's own retry gets a fresh
+    // one, or it would give up on its first answer.
+    state = planChangeTransition(state, { type: 'RETRY' });
+    expect(state.step).toBe('completing');
+    expect(state.completeAttempts).toBe(0);
+  });
+
+  it('carries the timing the customer chose into the change', () => {
+    let state = previewed(preview({ isUpgrade: false, isDowngrade: true }));
+    expect(state.immediate).toBe(true);
+
+    state = planChangeTransition(state, { type: 'CONFIRMED', immediate: false });
+    expect(state.step).toBe('changing');
+    expect(state.immediate).toBe(false);
+  });
+
   it('reports the server errorCode on a refusal', () => {
     let state = previewed(preview());
     state = planChangeTransition(state, { type: 'CONFIRMED' });

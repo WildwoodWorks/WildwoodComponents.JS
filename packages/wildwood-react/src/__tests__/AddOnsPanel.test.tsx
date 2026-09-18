@@ -41,6 +41,7 @@ const subscription = (overrides: Partial<UserAddOnSubscriptionModel> = {}): User
     appId: 'app-1',
     appTierAddOnId: 'addon-seats',
     status: 'Active',
+    paymentTransactionId: 'txn-seats',
     addOnName: 'Extra Seats',
     addOnDescription: '',
     isBundled: false,
@@ -161,7 +162,12 @@ describe('AddOnsPanel', () => {
     const onCancel = vi.fn().mockResolvedValue(false);
     render(<AddOnsPanel addOns={[pack()]} subscriptions={[subscription()]} onCancel={onCancel} />);
 
+    // Nothing is cancelled on the first click: the row asks first.
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByText(/end of the current billing period/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel pack' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Could not cancel Extra Seats');
   });

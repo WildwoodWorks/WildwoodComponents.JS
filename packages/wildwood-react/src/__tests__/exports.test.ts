@@ -133,6 +133,18 @@ describe('@wildwood/react exports', () => {
   it('exports RegistrationSubscriptionSignup', () => {
     expect(WildwoodReact.RegistrationSubscriptionSignup).toBeDefined();
   });
+  it('exports RegistrationSubscriptionManage', () => {
+    expect(WildwoodReact.RegistrationSubscriptionManage).toBeDefined();
+  });
+  it('exports PaymentModal', () => {
+    expect(WildwoodReact.PaymentModal).toBeDefined();
+  });
+  it('exports usePlanChangeFlow', () => {
+    expect(WildwoodReact.usePlanChangeFlow).toBeDefined();
+  });
+  it('exports CancelResultNotice', () => {
+    expect(WildwoodReact.CancelResultNotice).toBeDefined();
+  });
   it('exports ClosedNotice', () => {
     expect(WildwoodReact.ClosedNotice).toBeDefined();
   });

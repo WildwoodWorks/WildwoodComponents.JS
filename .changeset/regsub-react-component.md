@@ -2,10 +2,10 @@
 '@wildwood/react': minor
 ---
 
-RegistrationAndSubscriptionComponent (pricing and signup views); the manage view follows
+RegistrationAndSubscriptionComponent: the pricing, signup and manage views
 
 One component for everything a customer does with money: `view="pricing" | "signup" | "manage"`.
-The pricing and signup views ship now. Both read the app's live public catalog, so the plans and packs on the
+All three read the app's live public catalog or the account's own subscription, so the plans and packs on the
 page are the ones the app is actually selling, at the price the server is quoting this minute —
 there is no fallback price, no remembered price and no "from" price anywhere in it. While the
 catalog loads it shows a placeholder with no numbers in it; if the catalog cannot be read it says
@@ -69,6 +69,49 @@ success panel, `.ww-signup-processing` with "Something Went Wrong" / "Try Again"
 `PaymentComponent`'s Stripe card field is now the shared `useStripeCardElement` hook, which the
 pack checkout's one-time card entry uses too. `PaymentComponent` itself is unchanged to look at.
 
-The manage view is declared (its props are final, so hosts can write against them now) but renders
-a placeholder until the next release. `PricingDisplayComponent` and
-`SignupWithSubscriptionComponent` are unchanged.
+The manage view is the third: what a customer already pays for, and every way of changing it.
+
+```tsx
+<RegistrationAndSubscriptionComponent
+  view="manage"
+  layout="stacked"
+  sections={['subscription', 'plans', 'addOns', 'usage']}
+  allowPackSelfService
+  onEntitlementsChanged={() => refreshGates()}
+/>
+```
+
+The panels are the platform's own - the same status card, `.ww-tier-grid` plan grid with its
+"Switch to ..." CTAs, features, packs, usage and admin overrides the admin surfaces have always
+rendered - so a site swapping its hand-built plan page for this keeps its markup and its locators.
+`layout` is `'tabs'` (one panel at a time) or `'stacked'` (all of them down the page), `sections`
+picks and orders them, and `showStatusAboveTabs`, `isAdmin`, `userId`, `companyId`, `allowCancel`,
+`showAddOns` and `allowPackSelfService` decide what a given viewer may see and do. The root carries
+`data-ww-view="manage"` and a `data-ww-step` naming where the plan change is
+(`idle | previewing | confirm | collectingPayment | changing | authenticating | completing | done |
+failed`).
+
+What is new is the middle. A plan change goes preview -> confirm (in EVERY layout) -> card if one
+is needed -> change -> 3-D Secure -> completion, and the component brings its own card modal:
+`PaymentModal`, which every site on the platform used to hand-build around `PaymentComponent`. It
+answers exactly once, so a payment SDK that calls back twice cannot cancel a charge that went
+through; a refused card stays in the modal for a retry instead of throwing the priced change away;
+a payment that succeeded with no id to complete the change with is reported rather than passed off
+as a cancel; and the transaction is attributed to the signed-in user afterwards, best effort. A
+host that would rather keep its own modal passes `onPaymentRequired` and still owns that step.
+
+A prorated charge the bank wants to see is a "not yet", not a refusal: the change is posted with
+`supportsPaymentAction`, the parked charge is confirmed with `confirmCardPayment` against the app's
+own Stripe publishable key, and the change is then completed by its `pendingChangeId` - retried
+while the server answers `processing`, and reported in words a customer can act on when it cannot
+be ("The payment window closed - please start the change again").
+
+Packs are the other half. With `allowPackSelfService` the packs panel offers "Add packs", which
+opens the signup's own pack grid and card-once checkout, so a pack bought a month after signing up
+is the same transaction as one bought during it. A pack is cancelled at the end of the period it is
+paid up to, after being told so, and a scheduled cancellation can be taken back. A pack nobody paid
+for - a registration token's, an admin's - reads "Included with your registration", shows no
+renewal date, offers no Reactivate, and says what cancelling it really does. Features an override
+grants read as "Included" rather than as part of a plan that does not carry them.
+
+`PricingDisplayComponent` and `SignupWithSubscriptionComponent` are unchanged.

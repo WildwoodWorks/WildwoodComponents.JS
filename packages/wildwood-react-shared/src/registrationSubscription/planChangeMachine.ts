@@ -64,8 +64,11 @@ export type PlanChangeEvent =
   | { type: 'PREVIEW_REQUESTED'; appId: string; tierId: string; pricingId?: string; immediate?: boolean }
   | { type: 'PREVIEW_RECEIVED'; token: StepToken; preview: TierChangePreviewModel }
   | { type: 'PREVIEW_FAILED'; token: StepToken; message: string }
-  /** The customer confirmed. `collectPayment` overrides what the preview implies. */
-  | { type: 'CONFIRMED'; collectPayment?: boolean }
+  /**
+   * The customer confirmed. `collectPayment` overrides what the preview implies, and `immediate`
+   * carries the timing they chose (a downgrade may be scheduled for the end of the period).
+   */
+  | { type: 'CONFIRMED'; collectPayment?: boolean; immediate?: boolean }
   | { type: 'PAYMENT_COMPLETED'; paymentTransactionId: string }
   | { type: 'PAYMENT_FAILED'; message: string }
   | { type: 'PAYMENT_CANCELLED' }
@@ -224,7 +227,8 @@ export function planChangeTransition(state: PlanChangeState, event: PlanChangeEv
     case 'CONFIRMED': {
       if (state.step !== 'confirm') return state;
       const collect = event.collectPayment ?? needsPaymentFirst(state);
-      return enter(state, collect ? 'collectingPayment' : 'changing');
+      const confirmed = event.immediate === undefined ? state : { ...state, immediate: event.immediate };
+      return enter(confirmed, collect ? 'collectingPayment' : 'changing');
     }
 
     case 'PAYMENT_COMPLETED':
@@ -265,7 +269,9 @@ export function planChangeTransition(state: PlanChangeState, event: PlanChangeEv
 
     case 'RETRY':
       if (state.step !== 'failed' || !state.retryFrom) return state;
-      return enter(state, state.retryFrom);
+      // The completion budget belongs to one automatic run of retries, not to the customer: a
+      // manual "Try Again" that inherited an exhausted count would give up on its first answer.
+      return enter({ ...state, completeAttempts: 0 }, state.retryFrom);
 
     case 'RESET':
       return initialPlanChangeState({

@@ -47,7 +47,10 @@ Three pure reducers in `registrationSubscription/` carry the flows, free of Reac
   card step drops the SetupIntent that attempt was holding, so the driver collects a fresh one rather
   than confirming the abandoned intent.
 - `planChangeMachine` — preview, confirm, optional up-front payment, change, then the 3-D Secure
-  park-and-complete path; `processing` is retried rather than reported as a failure.
+  park-and-complete path; `processing` is retried rather than reported as a failure, on a bounded
+  budget that a manual `RETRY` starts over (the budget belongs to one automatic run of retries, not
+  to the customer). `CONFIRMED` carries the timing the customer chose, so a downgrade scheduled for
+  the end of the period is posted that way.
 
 Every async step is issued a `StepToken` (`issueStepToken`), and a result carrying any other token
 is ignored and returns the same state object — so React StrictMode's doubled effects and a payment
