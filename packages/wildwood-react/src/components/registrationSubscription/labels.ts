@@ -41,8 +41,10 @@ export interface RegistrationSubscriptionLabels {
   /** The singular of {@link continueWithPacks}. */
   continueWithOnePack: string;
 
-  // ── Signup view (stage 18) ─────────────────────────────────────────────────
+  // ── Signup view ────────────────────────────────────────────────────────────
 
+  /** Said while the app's registration settings and catalog are still being read. */
+  loadingSignup: string;
   /** Said when the app is not accepting registrations at all. */
   registrationClosed: string;
   /** Submits the registration form. */
@@ -71,6 +73,78 @@ export interface RegistrationSubscriptionLabels {
   signupComplete: string;
   /** Said when a signed-in visitor lands on the signup view. */
   alreadySignedIn: string;
+
+  /** Shown on a free plan in the plan summary card, where a price would otherwise be. */
+  planFree: string;
+  /** Heading over the plan and packs a registration token sets up. */
+  tokenPlanIncludes: string;
+  /** Sub-heading over the token's packs. */
+  tokenPlanPacks: string;
+  /** Sub-heading over the token's extra features. */
+  tokenPlanFeatures: string;
+  /** Said while the registration token is being checked. */
+  checkingToken: string;
+
+  /** Heading over what is about to be charged. */
+  orderSummary: string;
+  /** Labels the amount charged today (zero while a trial runs). */
+  dueToday: string;
+  /** The card already on file. `{brand}` and `{last4}` come from the server's quote. */
+  savedCardOnFile: string;
+  /** Field label over the card entry. */
+  cardDetails: string;
+  /** Saves the card and continues the purchase. */
+  saveCard: string;
+  /** Said while the packs are being bought. */
+  buyingPacks: string;
+  /** Said while one pack's card is being authenticated with the bank. */
+  authenticatingPack: string;
+  /** Said when a pack purchase was refused and no message came back. */
+  packsUnavailable: string;
+
+  /** Pack outcome: the pack's trial has started. */
+  packStatusTrialing: string;
+  /** Pack outcome: the pack is running and paid for. */
+  packStatusActive: string;
+  /** Pack outcome: the pack could not be bought. */
+  packStatusFailed: string;
+  /** Pack outcome: the registration token included the pack. */
+  packStatusGranted: string;
+
+  /** Heading over the disclaimers step. */
+  disclaimersTitle: string;
+  /** Sentence under that heading. */
+  disclaimersIntro: string;
+
+  /** Status while the account is being registered. */
+  statusCreatingAccount: string;
+  /** Status while the new account is being signed in. */
+  statusSigningIn: string;
+  /** Status while the plan is being activated. */
+  statusActivatingPlan: string;
+  /** Reassurance under the processing status. */
+  processingWait: string;
+  /** Heading of the failed-signup panel. */
+  signupFailed: string;
+  /** Resumes a failed signup where it stopped. */
+  tryAgain: string;
+  /** Throws the attempt away and returns to the form. */
+  startOver: string;
+
+  /** Heading of the success panel. */
+  signupCompleteTitle: string;
+  /** Success copy when a registration token set the account up. `{tier}` is the granted plan. */
+  signupCompleteToken: string;
+  /** Success copy when the plan started a trial. `{days}` is the trial length. */
+  signupCompleteTrial: string;
+  /** Success copy when no plan was chosen. */
+  signupCompletePlain: string;
+  /** Success copy when the plan is running. */
+  signupCompleteActive: string;
+  /** Success copy when the account exists but the plan could not be activated. */
+  signupCompletePending: string;
+  /** Leaves the finished signup. */
+  getStarted: string;
 
   // ── Manage view (stage 19) ─────────────────────────────────────────────────
 
@@ -118,6 +192,7 @@ export const DEFAULT_LABELS: RegistrationSubscriptionLabels = {
   continueWithPacks: 'Continue with {count} packs',
   continueWithOnePack: 'Continue with 1 pack',
 
+  loadingSignup: 'Getting things ready...',
   registrationClosed: 'Registration is closed',
   createAccount: 'Create account',
   continueLabel: 'Continue',
@@ -132,6 +207,46 @@ export const DEFAULT_LABELS: RegistrationSubscriptionLabels = {
   reviewSelection: 'Review your selection',
   signupComplete: 'You are all set',
   alreadySignedIn: 'You are already signed in',
+
+  planFree: 'Free',
+  tokenPlanIncludes: 'Your registration token includes',
+  tokenPlanPacks: 'Packs',
+  tokenPlanFeatures: 'Features',
+  checkingToken: 'Checking your registration token...',
+
+  orderSummary: 'Order Summary',
+  dueToday: 'Due today',
+  savedCardOnFile: '{brand} ending in {last4}',
+  cardDetails: 'Card Details',
+  saveCard: 'Save card and continue',
+  buyingPacks: 'Setting up your packs...',
+  authenticatingPack: 'Confirming {name} with your bank...',
+  packsUnavailable: 'Your packs could not be bought.',
+
+  packStatusTrialing: 'Trial started',
+  packStatusActive: 'Active',
+  packStatusFailed: 'Could not be added',
+  packStatusGranted: 'Included',
+
+  disclaimersTitle: 'One more step',
+  disclaimersIntro: 'Please review and accept the following before continuing.',
+
+  statusCreatingAccount: 'Creating your account...',
+  statusSigningIn: 'Signing you in...',
+  statusActivatingPlan: 'Activating your plan...',
+  processingWait: 'Please wait while we set up your account.',
+  signupFailed: 'Something Went Wrong',
+  tryAgain: 'Try Again',
+  startOver: 'Start Over',
+
+  signupCompleteTitle: "You're All Set!",
+  signupCompleteToken: 'Your account has been created with the {tier} from your registration token.',
+  signupCompleteTrial: 'Your account has been created and your {days}-day free trial has started.',
+  signupCompletePlain: 'Your account has been created successfully.',
+  signupCompleteActive: 'Your account has been created and your plan is active.',
+  signupCompletePending:
+    'Your account is ready! Plan activation is pending - you can select a plan from your dashboard.',
+  getStarted: 'Get Started',
 
   currentPlan: 'Current plan',
   changePlan: 'Change plan',

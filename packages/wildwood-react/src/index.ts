@@ -133,9 +133,10 @@ export type { OverageSummaryComponentProps } from './components/usage/OverageSum
 export { PricingDisplayComponent } from './components/pricing/PricingDisplayComponent.js';
 export type { PricingDisplayComponentProps } from './components/pricing/PricingDisplayComponent.js';
 
-// Registration & Subscription — one component, three views (pricing ships now; signup and manage follow)
+// Registration & Subscription — one component, three views (pricing and signup ship now; manage follows)
 export { RegistrationAndSubscriptionComponent } from './components/registrationSubscription/RegistrationAndSubscriptionComponent.js';
 export { RegistrationSubscriptionPricing } from './components/registrationSubscription/views/PricingView.js';
+export { RegistrationSubscriptionSignup } from './components/registrationSubscription/views/SignupView.js';
 export { ClosedNotice } from './components/registrationSubscription/parts/ClosedNotice.js';
 export type { ClosedNoticeProps } from './components/registrationSubscription/parts/ClosedNotice.js';
 export {

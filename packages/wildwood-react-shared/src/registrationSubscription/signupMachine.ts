@@ -15,6 +15,11 @@
 //   9 pack checkout (after login, because packs are bought as the signed-in user)
 //  10 success
 //
+// Step 2 is a gate, not just an order: nothing past the form may run until it has been submitted.
+// A signup link that preselects a plan offers "change plan" beside the form, so a visitor can be at
+// the plan grid with an empty form — choosing there takes them back to the form with their new
+// plan, never onward to a card form or an account creation that has no details to work with.
+//
 // No React and no client here: the hook that drives this runs the effects and dispatches results,
 // and the views read `step`. Async steps carry a {@link StepToken} so a duplicated effect or a
 // callback that fires twice cannot advance the flow twice.
@@ -120,6 +125,22 @@ export interface SignupState {
   selection: SignupSelection;
   /** Whether the chosen plan has to be paid for before the account is created. */
   planRequiresPayment: boolean;
+  /**
+   * The plan was decided before the form opened — a signup link's plan, or the app's default in a
+   * `skip` flow — so the plan step is not walked. The visitor is shown what they are getting and a
+   * way back to the grid (a `GO_TO` to `plan`) rather than a grid they have already chosen from.
+   */
+  planPreset: boolean;
+
+  /**
+   * Whether the registration form has actually been submitted.
+   *
+   * Everything after the form spends the visitor's money or creates their account, and both need
+   * the details the form collects. "Change plan" can send them to the grid before they have typed
+   * anything, so a plan or a pack chosen while this is false takes them back to the form rather
+   * than onward — nothing may run ahead of it.
+   */
+  formSubmitted: boolean;
 
   email: string;
   userId: string;
@@ -151,6 +172,14 @@ export type SignupEvent =
   | { type: 'INIT'; signedIn: boolean }
   | { type: 'MODE_LOADED'; mode: SignupRegistrationMode }
   | { type: 'CATALOG_LOADED'; names?: SignupCatalogNames }
+  /**
+   * The live catalog decided what the signup starts with: the plan a signup link preselected, or
+   * the app's default plan in a `skip` flow, plus the packs the link asked for — all checked
+   * against the catalog by whoever dispatches this. A resolved plan takes the plan step out of the
+   * flow. Accepted only before the form is submitted; after that the plan and pack steps own the
+   * selection.
+   */
+  | { type: 'SELECTION_RESOLVED'; tierId?: string; pricingId?: string; addOnIds?: string[]; requiresPayment?: boolean }
   | { type: 'LOAD_FAILED'; message: string }
   | { type: 'REGISTER_SUBMITTED'; email: string }
   | { type: 'TOKEN_CHECK_STARTED' }
@@ -200,6 +229,8 @@ export function initialSignupState(options: SignupMachineOptions = {}): SignupSt
       addOnIds,
     },
     planRequiresPayment: false,
+    planPreset: false,
+    formSubmitted: false,
     email: '',
     userId: '',
     tokenChecking: false,
@@ -220,8 +251,14 @@ function isSkipped(state: SignupState, step: FormStep): boolean {
       // No token path at all: neither required nor offered as an option.
       return !(state.mode?.requireToken || state.mode?.showOptionalTokenEntry);
     case 'plan':
-      // A grant already names the plan, so there is nothing to choose.
-      return state.options.planSelection === 'skip' || state.tokenGrant != null;
+      // A grant already names the plan, a resolved link already chose it, and invite redemption is
+      // "take what the invite gives" — in none of those is there anything to choose.
+      return (
+        state.options.planSelection === 'skip' ||
+        state.options.tokenMode === 'required' ||
+        state.planPreset ||
+        state.tokenGrant != null
+      );
     case 'packs':
       // Invite redemption is "take what the invite gives", not a shopping trip.
       return state.options.packSelection === 'none' || state.options.tokenMode === 'required';
@@ -252,6 +289,11 @@ function fail(state: SignupState, message: string, retryFrom: SignupStep): Signu
 
 /** The next step after `from`, skipping whatever this flow does not need. */
 function advance(state: SignupState, from: FormStep): SignupState {
+  // The form comes first, always. A visitor who followed "change plan" out of the form and chose
+  // there is sent back to it with their new choice, rather than on towards a card form or an
+  // account creation that has no details to work with.
+  if (!state.formSubmitted) return enter(state, 'register');
+
   const start = FORM_ORDER.indexOf(from);
   for (let i = start + 1; i < FORM_ORDER.length; i += 1) {
     const step = FORM_ORDER[i] as FormStep;
@@ -327,13 +369,33 @@ export function signupTransition(state: SignupState, event: SignupEvent): Signup
       return startForm({ ...state, names, catalogReady: true });
     }
 
+    case 'SELECTION_RESOLVED': {
+      // Only while the form is still ahead: once it has been submitted the plan and pack steps own
+      // the selection, and a catalog that reloads underneath must not rewrite what was chosen.
+      if (state.step !== 'loading' && state.step !== 'register') return state;
+      const granted = new Set(state.tokenGrant?.addOnIds ?? []);
+      const addOnIds = event.addOnIds ? dedupe(event.addOnIds) : state.selection.addOnIds;
+      const plannedTier = event.tierId != null;
+      return {
+        ...state,
+        planPreset: state.planPreset || plannedTier,
+        planRequiresPayment: plannedTier ? event.requiresPayment === true : state.planRequiresPayment,
+        selection: {
+          tierId: event.tierId ?? state.selection.tierId,
+          pricingId: event.pricingId ?? state.selection.pricingId,
+          addOnIds,
+        },
+        packsToBuy: addOnIds.filter((id) => !granted.has(id)),
+      };
+    }
+
     case 'LOAD_FAILED':
       if (state.step !== 'loading') return state;
       return fail(state, event.message, 'loading');
 
     case 'REGISTER_SUBMITTED':
       if (state.step !== 'register') return state;
-      return advance({ ...state, email: event.email }, 'register');
+      return advance({ ...state, email: event.email, formSubmitted: true }, 'register');
 
     case 'TOKEN_CHECK_STARTED':
       if (state.step !== 'token') return state;
@@ -371,6 +433,8 @@ export function signupTransition(state: SignupState, event: SignupEvent): Signup
         ...state,
         selection: { ...state.selection, tierId: event.tierId, pricingId: event.pricingId },
         planRequiresPayment: event.requiresPayment === true,
+        // Chosen is chosen: coming back through the form must not ask for a plan again.
+        planPreset: true,
       };
       return advance(next, 'plan');
     }

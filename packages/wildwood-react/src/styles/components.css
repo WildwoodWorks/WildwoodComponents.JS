@@ -6309,3 +6309,145 @@ img.ww-avatar {
         align-items: stretch;
     }
 }
+
+/* ── Registration + subscription: the signup view ── */
+
+.ww-regsub-step-title {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--ww-text-primary);
+}
+
+/* What a registration token set up. Never priced: the visitor is not paying for any of it. */
+
+.ww-token-plan-summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ww-token-plan-summary-title {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-token-plan-tier {
+    margin: 0;
+    color: var(--ww-text-primary);
+}
+
+.ww-token-plan-pricing {
+    color: var(--ww-text-secondary);
+}
+
+.ww-token-plan-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ww-token-plan-group-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ww-text-secondary);
+}
+
+.ww-token-plan-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* The pack checkout: one quote, one card, one purchase. */
+
+.ww-regsub-pack-checkout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ww-regsub-pack-checkout-failed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ww-regsub-order-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ww-regsub-order-summary-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--ww-text-primary);
+}
+
+.ww-regsub-saved-card {
+    margin: 0;
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+.ww-regsub-card-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* One line per pack, including the ones that failed: a basket is not a transaction. */
+
+.ww-pack-outcome-list {
+    list-style: none;
+    margin: 1rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+}
+
+.ww-pack-outcome {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ww-border-light);
+    border-radius: var(--ww-border-radius);
+    background: var(--ww-bg-secondary);
+}
+
+.ww-pack-outcome--failed {
+    border-color: var(--ww-danger);
+}
+
+.ww-pack-outcome--granted,
+.ww-pack-outcome--trialing,
+.ww-pack-outcome--active {
+    border-color: var(--ww-success);
+}
+
+.ww-pack-outcome-name {
+    font-weight: 600;
+    color: var(--ww-text-primary);
+}
+
+.ww-pack-outcome-status {
+    color: var(--ww-text-secondary);
+    font-size: 0.875rem;
+}
+
+.ww-pack-outcome-trial {
+    color: var(--ww-text-muted);
+    font-size: 0.8125rem;
+}
+
+.ww-pack-outcome-error {
+    width: 100%;
+    color: var(--ww-danger-text);
+    font-size: 0.8125rem;
+}

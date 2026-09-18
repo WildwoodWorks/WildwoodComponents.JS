@@ -499,20 +499,19 @@ describe('RegistrationAndSubscriptionComponent', () => {
     expect(container.querySelector('[data-ww-view="pricing"]')).not.toBeNull();
   });
 
-  it('renders the signup placeholder and reports it once', async () => {
+  it('delegates view="signup" to the signup view', async () => {
     const stubs = stubClient();
-    const onError = vi.fn();
-    const { container, rerender } = render(<RegistrationAndSubscriptionComponent view="signup" onError={onError} />, {
+    vi.spyOn(stubs.client.auth, 'getAuthenticationConfiguration').mockResolvedValue({
+      allowOpenRegistration: true,
+      allowTokenRegistration: false,
+    } as never);
+
+    const { container } = render(<RegistrationAndSubscriptionComponent view="signup" />, {
       wrapper: createWrapper(stubs.client),
     });
 
+    await waitFor(() => expect(container.querySelector('[data-ww-step="register"]')).not.toBeNull());
     expect(container.querySelector('[data-ww-view="signup"]')).not.toBeNull();
-    expect(screen.getByText('This view is not available yet')).toBeTruthy();
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
-    expect(onError.mock.calls[0]?.[0]?.code).toBe('view_not_available');
-
-    rerender(<RegistrationAndSubscriptionComponent view="signup" onError={onError} />);
-    expect(onError).toHaveBeenCalledTimes(1);
   });
 
   it('renders the manage placeholder', () => {

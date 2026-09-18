@@ -31,10 +31,21 @@ Three pure reducers in `registrationSubscription/` carry the flows, free of Reac
 - `signupMachine` — `loading` → `closed` | `register` → `token` → `plan` → `packs` → `payment` →
   `creating` → `disclaimers` → `packCheckout` → `done`, in the pay-first order (the plan's card is
   taken before the account exists). A token grant skips the plan and the payment and drops the packs
-  it already covers; `tokenMode: 'required'` skips the packs too. `alreadySignedInLatched` is set
-  once at the first `INIT`, so a mid-flow login never re-triggers "you are already signed in".
+  it already covers; `tokenMode: 'required'` is invite redemption, so it skips the plan and the packs
+  whatever the app's own flags say. `SELECTION_RESOLVED` is how the live catalog tells the machine
+  what a signup link already chose (a plan it vetted, the app's default in a `skip` flow, and the
+  packs it filtered): a resolved plan sets `planPreset`, which takes the plan step out of the flow
+  while leaving `GO_TO 'plan'` as the way back to the grid. It is accepted only before the form is
+  submitted, so a catalog reloading underneath cannot rewrite what is being bought.
+  `alreadySignedInLatched` is set once at the first `INIT`, so a mid-flow login never re-triggers
+  "you are already signed in". Step 2 is also a gate: nothing past the form runs until it has been
+  submitted (`formSubmitted`), so a visitor who followed "change plan" out of an empty form and
+  chose there is returned to the form with their new plan — never onward to a card form or an
+  account creation with no details behind it.
 - `packCheckoutMachine` — quote, one card when there is none on file, one purchase, then 3-D Secure
-  walked one pack at a time. One pack failing leaves the rest of the basket alone.
+  walked one pack at a time. One pack failing leaves the rest of the basket alone. Retrying a failed
+  card step drops the SetupIntent that attempt was holding, so the driver collects a fresh one rather
+  than confirming the abandoned intent.
 - `planChangeMachine` — preview, confirm, optional up-front payment, change, then the 3-D Secure
   park-and-complete path; `processing` is retried rather than reported as a failure.
 

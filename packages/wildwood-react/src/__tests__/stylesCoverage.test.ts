@@ -27,6 +27,12 @@ const COMPONENTS = [
   'components/registrationSubscription/parts/PackGrid.tsx',
   'components/registrationSubscription/parts/PricingSkeleton.tsx',
   'components/registrationSubscription/parts/ClosedNotice.tsx',
+  'components/registrationSubscription/parts/PlanSummaryCard.tsx',
+  'components/registrationSubscription/parts/TokenPlanSummary.tsx',
+  'components/registrationSubscription/parts/OrderSummary.tsx',
+  'components/registrationSubscription/parts/CardSetupForm.tsx',
+  'components/registrationSubscription/parts/PackCheckout.tsx',
+  'components/registrationSubscription/parts/PackOutcomeList.tsx',
 ];
 
 /**

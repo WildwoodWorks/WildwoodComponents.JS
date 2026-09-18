@@ -130,6 +130,9 @@ describe('@wildwood/react exports', () => {
   it('exports RegistrationSubscriptionPricing', () => {
     expect(WildwoodReact.RegistrationSubscriptionPricing).toBeDefined();
   });
+  it('exports RegistrationSubscriptionSignup', () => {
+    expect(WildwoodReact.RegistrationSubscriptionSignup).toBeDefined();
+  });
   it('exports ClosedNotice', () => {
     expect(WildwoodReact.ClosedNotice).toBeDefined();
   });

@@ -267,6 +267,11 @@ export function packCheckoutTransition(state: PackCheckoutState, event: PackChec
 
     case 'RETRY': {
       if (state.step !== 'failed' || !state.retryFrom) return state;
+      // Back to the card form means collecting a NEW SetupIntent: the secret this state is holding
+      // belongs to the attempt that just failed, and confirming it again confirms the wrong intent.
+      if (state.retryFrom === 'collectingCard') {
+        return enter({ ...state, cardClientSecret: undefined, paymentTransactionId: undefined }, 'collectingCard');
+      }
       return enter(state, state.retryFrom);
     }
 

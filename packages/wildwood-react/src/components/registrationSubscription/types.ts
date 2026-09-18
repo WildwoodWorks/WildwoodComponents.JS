@@ -135,8 +135,12 @@ export interface RegistrationSubscriptionPricingProps extends RegistrationSubscr
 /** Whether the signup flow asks the visitor to choose a plan. */
 export type SignupPlanSelection = 'choose' | 'skip';
 
-/** Whether the signup flow offers packs. */
-export type SignupPackSelection = 'choose' | 'none';
+/**
+ * Whether the signup flow offers packs. `'multi'` is the pack grid, ticked and continued once —
+ * the same wording the pricing view uses, because it is the same grid. Packs a signup link already
+ * chose are bought either way; `'none'` only takes the step where they are picked out of the flow.
+ */
+export type SignupPackSelection = 'multi' | 'none';
 
 /** What {@link RegistrationSubscriptionSignupProps.renderClosed} is told about a closed app. */
 export interface RegistrationClosedInfo {
@@ -147,19 +151,19 @@ export interface RegistrationClosedInfo {
 }
 
 export interface RegistrationSubscriptionSignupProps extends RegistrationSubscriptionCommonProps {
-  /** The plan a pricing page already chose. */
+  /** The plan a pricing page already chose. Ignored when the app does not sell it. */
   preSelectedTierId?: string;
   /** The pricing option within that plan (the annual one, typically). */
   preSelectedPricingId?: string;
-  /** Packs a pricing page already chose. */
+  /** Packs a pricing page already chose. Checked against the catalog and capped at 25. */
   preSelectedAddOnIds?: string[];
   /** An invitation token from the signup link. */
   registrationToken?: string;
-  /** Pre-fills the email field, e.g. from an invitation. */
+  /** Pre-fills the username and email fields, e.g. from an invitation. */
   prefillEmail?: string;
   /** `'skip'` leaves the plan to the host: a single-plan product, or one chosen elsewhere. */
   planSelection?: SignupPlanSelection;
-  /** `'none'` hides the pack step. */
+  /** Whether the visitor may pick packs on the way in. Default `'none'`. */
   packSelection?: SignupPackSelection;
   /** `'required'` is invite redemption: a token is the only way in. Default `'auto'`. */
   tokenMode?: SignupTokenMode;

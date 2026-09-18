@@ -140,6 +140,108 @@ describe('signupMachine', () => {
     expect(state.step).toBe('creating');
   });
 
+  it("tokenMode 'required' skips the plan even when the token carries no plan", () => {
+    const inviteMode = resolveSignupRegistrationMode(null, { tokenMode: 'required' });
+    let state = loaded({ tokenMode: 'required' }, inviteMode);
+    state = run(state, [{ type: 'REGISTER_SUBMITTED', email: 'a@example.com' }, { type: 'TOKEN_CHECK_STARTED' }]);
+    state = signupTransition(state, { type: 'TOKEN_ACCEPTED', token: state.token!, value: 'INVITE-2' });
+    // Redeeming an invite is "take what the invite gives", not a shopping trip.
+    expect(state.step).toBe('creating');
+  });
+
+  it('a plan the link already chose takes the plan step out of the flow', () => {
+    // The catalog vetted the link's plan before the form opened.
+    let state = run(initialSignupState({ packSelection: 'none' }), [
+      { type: 'INIT', signedIn: false },
+      { type: 'MODE_LOADED', mode: openNoTokenMode },
+      { type: 'SELECTION_RESOLVED', tierId: 'tier-pro', pricingId: 'atp-1', requiresPayment: true },
+      { type: 'CATALOG_LOADED', names: { tiers: { 'tier-pro': 'Pro' } } },
+    ]);
+    expect(state.step).toBe('register');
+    expect(state.planPreset).toBe(true);
+
+    state = signupTransition(state, { type: 'REGISTER_SUBMITTED', email: 'a@example.com' });
+    // Straight to the card: the plan was chosen on the pricing page, and it is a paid one.
+    expect(state.step).toBe('payment');
+    expect(state.selection).toEqual({ tierId: 'tier-pro', pricingId: 'atp-1', addOnIds: [] });
+
+    // ... and "change plan" is still a way back to the grid.
+    state = signupTransition(state, { type: 'GO_TO', step: 'plan' });
+    expect(state.step).toBe('plan');
+  });
+
+  it('sends a plan changed before the form is filled in back to the form, not onward', () => {
+    // A signup link preselected a plan, and the visitor pressed "change plan" before typing.
+    let state = run(initialSignupState({ packSelection: 'none' }), [
+      { type: 'INIT', signedIn: false },
+      { type: 'MODE_LOADED', mode: openNoTokenMode },
+      { type: 'SELECTION_RESOLVED', tierId: 'tier-pro', pricingId: 'atp-1', requiresPayment: true },
+      { type: 'CATALOG_LOADED', names: { tiers: { 'tier-pro': 'Pro', 'tier-free': 'Starter' } } },
+      { type: 'GO_TO', step: 'plan' },
+    ]);
+    expect(state.step).toBe('plan');
+
+    // A free plan: without the gate this would have gone straight to `creating` with no details.
+    state = signupTransition(state, { type: 'PLAN_CHOSEN', tierId: 'tier-free', requiresPayment: false });
+    expect(state.step).toBe('register');
+    expect(state.selection.tierId).toBe('tier-free');
+    expect(state.formSubmitted).toBe(false);
+
+    // The form now finishes the signup, and the plan step is not asked again.
+    state = signupTransition(state, { type: 'REGISTER_SUBMITTED', email: 'a@example.com' });
+    expect(state.step).toBe('creating');
+    expect(state.selection.tierId).toBe('tier-free');
+  });
+
+  it('sends a paid plan changed before the form is filled in back to the form, not to a card', () => {
+    let state = run(initialSignupState({ packSelection: 'none' }), [
+      { type: 'INIT', signedIn: false },
+      { type: 'MODE_LOADED', mode: openNoTokenMode },
+      { type: 'SELECTION_RESOLVED', tierId: 'tier-free', requiresPayment: false },
+      { type: 'CATALOG_LOADED', names: { tiers: { 'tier-pro': 'Pro' } } },
+      { type: 'GO_TO', step: 'plan' },
+      { type: 'PLAN_CHOSEN', tierId: 'tier-pro', pricingId: 'atp-1', requiresPayment: true },
+    ]);
+    // No card may be asked for before the form: a payment taken there has no account to attach to.
+    expect(state.step).toBe('register');
+    expect(state.planRequiresPayment).toBe(true);
+
+    state = signupTransition(state, { type: 'REGISTER_SUBMITTED', email: 'a@example.com' });
+    expect(state.step).toBe('payment');
+  });
+
+  it('never reaches payment or creating from a pack chosen before the form', () => {
+    const state = run(initialSignupState(), [
+      { type: 'INIT', signedIn: false },
+      { type: 'MODE_LOADED', mode: openNoTokenMode },
+      { type: 'SELECTION_RESOLVED', tierId: 'tier-pro', requiresPayment: true },
+      { type: 'CATALOG_LOADED' },
+      { type: 'GO_TO', step: 'packs' },
+      { type: 'PACKS_CHOSEN', addOnIds: ['pack-a'] },
+    ]);
+    expect(state.step).toBe('register');
+    expect(state.packsToBuy).toEqual(['pack-a']);
+  });
+
+  it('carries the packs the link asked for into the checkout without a pack step', () => {
+    let state = run(initialSignupState({ packSelection: 'none' }), [
+      { type: 'INIT', signedIn: false },
+      { type: 'MODE_LOADED', mode: openNoTokenMode },
+      { type: 'SELECTION_RESOLVED', tierId: 'tier-pro', addOnIds: ['pack-a'], requiresPayment: false },
+      { type: 'CATALOG_LOADED', names: { addOns: { 'pack-a': 'Pack A' } } },
+    ]);
+
+    state = signupTransition(state, { type: 'REGISTER_SUBMITTED', email: 'a@example.com' });
+    expect(state.step).toBe('creating');
+    expect(state.packsToBuy).toEqual(['pack-a']);
+  });
+
+  it('refuses a selection once the form has been submitted', () => {
+    const state = run(loaded(), [{ type: 'REGISTER_SUBMITTED', email: 'a@example.com' }]);
+    // A catalog reloading underneath must not rewrite what the visitor is buying.
+    expect(signupTransition(state, { type: 'SELECTION_RESOLVED', tierId: 'tier-other' })).toBe(state);
+  });
+
   it("planSelection 'skip' goes past the plan step", () => {
     let state = loaded({ planSelection: 'skip', packSelection: 'none' });
     state = signupTransition(state, { type: 'REGISTER_SUBMITTED', email: 'a@example.com' });

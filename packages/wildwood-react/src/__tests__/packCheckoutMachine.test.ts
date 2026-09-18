@@ -214,4 +214,24 @@ describe('packCheckoutMachine', () => {
     state = packCheckoutTransition(state, { type: 'RETRY' });
     expect(state.step).toBe('quoting');
   });
+
+  it('retrying the card form drops the SetupIntent the failed attempt was holding', () => {
+    let state = quoted(true);
+    state = packCheckoutTransition(state, { type: 'CARD_REQUESTED' });
+    state = packCheckoutTransition(state, {
+      type: 'CARD_INTENT_RECEIVED',
+      token: state.token!,
+      clientSecret: 'seti_secret_first',
+      paymentTransactionId: 'txn-first',
+    });
+    state = packCheckoutTransition(state, { type: 'CARD_FAILED', token: state.token!, message: 'Card declined' });
+    expect(state.step).toBe('failed');
+
+    state = packCheckoutTransition(state, { type: 'RETRY' });
+    // Back on the card form with nothing to confirm: the driver collects a fresh intent, so the
+    // second card is never confirmed against the first attempt's secret.
+    expect(state.step).toBe('collectingCard');
+    expect(state.cardClientSecret).toBeUndefined();
+    expect(state.paymentTransactionId).toBeUndefined();
+  });
 });
