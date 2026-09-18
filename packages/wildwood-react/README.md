@@ -79,7 +79,8 @@ function MyApp() {
   `RegistrationSubscriptionManage`, so a landing page can import the pricing view without dragging
   the admin surfaces along. See [Registration & Subscription](#registration--subscription).
 - `AuthenticationComponent` — Login/register with OAuth, passkeys, 2FA
-- `AIChatComponent` — Chat UI with sessions, messages, TTS
+- `AIChatComponent` — Chat UI with sessions, messages, TTS and voice input
+  ([details](#voice-input-in-aichatcomponent))
 - `AIProxyComponent` — Direct AI model interaction
 - `SecureMessagingComponent` — Threads, messages, reactions, typing
 - `PaymentComponent` — Payment method selection and processing
@@ -105,6 +106,35 @@ Deprecated, and kept working — nothing has been removed:
 `AppTierComponent` also has a known payment bug: its payment step passes no `pricingModelId` to
 `PaymentComponent`, so a paid plan is taken as a one-time charge instead of starting the plan's
 subscription and its trial. The manage view sends the pricing model, so use it for anything priced.
+
+### Voice input in `AIChatComponent`
+
+```tsx
+<AIChatComponent settings={{ enableSpeechToText: true }} />
+```
+
+A mic button appears beside Send and puts what you say into the chat input. The mechanism is
+detected on the client, once per mount:
+
+| Mode | When | What happens |
+|------|------|--------------|
+| `native` | the browser has the Web Speech API (Chrome, Edge, Safari with dictation on) | live recognition; interim words show while you speak and nothing leaves the machine |
+| `recorder` | only `getUserMedia` + `MediaRecorder` (Firefox, Brave/Opera/Vivaldi, WebView2) | a clip is recorded and transcribed server-side with the chat's active AI configuration |
+| `none` | neither is available | no mic button renders at all |
+
+A native session that fails with `network`, `service-not-allowed` or `language-not-supported` means
+the engine exposes recognition without a backend: the component switches to `recorder` for the rest
+of its life and carries on recording, so the tap is not wasted.
+
+Recorded clips are capped at **60 seconds** (the recorder stops itself and transcribes) and **25 MB**
+(refused with a message rather than uploaded). The container is the first of
+`audio/webm;codecs=opus`, `audio/ogg;codecs=opus`, `audio/mp4`, `audio/webm` the browser supports.
+Failures appear in the chat's non-blocking error banner, and the microphone is released on stop, on
+error and on unmount.
+
+Server transcription goes through `useAI().transcribeAudio(audio, contentType?, configurationId?,
+language?)`, which you can also call directly — it never rejects, and answers
+`{ success, text, errorMessage }`.
 
 ### Screenshots and Content-Security-Policy
 

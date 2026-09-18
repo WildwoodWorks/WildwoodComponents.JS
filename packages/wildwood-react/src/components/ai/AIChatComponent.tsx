@@ -2,9 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import type { AIChatResponse, AISessionSummary, AIConfiguration, TTSVoice } from '@wildwood/core';
 import { useAI } from '../../hooks/useAI.js';
+import { useSpeechInput } from './useSpeechInput.js';
 
 export interface AIChatSettings {
   enableSessions?: boolean;
+  /**
+   * Voice input. The mic button uses the browser's Web Speech API where it works and falls back to
+   * recording a clip and transcribing it server-side (60 s / 25 MB per clip) where it does not. It
+   * renders only when the browser offers one of the two.
+   */
   enableSpeechToText?: boolean;
   enableTextToSpeech?: boolean;
   enableFileUpload?: boolean;
@@ -72,6 +78,7 @@ export function AIChatComponent({
     getConfigurations,
     getTTSVoices,
     synthesizeSpeech,
+    transcribeAudio,
   } = useAI();
 
   // Core state
@@ -104,9 +111,8 @@ export function AIChatComponent({
   const [showTTSSettings, setShowTTSSettings] = useState(false);
   const [showSpeechMenu, setShowSpeechMenu] = useState(false);
 
-  // Speech-to-text state
+  // Speech-to-text state ("enabled" is the user's own switch, on top of the settings flag)
   const [sttEnabled, setSttEnabled] = useState(false);
-  const [isListening, _setIsListening] = useState(false);
 
   // File upload state
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -116,6 +122,32 @@ export function AIChatComponent({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Finished speech joins what is already typed, the way Blazor's AppendFinalTranscript does. */
+  const appendTranscript = useCallback((text: string) => {
+    setInput((prev) => (prev ? `${prev} ${text}` : text));
+  }, []);
+
+  const {
+    mode: speechMode,
+    isListening,
+    isStarting: isStartingListening,
+    isTranscribing,
+    interimTranscript,
+    start: startListening,
+    stop: stopListening,
+  } = useSpeechInput({
+    enabled: settings.enableSpeechToText,
+    transcribe: transcribeAudio,
+    onTranscript: appendTranscript,
+    onError: setErrorMessage,
+    // Blazor sends the ACTIVE configuration id and omits it when there is none — not the
+    // `configurationName` prop, which is a name the server's STT route would not resolve.
+    configurationId: currentConfigId,
+  });
+
+  /** Voice input exists in this browser AND the host asked for it. Client-only: see useSpeechInput. */
+  const speechAvailable = settings.enableSpeechToText && speechMode !== 'none';
 
   // Load sessions and configurations
   useEffect(() => {
@@ -353,6 +385,37 @@ export function AIChatComponent({
     setIsSpeaking(false);
   }, []);
 
+  // Speech-to-text
+  /**
+   * The mic button. Recording while the assistant is talking would capture it, so — as in Blazor —
+   * tapping the mic stops playback first.
+   */
+  const handleMicClick = useCallback(() => {
+    if (isListening) {
+      void stopListening();
+      return;
+    }
+    if (isSpeaking) stopSpeaking();
+    setErrorMessage('');
+    setSttEnabled(true);
+    void startListening();
+  }, [isListening, isSpeaking, stopSpeaking, startListening, stopListening]);
+
+  /**
+   * The Voice Options menu's on/off switch. Turning it on starts live recognition immediately;
+   * in recorder mode it waits for the mic button, because each recorded clip costs a server call.
+   */
+  const handleToggleSttEnabled = useCallback(() => {
+    const next = !sttEnabled;
+    setSttEnabled(next);
+    setShowSpeechMenu(false);
+    if (next) {
+      if (speechMode === 'native') void startListening();
+    } else if (isListening) {
+      void stopListening();
+    }
+  }, [sttEnabled, speechMode, isListening, startListening, stopListening]);
+
   // Format message content (basic markdown-like rendering)
   const formatContent = (content: string): string => {
     return content
@@ -567,10 +630,11 @@ export function AIChatComponent({
             </div>
           )}
 
-          {isListening && (
+          {(isListening || isTranscribing) && (
             <div className="ww-aichat-speech-status">
               <span className="ww-aichat-listening-indicator" />
-              Listening...
+              {isTranscribing ? 'Transcribing...' : 'Listening...'}
+              {interimTranscript && <span className="ww-aichat-interim">{interimTranscript}</span>}
             </div>
           )}
 
@@ -677,7 +741,7 @@ export function AIChatComponent({
             )}
 
             {/* Speech controls */}
-            {(settings.enableSpeechToText || settings.enableTextToSpeech) && (
+            {(speechAvailable || settings.enableTextToSpeech) && (
               <>
                 <button
                   type="button"
@@ -709,14 +773,11 @@ export function AIChatComponent({
                         &times;
                       </button>
                     </div>
-                    {settings.enableSpeechToText && (
+                    {speechAvailable && (
                       <button
                         type="button"
                         className={`ww-aichat-speech-menu-item ${sttEnabled ? 'ww-active' : ''}`}
-                        onClick={() => {
-                          setSttEnabled(!sttEnabled);
-                          setShowSpeechMenu(false);
-                        }}
+                        onClick={handleToggleSttEnabled}
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
@@ -776,6 +837,37 @@ export function AIChatComponent({
             />
 
             <div className="ww-aichat-input-actions">
+              {/*
+                Mic button. Rendered only where the browser can actually do voice input, so a
+                browser with neither the Web Speech API nor MediaRecorder shows no dead control.
+              */}
+              {speechAvailable && (
+                <button
+                  type="button"
+                  className={`ww-aichat-mic-btn ${isListening ? 'ww-listening' : ''} ${
+                    isTranscribing ? 'ww-transcribing' : ''
+                  }`}
+                  onClick={handleMicClick}
+                  // `isStartingListening` covers the microphone-permission prompt: the button is
+                  // live-looking but the hook refuses a second start, so disable it outright.
+                  disabled={isTranscribing || isStartingListening || (sending && !isListening)}
+                  aria-pressed={isListening}
+                  title={isTranscribing ? 'Transcribing voice input' : isListening ? 'Stop voice input' : 'Voice input'}
+                >
+                  {isTranscribing ? (
+                    <span className="ww-spinner ww-spinner-sm" />
+                  ) : isListening ? (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  ) : (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
               {isSpeaking && (
                 <button
                   type="button"
