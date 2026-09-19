@@ -378,7 +378,21 @@ Exports: `signupStep`, `waitForSignupStep`, `recordSignupSteps`, `manageStep`, `
 `waitForAnyManageStep`, `fillRegistrationForm`, `submitRegistrationForm`, `acceptDisclaimers`,
 `dismissConsentBanner`, `finishSignup`.
 
-`@playwright/test` is an **optional peer dependency** — only this entry point needs it.
+`@playwright/test` is an **optional peer dependency** — only this entry point needs it — and it is
+pinned to an **exact version**, not a range. That is deliberate, and it is the one thing to know
+before adopting these helpers.
+
+Nothing is imported from Playwright at runtime (see `testing/poll.ts`), so there is no "Playwright
+was loaded twice" hazard. The TYPES are a different matter: these helpers' signatures say
+`Page` and `Locator`, and TypeScript resolves those names against the copy of `@playwright/test`
+sitting next to *this* package. Playwright changes those types between minors — 1.48 → 1.58 altered
+`ElementHandleWaitForSelectorOptions`, and 1.58 → 1.61 diverged again — so a consumer on a different
+minor gets `Argument of type 'Page' is not assignable to parameter of type 'Page'`, naming two
+identical-looking types from two paths.
+
+So: **use the same exact Playwright version this package pins.** A caret range will not do it —
+`^1.61.1` silently resolves to 1.63 and breaks the same way. If you cannot match the version, copy
+the helpers rather than importing them, and say in a comment that you did.
 
 Three things these encode that are easy to get wrong, and that only show up against a deployed
 environment rather than a local stack:

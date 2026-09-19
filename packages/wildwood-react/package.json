@@ -41,7 +41,7 @@
     "build-storybook": "storybook build"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
+    "@playwright/test": "1.61.1",
     "@storybook/addon-docs": "^10.2.15",
     "@storybook/react-vite": "^10.2.15",
     "@testing-library/jest-dom": "^6.9.1",
@@ -58,7 +58,7 @@
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
-    "@playwright/test": "^1.48.0",
+    "@playwright/test": "1.61.1",
     "@wildwood/core": "workspace:*",
     "@wildwood/react-shared": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"
