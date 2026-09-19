@@ -176,6 +176,65 @@ describe('signup view - the plan', () => {
     expect(container.querySelectorAll('.ww-tier-card')).toHaveLength(ALL_TIERS.length);
   });
 
+  it("planDefault 'free' opens the grid on the free plan without choosing it for them", async () => {
+    const { container } = renderSignup({ planDefault: 'free' });
+
+    // A suggestion is not a choice: the plan step still runs, and the form still only continues.
+    await submitRegistration('Continue');
+    await waitFor(() => expect(stepOf(container)).toBe('plan'));
+
+    const starter = [...container.querySelectorAll<HTMLElement>('.ww-tier-card')].find(
+      (card) => card.querySelector('h3')?.textContent === 'Starter',
+    );
+    expect(starter?.className).toContain('ww-tier-preselected');
+    expect(starter?.querySelector('button')?.textContent).toBe('Continue with This Plan');
+  });
+
+  it("planDefault 'free' does not stop a preselected plan from skipping the step", async () => {
+    const { container } = renderSignup({ preSelectedTierId: 'tier-pro', planDefault: 'free' });
+
+    await screen.findByText('Create Your Account');
+    expect(container.querySelector('.ww-plan-summary-card')?.textContent).toContain('Pro');
+    expect(screen.getByRole('button', { name: 'Create Account' })).toBeTruthy();
+
+    await submitRegistration('Create Account');
+    // Straight to the card for the link's plan: there is no plan step left for a default to open.
+    await waitFor(() => expect(stepOf(container)).toBe('payment'));
+    expect(payment.props?.amount).toBe(PRO_MONTHLY);
+  });
+
+  it('leaves the grid with nothing preselected when the host names no default', async () => {
+    const { container } = renderSignup();
+
+    await submitRegistration('Continue');
+    await waitFor(() => expect(stepOf(container)).toBe('plan'));
+    expect(container.querySelector('.ww-tier-preselected')).toBeNull();
+  });
+
+  it("planDefault 'free' suggests nothing when the app sells no free plan", async () => {
+    const stubs = signupClient({ tiers: [proTier] });
+    const { container } = renderSignup({ planDefault: 'free' }, stubs);
+
+    // Nothing to suggest is not a failure: the grid is the one it would have been anyway.
+    await submitRegistration('Continue');
+    await waitFor(() => expect(stepOf(container)).toBe('plan'));
+    expect(container.querySelector('.ww-tier-preselected')).toBeNull();
+  });
+
+  it("planDefault 'free' suggests nothing while an invite is being redeemed", async () => {
+    const stubs = signupClient();
+    const { container } = renderSignup(
+      { tokenMode: 'required', registrationToken: 'INVITE-1', planDefault: 'free' },
+      stubs,
+    );
+
+    await submitRegistration('Create Account');
+    await waitFor(() => expect(stepOf(container)).toBe('success'));
+    // The invite's plan comes from its token: the grid never appeared for a default to open on.
+    expect(container.querySelector('.ww-tier-grid')).toBeNull();
+    expect(stubs.registerWithToken).toHaveBeenCalledTimes(1);
+  });
+
   it("planSelection 'skip' takes the app's default plan and ignores the link", async () => {
     const stubs = signupClient();
     const { container } = renderSignup({ planSelection: 'skip', preSelectedTierId: 'tier-pro' }, stubs);
