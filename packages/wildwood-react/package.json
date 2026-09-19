@@ -12,8 +12,20 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "require": "./dist/testing/index.cjs"
+    },
     "./styles": "./dist/wildwood-themes.css",
     "./dist/wildwood-themes.css": "./dist/wildwood-themes.css"
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/testing/index.d.ts"
+      ]
+    }
   },
   "files": [
     "dist"
@@ -29,6 +41,7 @@
     "build-storybook": "storybook build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@storybook/addon-docs": "^10.2.15",
     "@storybook/react-vite": "^10.2.15",
     "@testing-library/jest-dom": "^6.9.1",
@@ -45,9 +58,15 @@
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
+    "@playwright/test": "^1.48.0",
     "@wildwood/core": "workspace:*",
     "@wildwood/react-shared": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
   },
   "keywords": [
     "wildwood",
