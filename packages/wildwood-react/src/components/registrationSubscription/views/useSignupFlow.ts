@@ -69,6 +69,8 @@ export interface SignupFlow {
   plan: ResolvedPlan | null;
   /** Whether a plan is still to be chosen, which is what the form's submit button says. */
   planStepAhead: boolean;
+  /** The plan the grid opens on when nothing has chosen one. A highlight only: the machine never sees it. */
+  defaultTierId: string | undefined;
   /** The grant this app's registration token carries, with the server's display names. */
   tokenGrant: RegistrationTokenAppGrant | null;
   /** A rejected token, shown above the form. */
@@ -159,6 +161,7 @@ export function useSignupFlow(props: RegistrationSubscriptionSignupProps): Signu
     registrationToken,
     prefillEmail,
     planSelection = 'choose',
+    planDefault = 'none',
     packSelection = 'none',
     tokenMode = 'auto',
     onAlreadySignedIn,
@@ -254,6 +257,13 @@ export function useSignupFlow(props: RegistrationSubscriptionSignupProps): Signu
     const tier = tiers.find((candidate) => candidate.id?.toLowerCase() === wanted);
     return tier ? { tier, pricing: resolvePriceOption(tier, { pricingId: preSelectedPricingId }) ?? null } : null;
   }, [catalog, invite, planSelection, preSelectedTierId, preSelectedPricingId]);
+
+  /** The plan the grid opens on when nothing has chosen one: highlighted, still confirmed by a click. */
+  const defaultTierId = useMemo(() => {
+    // An invite's plan comes from its token, so there is nothing to suggest.
+    if (planDefault !== 'free' || invite) return undefined;
+    return catalog?.tiers.find((candidate) => candidate.isFreeTier)?.id;
+  }, [planDefault, invite, catalog]);
 
   // A host that writes `preSelectedAddOnIds={['pack-a']}` hands over a new array on every render,
   // so the ids are compared by value here: a memo keyed on the array itself would recompute
@@ -660,6 +670,7 @@ export function useSignupFlow(props: RegistrationSubscriptionSignupProps): Signu
     plan,
     // A token's grant is not known while the form is on screen, so this is what the flow knows then.
     planStepAhead: planSelection === 'choose' && !invite && !state.planPreset,
+    defaultTierId,
     tokenGrant,
     tokenMessage,
     trialDays,

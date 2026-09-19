@@ -135,12 +135,15 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
     body = (
       <div className="ww-signup-step" data-ww-step="plan">
         <h3 className="ww-regsub-step-title">{labels.choosePlan}</h3>
+        {/* `defaultTierId` sits ahead of the link's plan on purpose: a stale or hand-edited `?tier=`
+            is an id the flow already refused, so the grid opens on the host's default rather than
+            on nothing at all. */}
         <PlanGrid
           tiers={catalog?.tiers ?? []}
           currency={currency}
           billing={flow.billing}
           onBillingChange={flow.setBilling}
-          highlightTierId={state.selection.tierId ?? props.preSelectedTierId}
+          highlightTierId={state.selection.tierId ?? flow.defaultTierId ?? props.preSelectedTierId}
           contactUrl={contactUrl}
           labels={labels}
           onSelectTier={flow.choosePlan}

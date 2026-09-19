@@ -134,6 +134,9 @@ export interface RegistrationSubscriptionPricingProps extends RegistrationSubscr
 /** Whether the signup flow asks the visitor to choose a plan. */
 export type SignupPlanSelection = 'choose' | 'skip';
 
+/** The plan the grid opens on when nothing has chosen one. */
+export type SignupPlanDefault = 'none' | 'free';
+
 /**
  * Whether the signup flow offers packs. `'multi'` is the pack grid, ticked and continued once —
  * the same wording the pricing view uses, because it is the same grid. Packs a signup link already
@@ -162,6 +165,9 @@ export interface RegistrationSubscriptionSignupProps extends RegistrationSubscri
   prefillEmail?: string;
   /** `'skip'` leaves the plan to the host: a single-plan product, or one chosen elsewhere. */
   planSelection?: SignupPlanSelection;
+  /** `'free'` opens the plan step on the app's free plan — a suggestion the visitor still
+   *  confirms, not a choice already made. Ignored once a link or a grant has chosen. */
+  planDefault?: SignupPlanDefault;
   /** Whether the visitor may pick packs on the way in. Default `'none'`. */
   packSelection?: SignupPackSelection;
   /** `'required'` is invite redemption: a token is the only way in. Default `'auto'`. */
