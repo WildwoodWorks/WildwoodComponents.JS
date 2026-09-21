@@ -41,3 +41,51 @@ jobs:
       - run: pnpm run test
 
       - run: pnpm run lint
+
+  e2e:
+    # The browser half of the suite: the Registration & Subscription component rendered for real,
+    # and `@wildwood/react/testing` driven against it. Both specs stub every API call with
+    # `page.route`, so this needs no backend, no secrets and no network.
+    #
+    # Without this job the helpers are exercised by nothing: they only have a job once there is a
+    # DOM in front of them, so a unit test cannot hold them and a regression would surface in some
+    # host's suite instead. `pnpm run e2e:ci` names the specs that are safe here — see
+    # playwright.ci.config.ts for why it is not the whole directory.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # One version, not the matrix above. These specs run in Chromium against a built bundle, so
+      # what they exercise is the browser, not Node; a second Node version would double the runtime
+      # and the flake surface to re-prove something the unit job already covers.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The harness imports the workspace packages by their published entry points, and the spec
+      # imports `@wildwood/react/testing` the same way a host would, so dist has to exist first.
+      - run: pnpm run build
+
+      - run: pnpm exec playwright install --with-deps chromium
+
+      # Vite would otherwise try to open a browser on a machine that has none.
+      - run: pnpm run e2e:ci
+        env:
+          BROWSER: none
+
+      - uses: actions/upload-artifact@v4
+        # Playwright writes a screenshot per failed test; they are worth more than the log when the
+        # failure is "the wrong thing was on screen".
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
