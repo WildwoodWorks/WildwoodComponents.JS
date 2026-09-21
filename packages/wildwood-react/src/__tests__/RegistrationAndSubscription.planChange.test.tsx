@@ -266,7 +266,12 @@ describe('plan change: refusals', () => {
     await upgradeToPro();
 
     expect(await screen.findByText('That plan is not available.')).toBeTruthy();
-    expect(onError).toHaveBeenCalledWith({ code: 'tier_change_failed', message: 'That plan is not available.' });
+    // The report comes out of an effect, which runs AFTER the commit that painted the notice above.
+    // Asserting it the moment the text appears races that effect on a loaded machine; the payload is
+    // still asserted in full.
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith({ code: 'tier_change_failed', message: 'That plan is not available.' }),
+    );
   });
 
   it('reports a preview the server could not price, and changes nothing', async () => {

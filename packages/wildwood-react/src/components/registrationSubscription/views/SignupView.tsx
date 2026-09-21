@@ -11,7 +11,10 @@
 // "Continue" / "Create Account", `.ww-tier-grid`, PaymentComponent's own pay button and success
 // panel, `.ww-signup-processing` with "Something Went Wrong" / "Try Again" / "Start Over",
 // `.ww-signup-disclaimers`, and the "All Set" success panel with "Get Started". A `data-ww-step`
-// attribute on the step container names the step for anything that would rather not rely on copy.
+// attribute on the step container names the step for anything that would rather not rely on copy,
+// `data-ww-action="signup-retry|signup-start-over|signup-get-started"` names the controls those
+// panels offer, and `data-ww-error-message` names the failure text. That vocabulary is shared with
+// the Blazor, Razor, React Native and SwiftUI ports, so one spec reads every stack.
 
 import { DisclaimerComponent } from '../../disclaimer/DisclaimerComponent.js';
 import { PaymentComponent } from '../../payment/PaymentComponent.js';
@@ -280,12 +283,22 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
           </svg>
         </div>
         <h3>{labels.signupFailed}</h3>
-        <p className="ww-text-muted">{state.error}</p>
+        {/* `data-ww-error-message` names the failure text: `.ww-text-muted` is shared with the
+            processing steps' "please wait", which a stack that keeps every panel in the DOM would
+            report as the cause of the failure. */}
+        <p className="ww-text-muted" data-ww-error-message>
+          {state.error}
+        </p>
         <div className="ww-signup-processing-actions">
-          <button type="button" className="ww-btn ww-btn-primary" onClick={flow.retry}>
+          <button type="button" className="ww-btn ww-btn-primary" data-ww-action="signup-retry" onClick={flow.retry}>
             {labels.tryAgain}
           </button>
-          <button type="button" className="ww-btn ww-btn-link" onClick={flow.startOver}>
+          <button
+            type="button"
+            className="ww-btn ww-btn-link"
+            data-ww-action="signup-start-over"
+            onClick={flow.startOver}
+          >
             {labels.startOver}
           </button>
         </div>
@@ -304,7 +317,12 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
         <h3>{labels.signupCompleteTitle}</h3>
         <p className="ww-text-muted">{successMessage(flow)}</p>
         <PackOutcomeList packs={state.outcome?.packs ?? []} labels={labels} />
-        <button type="button" className="ww-btn ww-btn-primary ww-btn-lg" onClick={flow.complete}>
+        <button
+          type="button"
+          className="ww-btn ww-btn-primary ww-btn-lg"
+          data-ww-action="signup-get-started"
+          onClick={flow.complete}
+        >
           {labels.getStarted}
         </button>
       </div>

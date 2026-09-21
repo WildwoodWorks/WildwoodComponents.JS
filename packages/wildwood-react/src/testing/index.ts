@@ -41,3 +41,23 @@ export {
   type AcceptDisclaimersOptions,
   type FinishSignupOptions,
 } from './flows.js';
+
+// The DOM contract itself, so a host writing a spec of its own — or another stack implementing the
+// same component — can key on the same strings rather than copy them and drift.
+export {
+  SIGNUP_STEP_SELECTOR,
+  MANAGE_VIEW_SELECTOR,
+  REGISTRATION_FIELD_NAMES,
+  REGISTRATION_FIELD_IDS,
+  registrationFieldSelector,
+  SUBMIT_REGISTER_SELECTOR,
+  SIGNUP_RETRY_SELECTOR,
+  SIGNUP_GET_STARTED_SELECTOR,
+  SIGNUP_FAILURE_MESSAGE_SELECTORS,
+  ACCEPT_SELECTOR,
+  RETRY_SELECTOR,
+  DISCLAIMER_CHECK_SELECTORS,
+  ACCEPT_RESPONSE_PATTERN,
+  matchesAcceptResponse,
+  type RegistrationFieldName,
+} from './selectors.js';

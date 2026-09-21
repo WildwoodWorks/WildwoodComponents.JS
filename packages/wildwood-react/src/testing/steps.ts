@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { untilValue } from './poll.js';
+import { MANAGE_VIEW_SELECTOR, SIGNUP_STEP_SELECTOR } from './selectors.js';
 
 /**
  * The step hooks the Registration & Subscription component publishes, and the readers for them.
@@ -39,8 +40,8 @@ export type ManageStep =
   | 'done'
   | 'failed';
 
-const signupBox = (page: Page) => page.locator('[data-ww-view="signup"] [data-ww-step]').first();
-const manageBox = (page: Page) => page.locator('[data-ww-view="manage"]').first();
+const signupBox = (page: Page) => page.locator(SIGNUP_STEP_SELECTOR).first();
+const manageBox = (page: Page) => page.locator(MANAGE_VIEW_SELECTOR).first();
 
 /** The signup step on screen, or null before the component has painted. */
 export function signupStep(page: Page): Promise<string | null> {
@@ -124,11 +125,13 @@ export interface SignupStepRecorder {
  * script so it is running before the component mounts.
  */
 export async function recordSignupSteps(page: Page): Promise<SignupStepRecorder> {
-  await page.addInitScript(() => {
+  // The selector travels as an ARGUMENT, not as a closed-over constant: the function is serialized
+  // and evaluated inside the page, where this module's imports do not exist.
+  await page.addInitScript((selector: string) => {
     const seen: string[] = [];
     (window as unknown as { __wwSignupSteps: string[] }).__wwSignupSteps = seen;
     const record = () => {
-      const box = document.querySelector('[data-ww-view="signup"] [data-ww-step]');
+      const box = document.querySelector(selector);
       const step = box?.getAttribute('data-ww-step');
       // Collapse repeats: React re-renders the same step many times over, and the only interesting
       // question is which steps were entered and in what order.
@@ -147,7 +150,7 @@ export async function recordSignupSteps(page: Page): Promise<SignupStepRecorder>
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();
-  });
+  }, SIGNUP_STEP_SELECTOR);
 
   const steps = () => page.evaluate(() => (window as unknown as { __wwSignupSteps?: string[] }).__wwSignupSteps ?? []);
 
