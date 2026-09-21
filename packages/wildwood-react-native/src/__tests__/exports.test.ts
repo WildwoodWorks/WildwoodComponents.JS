@@ -10,6 +10,9 @@ import { useAttribution } from '../hooks/useAttribution';
 // import is what is asserted here.
 import * as reactNative from '../index';
 
+// The ./testing subpath, which is published beside the package entry and so is asserted beside it.
+import * as testing from '../testing';
+
 // Test theme/styles (no react-native dependency)
 import { defaultTheme, resolveTheme, themes } from '../styles/theme';
 
@@ -148,6 +151,38 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     expect(reactNative.trialLabel(14)).toBe('14-day free trial');
     expect(reactNative.grantsAccess('PendingCancellation')).toBe(true);
     expect(reactNative.grantsAccess('Expired')).toBe(false);
+  });
+});
+
+describe('@wildwood/react-native/testing', () => {
+  it('exports exactly the surface a suite is promised, and nothing else', () => {
+    // A subpath is a published API: something that leaks out of it is something a host will import,
+    // and something that quietly leaves it breaks that host. Type-only exports do not appear here.
+    expect(Object.keys(testing).sort()).toEqual([
+      'WW_IDS',
+      'WW_MANAGE_STEPS',
+      'WW_REGISTRATION_FIELDS',
+      'WW_SIGNUP_STEPS',
+      'WW_VIEWS',
+      'currentSignupStep',
+      'waitForSignupStep',
+      'waitForSignupStepToLeave',
+      'wwFieldTestId',
+      'wwGroupTestId',
+      'wwModalTestId',
+      'wwPackTestId',
+      'wwTestId',
+    ]);
+  });
+
+  it('hands out the same id builders the components call, rather than a second copy', () => {
+    // A copy is a second place for the `pack:` prefix to be spelled, which is the drift this whole
+    // contract exists to stop. They are the package entry's functions, byte for byte.
+    expect(testing.wwTestId).toBe(reactNative.wwTestId);
+    expect(testing.wwPackTestId).toBe(reactNative.wwPackTestId);
+    expect(testing.wwGroupTestId).toBe(reactNative.wwGroupTestId);
+    expect(testing.wwModalTestId).toBe(reactNative.wwModalTestId);
+    expect(testing.wwFieldTestId).toBe(reactNative.wwFieldTestId);
   });
 });
 
