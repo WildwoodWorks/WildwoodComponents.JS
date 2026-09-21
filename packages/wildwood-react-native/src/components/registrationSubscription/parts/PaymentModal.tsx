@@ -33,6 +33,7 @@ import {
 } from '@wildwood/react-shared';
 import { useWildwood } from '../../../hooks/useWildwood';
 import { PaymentComponent } from '../../PaymentComponent';
+import { wwModalTestId } from '../testIds';
 
 export interface PaymentModalProps {
   visible: boolean;
@@ -99,7 +100,7 @@ export function PaymentModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={cancel}>
       <View style={styles.overlay}>
-        <View style={[styles.sheet, style]} testID="payment-modal">
+        <View style={[styles.sheet, style]} testID={wwModalTestId('payment')}>
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
             <Pressable onPress={cancel} hitSlop={8} accessibilityRole="button" accessibilityLabel={labels.closePayment}>

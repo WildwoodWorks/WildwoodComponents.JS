@@ -92,9 +92,12 @@ export function PlanChangeNotice({ flow, labels, collectsPaymentInApp, style }: 
   const content = planChangeNoticeContent(flow, labels, { collectsPaymentInApp });
   if (content.kind === 'none') return null;
 
+  // `plan-change-notice` on both shapes, as Swift does: a suite waiting for the notice is waiting
+  // for the change to say SOMETHING about itself, and which of the two shapes says it is a detail of
+  // where the change got to.
   if (content.kind === 'progress') {
     return (
-      <View style={[styles.progress, style]}>
+      <View style={[styles.progress, style]} testID="plan-change-notice">
         <ActivityIndicator size="small" color="#007AFF" />
         <Text style={styles.progressText}>{content.message}</Text>
       </View>
@@ -104,7 +107,11 @@ export function PlanChangeNotice({ flow, labels, collectsPaymentInApp, style }: 
   const danger = content.kind === 'failed';
 
   return (
-    <View style={[danger ? styles.alertDanger : styles.alertInfo, style]} accessibilityRole="alert">
+    <View
+      style={[danger ? styles.alertDanger : styles.alertInfo, style]}
+      accessibilityRole="alert"
+      testID="plan-change-notice"
+    >
       <View style={styles.alertBody}>
         {content.title ? (
           <Text style={[styles.alertTitle, danger ? styles.dangerText : styles.infoText]}>{content.title}</Text>
@@ -114,14 +121,14 @@ export function PlanChangeNotice({ flow, labels, collectsPaymentInApp, style }: 
         ) : null}
         <View style={styles.alertActions}>
           {content.canRetry ? (
-            <Pressable style={styles.retryBtn} onPress={flow.retry}>
+            <Pressable testID="plan-change-retry" style={styles.retryBtn} onPress={flow.retry}>
               <Text style={styles.retryBtnText}>{labels.tryAgain}</Text>
             </Pressable>
           ) : null}
         </View>
       </View>
       {content.canDismiss ? (
-        <Pressable onPress={flow.reset} accessibilityLabel={labels.cancel}>
+        <Pressable testID="plan-change-dismiss" onPress={flow.reset} accessibilityLabel={labels.cancel}>
           <Text style={[styles.dismiss, danger ? styles.dangerText : styles.infoText]}>{'✕'}</Text>
         </Pressable>
       ) : null}

@@ -15,7 +15,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PlanChangeStep } from '@wildwood/react-shared';
-import { wwViewTestIds } from '../components/registrationSubscription/testIds';
+import {
+  wwFieldTestId,
+  wwModalTestId,
+  wwViewTestIds,
+  type RegistrationFieldName,
+} from '../components/registrationSubscription/testIds';
 import {
   signupBody,
   signupStepTestId,
@@ -55,6 +60,22 @@ const PLAN_CHANGE_STEPS: PlanChangeStep[] = [
   'failed',
 ];
 
+/**
+ * The six fields the web names in `data-ww-field`, in form order.
+ *
+ * Restated rather than imported: `@wildwood/react` is not a dependency of this package and must not
+ * become one. The list is `REGISTRATION_FIELD_NAMES` in `@wildwood/react/testing/selectors`, and the
+ * names are the contract - a change on either side is a deliberate change to it, not a refactor.
+ */
+const WEB_REGISTRATION_FIELDS: RegistrationFieldName[] = [
+  'firstName',
+  'lastName',
+  'username',
+  'email',
+  'password',
+  'confirmPassword',
+];
+
 // ── A host's own testID ────────────────────────────────────────────────────────
 
 describe("a host's own testID", () => {
@@ -78,11 +99,15 @@ describe("a host's own testID", () => {
   });
 
   it('leaves the step element unnamed at rest instead of answering to the view name twice', () => {
-    // `getByTestId('manage')` has to resolve to one element. Repeating the view's name on the step
+    // `getByTestId('signup')` has to resolve to one element. Repeating the view's name on the step
     // element whenever no step is running would make every read of it ambiguous.
-    const resting = wwViewTestIds('manage', 'billing-screen', '');
+    //
+    // The signup view is the one that rests: its `signedIn` body is nothing running, and
+    // `signupStepTestId` answers '' for it. The manage view never passes '' - see "the manage view
+    // at rest" below, where the flow's own `idle` is the step and there is nothing to swallow.
+    const resting = wwViewTestIds('signup', 'checkout-signup', signupStepTestId('signedIn'));
     expect(resting.step).toBeUndefined();
-    expect(resting.view).toBe('manage');
+    expect(resting.view).toBe('signup');
   });
 });
 
@@ -165,8 +190,9 @@ describe('the view names itself in every body it renders', () => {
   });
 
   it.each(PLAN_CHANGE_STEPS)('manage, while a change is %s', (step) => {
-    const ids = wwViewTestIds('manage', 'host-id', step === 'idle' ? '' : step);
+    const ids = wwViewTestIds('manage', 'host-id', step);
     expect(ids.view).toBe('manage');
+    expect(ids.step).toBe(step);
     expect(ids.step).not.toBe(ids.view);
   });
 
@@ -176,19 +202,64 @@ describe('the view names itself in every body it renders', () => {
   });
 });
 
+// ── The sheets a view puts over itself ─────────────────────────────────────────
+
+describe('a sheet is named under the attribute it comes from', () => {
+  it('carries the web`s two `data-ww-modal` values, spelled as Swift spells them', () => {
+    expect(wwModalTestId('packs')).toBe('modal:packs');
+    expect(wwModalTestId('payment')).toBe('modal:payment');
+  });
+
+  it('keeps a sheet from answering to a step of the same name', () => {
+    // This is what the prefix is FOR here, rather than tidiness: `packs` and `payment` are both
+    // steps the signup flow reports, and a surface can have a sheet up while one of them is
+    // running. Unprefixed, `getByTestId('payment')` would be two elements with different jobs.
+    expect(wwModalTestId('packs')).not.toBe(signupStepTestId('packs'));
+    expect(wwModalTestId('payment')).not.toBe(signupStepTestId('payment'));
+  });
+});
+
+// ── The registration form's fields ─────────────────────────────────────────────
+
+describe('the registration form names its fields', () => {
+  it.each(WEB_REGISTRATION_FIELDS)('%s, by the name the web puts in `data-ww-field`', (field) => {
+    expect(wwFieldTestId(field)).toBe(`field:${field}`);
+  });
+
+  it('gives the registration token a name the flow`s own vocabulary cannot claim', () => {
+    // The seventh field is this contract's own: the web's token input carries an id and no
+    // `data-ww-field`, so there was no string to match and `registrationToken` is the name the wire
+    // format already uses. The flow reports a step called `token`, and the assertion below is what
+    // keeps the two apart - not because they collide today (`registrationToken` is not `token`), but
+    // because the prefix is what guarantees no field can ever be read as a step.
+    expect(wwFieldTestId('registrationToken')).toBe('field:registrationToken');
+    expect(wwFieldTestId('registrationToken')).not.toBe(signupStepTestId('token'));
+  });
+});
+
 // ── Source guards ──────────────────────────────────────────────────────────────
 
-const VIEWS = resolve(dirname(fileURLToPath(import.meta.url)), '../components/registrationSubscription/views');
+const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The code, without the comments - which quote the web's attributes on purpose. */
-const readCode = (file: string) =>
-  readFileSync(resolve(VIEWS, file), 'utf8')
+/** One source file, without its comments - which quote the web's attributes on purpose. */
+const readCode = (path: string) =>
+  readFileSync(resolve(SRC, path), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
-const SIGNUP = readCode('RegistrationSubscriptionSignup.tsx');
-const MANAGE = readCode('RegistrationSubscriptionManage.tsx');
-const PRICING = readCode('RegistrationSubscriptionPricing.tsx');
+const VIEWS = 'components/registrationSubscription/views';
+const PARTS = 'components/registrationSubscription/parts';
+
+const SIGNUP = readCode(`${VIEWS}/RegistrationSubscriptionSignup.tsx`);
+const MANAGE = readCode(`${VIEWS}/RegistrationSubscriptionManage.tsx`);
+const PRICING = readCode(`${VIEWS}/RegistrationSubscriptionPricing.tsx`);
+const REGISTRATION = readCode('components/TokenRegistrationComponent.tsx');
+const DISCLAIMER = readCode('components/DisclaimerComponent.tsx');
+const CONSENT = readCode('components/ConsentComponent.tsx');
+const ADD_ONS_PANEL = readCode('components/subscription/AddOnsPanel.tsx');
+const PLAN_CHANGE_NOTICE = readCode(`${PARTS}/PlanChangeNotice.tsx`);
+const PACK_PICKER = readCode(`${PARTS}/PackPicker.tsx`);
+const PAYMENT_MODAL = readCode(`${PARTS}/PaymentModal.tsx`);
 
 describe('the views hang the ids where the rules put them', () => {
   it('composes the host id rather than falling back to it', () => {
@@ -294,14 +365,91 @@ describe('the views hang the ids where the rules put them', () => {
   });
 
   it('reports the plan change as the manage view step, and the view name in both its frames', () => {
-    expect(MANAGE).toContain("wwViewTestIds('manage', testID, flow.step === 'idle' ? '' : flow.step)");
+    expect(MANAGE).toContain("wwViewTestIds('manage', testID, flow.step)");
     // Two frames - the live one and the "an appId is required" notice - and both name the surface.
     expect(MANAGE.match(/testID=\{ids\.view\}/g) ?? []).toHaveLength(2);
     expect(MANAGE.match(/testID=\{ids\.host\}/g) ?? []).toHaveLength(2);
   });
 
+  it('reports `idle` rather than swallowing it', () => {
+    // The web's `ManageView` emits `data-ww-step={flow.step}` unconditionally and a React test
+    // asserts `idle` specifically, so a plan written against the web waits for it here too. It is
+    // safe to say because it is a string of its own: it is not the view's name, so nothing on the
+    // frame answers to it twice. Swallowing it left a suite unable to tell "no change is running"
+    // apart from "this build carries no step hook at all".
+    expect(wwViewTestIds('manage', 'host-id', 'idle').step).toBe('idle');
+    expect(MANAGE).not.toContain("flow.step === 'idle'");
+  });
+
   it('gives pricing no step element, because it has no step to put in one', () => {
     expect(PRICING).toContain("wwViewTestIds('pricing', testID)");
     expect(PRICING).not.toContain('ids.step');
+  });
+});
+
+describe('the components the signup view mounts carry their own hooks', () => {
+  it('names every registration input and the submit', () => {
+    // Without these a native signup cannot be driven at all: the form's only other distinguishing
+    // marks are English placeholders, which is what the contract exists to stop a suite keying on.
+    for (const field of [...WEB_REGISTRATION_FIELDS, 'registrationToken' as const]) {
+      expect(REGISTRATION, field).toContain(`testID={wwFieldTestId('${field}')}`);
+    }
+    expect(REGISTRATION).toContain('testID="submit-register"');
+  });
+
+  it('carries the token field on both of its placements', () => {
+    // The required-token step and the optional-token entry are the same field in two steps that
+    // cannot both be mounted, so one id covers both - and a placement that lost it would leave the
+    // token unreachable in exactly one of the two registration modes.
+    expect(REGISTRATION.match(/wwFieldTestId\('registrationToken'\)/g) ?? []).toHaveLength(2);
+  });
+
+  it('names the three disclaimer controls', () => {
+    // `disclaimer-accept` sits on a control rendered once per pending disclaimer, as on the web:
+    // the id names the ROLE, so accepting them one at a time reads every card's control alike.
+    for (const id of ['disclaimer-retry', 'disclaimer-accept', 'disclaimer-accept-all']) {
+      expect(DISCLAIMER, id).toContain(`testID="${id}"`);
+    }
+  });
+});
+
+describe('the consent banner', () => {
+  it('names itself and its accept-all, rather than only labelling them', () => {
+    // `accessibilityLabel="Cookie consent"` is the banner's accessibility copy and is meant to be
+    // translated; an identifier is not.
+    expect(CONSENT).toContain('testID="consent-banner"');
+    expect(CONSENT).toContain('testID="consent-accept-all"');
+  });
+});
+
+describe('the manage surface`s own controls', () => {
+  it('names the plan-change notice in both of its shapes, and both of its controls', () => {
+    // Two shapes - the progress line and the alert - and a suite waiting for the notice is waiting
+    // for the change to say something about itself, not for one particular shape of saying it.
+    expect(PLAN_CHANGE_NOTICE.match(/testID="plan-change-notice"/g) ?? []).toHaveLength(2);
+    expect(PLAN_CHANGE_NOTICE).toContain('testID="plan-change-retry"');
+    expect(PLAN_CHANGE_NOTICE).toContain('testID="plan-change-dismiss"');
+  });
+
+  it('names the control that opens the pack picker', () => {
+    expect(ADD_ONS_PANEL).toContain('testID="add-packs"');
+  });
+
+  it('builds both sheet ids through the helper, so the prefix is spelled once', () => {
+    expect(PACK_PICKER).toContain("testID={wwModalTestId('packs')}");
+    expect(PAYMENT_MODAL).toContain("testID={wwModalTestId('payment')}");
+    // The pre-rename spellings are gone from both sheets, so nothing answers to them any more.
+    for (const source of [PACK_PICKER, PAYMENT_MODAL]) {
+      expect(source).not.toContain('testID="packs-modal"');
+      expect(source).not.toContain('testID="payment-modal"');
+    }
+  });
+
+  it('leaves the packs sheet`s Continue out of the modal namespace', () => {
+    // It is a button inside the sheet, not a sheet: `modal:` names a modal and its value space is
+    // the web's two `data-ww-modal` values, so `modal:packs-continue` would assert a third sheet by
+    // that name. No other stack has a counterpart for this control, so there is no contract string
+    // to match and renaming it would break hosts for nothing.
+    expect(PACK_PICKER).toContain('testID="packs-modal-continue"');
   });
 });

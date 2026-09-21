@@ -167,8 +167,12 @@ export function RegistrationSubscriptionManage(props: RegistrationSubscriptionMa
   });
 
   /* The host's id, the plan change's step and the view's name, on three elements rather than one -
-     see `wwViewTestIds`. Built before the early return below so that frame names itself too. */
-  const ids = wwViewTestIds('manage', testID, flow.step === 'idle' ? '' : flow.step);
+     see `wwViewTestIds`. Built before the early return below so that frame names itself too.
+     `idle` is reported like any other step: the web emits `data-ww-step="idle"` unconditionally, and
+     it is a string of its own rather than a repeat of the view's name, so nothing is made ambiguous
+     by saying it. Passing '' here instead would leave a suite unable to tell "no change running"
+     apart from "this build has no step hook at all". */
+  const ids = wwViewTestIds('manage', testID, flow.step);
 
   // ── What the panels call ────────────────────────────────────────────────────
 

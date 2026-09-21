@@ -250,7 +250,7 @@ export function AddOnsPanel({
       ) : null}
 
       {onAddPacks ? (
-        <Pressable style={styles.addPacksBtn} onPress={onAddPacks}>
+        <Pressable testID="add-packs" style={styles.addPacksBtn} onPress={onAddPacks}>
           <Text style={styles.addPacksBtnText}>{copy.addPacks}</Text>
         </Pressable>
       ) : null}

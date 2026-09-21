@@ -6,8 +6,16 @@
 // unchanged and this module decides which of them names an element — a test plan written against
 // one stack then reads the same on the other.
 //
-// Packs and groups are namespaced, because a flat `testID` namespace cannot tell
-// `data-ww-pack="core"` from `data-ww-group="core"` the way two different attributes can.
+// Packs, groups, modals and form fields are namespaced, because a flat `testID` namespace cannot
+// tell `data-ww-pack="core"` from `data-ww-group="core"` the way two different attributes can. The
+// prefix is the attribute's own name, so `data-ww-modal="packs"` is `modal:packs` here and on Swift.
+//
+// This is the whole package's identifier spelling, not only the three views': the signup view mounts
+// the registration form and the disclaimer component as steps of its own, so a bare `token` or
+// `register` on one of their elements would answer to the same string as a step of the flow around
+// them. The flat ids those components carry (`submit-register`, `disclaimer-accept`, ...) are
+// written at their call sites like every other constant hook in this package; what lives here is
+// what a prefix has to be spelled consistently for.
 
 import type { RegistrationSubscriptionView } from './types';
 
@@ -78,4 +86,50 @@ export function wwPackTestId(addOnId: string): string {
 /** The `testID` for one group of packs (`all` when ungrouped, `more` for the catch-all). */
 export function wwGroupTestId(groupId: string): string {
   return `group:${groupId}`;
+}
+
+/**
+ * The `testID` for one of the sheets a view puts over itself. The web's `data-ww-modal`.
+ *
+ * Namespaced rather than bare, and this is the case that shows why: the web's two values are `packs`
+ * and `payment`, and both of those are ALSO step names this flow reports. A sheet named `payment`
+ * and the card step named `payment` would be two elements answering to one string, which is a worse
+ * locator than no locator.
+ */
+export function wwModalTestId(modal: 'packs' | 'payment'): string {
+  return `modal:${modal}`;
+}
+
+/**
+ * The registration form's fields, by the names the web puts in `data-ww-field`.
+ *
+ * The six the web names are the contract and are spelled exactly as it spells them. The seventh is
+ * this contract's own: the web's registration-token input carries an `id` and no `data-ww-field`, so
+ * there was no string to match, and `registrationToken` is the name the wire format
+ * (`RegistrationFormData.registrationToken`) already uses for it.
+ */
+export type RegistrationFieldName =
+  | 'firstName'
+  | 'lastName'
+  | 'username'
+  | 'email'
+  | 'password'
+  | 'confirmPassword'
+  | 'registrationToken';
+
+/**
+ * The `testID` for one registration form input.
+ *
+ * Namespaced for the same reason packs and groups are: the prefix is the web attribute's own name,
+ * and `data-ww-field` is an attribute of its own there.
+ *
+ * None of the seven collides with a step id today - that was checked, not assumed. The prefix is for
+ * what a flat namespace cannot promise about tomorrow. Fields and steps are two vocabularies that
+ * grow independently, and the day one adds `plan` or `payment` - both already step names - or a step
+ * arrives called `email`, the collision is silent: a query returns two elements and the failure
+ * surfaces as a test that cannot find what it is looking for, nowhere near the commit that caused it.
+ * A prefix costs one word and removes the whole class.
+ */
+export function wwFieldTestId(field: RegistrationFieldName): string {
+  return `field:${field}`;
 }

@@ -148,7 +148,10 @@ export function DisclaimerComponent({
     return (
       <View style={[styles.centered, style]}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={() => load()}>
+        {/* The three controls below carry the web's `data-ww-disclaimer-action` values under a
+            `disclaimer-` prefix, the spelling Swift already uses: this component is mounted as a
+            step of the signup flow, which owns the unprefixed names. */}
+        <Pressable testID="disclaimer-retry" style={styles.retryButton} onPress={() => load()}>
           <Text style={styles.retryButtonText}>Try again</Text>
         </Pressable>
       </View>
@@ -195,7 +198,10 @@ export function DisclaimerComponent({
             <Text style={styles.readFullButtonText}>Read Full Document</Text>
           </Pressable>
 
+          {/* One per pending disclaimer, as on the web - the id names the ROLE, so a suite that
+              accepts them one at a time reads every card's control by the same string. */}
           <Pressable
+            testID="disclaimer-accept"
             style={[styles.acceptButton, (accepting || loading) && styles.buttonDisabled]}
             onPress={() => handleAcceptSingle(d.disclaimerId, d.versionId)}
             disabled={accepting || loading}
@@ -211,6 +217,7 @@ export function DisclaimerComponent({
 
       {pendingList.length > 1 && (
         <Pressable
+          testID="disclaimer-accept-all"
           style={[styles.acceptAllButton, (accepting || loading) && styles.buttonDisabled]}
           onPress={handleAcceptAll}
           disabled={accepting || loading}
@@ -283,7 +290,7 @@ export function DisclaimerComponent({
    themeable colour. */
 const createStyles = (theme: WildwoodTheme) =>
   StyleSheet.create({
-  container: {
+    container: {
       flex: 1,
     },
     contentContainer: {

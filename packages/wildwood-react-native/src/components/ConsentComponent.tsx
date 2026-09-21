@@ -103,7 +103,11 @@ export function ConsentComponent({ autoInit = true, showFooterOptOut = true, sty
   return (
     <View style={style}>
       {showBanner && (
-        <View style={styles.banner} accessibilityLabel="Cookie consent">
+        // An identifier as well as the label: the label is the accessibility copy and is meant to be
+        // translated, so a suite keyed on it stops finding the banner the moment it is. `consent-`
+        // is the web's `ww-consent-banner` class without the package prefix, the same way
+        // `disclaimer-` carries that component's hooks.
+        <View style={styles.banner} accessibilityLabel="Cookie consent" testID="consent-banner">
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>{body}</Text>
           {config.privacyPolicyUrl ? (
@@ -118,7 +122,7 @@ export function ConsentComponent({ autoInit = true, showFooterOptOut = true, sty
             <Pressable style={[styles.btn, styles.btnSecondary]} onPress={onRejectAll}>
               <Text style={styles.btnText}>{rejectLabel}</Text>
             </Pressable>
-            <Pressable style={[styles.btn, styles.btnPrimary]} onPress={onAcceptAll}>
+            <Pressable testID="consent-accept-all" style={[styles.btn, styles.btnPrimary]} onPress={onAcceptAll}>
               <Text style={styles.btnPrimaryText}>{acceptLabel}</Text>
             </Pressable>
           </View>

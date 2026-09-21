@@ -124,6 +124,14 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     expect(reactNative.wwTestId('pricing')).toBe('pricing');
     expect(reactNative.wwPackTestId('pack-docs')).toBe('pack:pack-docs');
     expect(reactNative.wwGroupTestId('more')).toBe('group:more');
+    // `modal:` and `field:` for the same reason, though the two prefixes earn it differently.
+    // `modal:` settles a collision that is live: `packs` and `payment` are step names AND sheet
+    // names, and a sheet is open over the step it belongs to. `field:` settles one that is not -
+    // no field name is a step name today - and is there so that a field and a step can never be
+    // read as each other whichever way the two vocabularies grow.
+    expect(reactNative.wwModalTestId('packs')).toBe('modal:packs');
+    expect(reactNative.wwFieldTestId('email')).toBe('field:email');
+    expect(reactNative.wwFieldTestId('registrationToken')).toBe('field:registrationToken');
   });
 
   it('exports the shared constants', () => {

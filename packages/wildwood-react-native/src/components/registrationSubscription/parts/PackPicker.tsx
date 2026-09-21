@@ -18,6 +18,7 @@ import type {
   SignupPackOutcome,
 } from '@wildwood/react-shared';
 import { togglePackSelection } from '../views/pricingViewModel';
+import { wwModalTestId } from '../testIds';
 import { PackCheckout } from './PackCheckout';
 import { PackGrid } from './PackGrid';
 import { PackOutcomeList } from './PackOutcomeList';
@@ -81,7 +82,7 @@ export function PackPicker({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={dismissable ? close : undefined}>
       <View style={styles.overlay}>
-        <View style={styles.sheet} testID="packs-modal">
+        <View style={styles.sheet} testID={wwModalTestId('packs')}>
           <View style={styles.header}>
             <Text style={styles.title}>{labels.addPacksTitle}</Text>
             {dismissable ? (
@@ -121,6 +122,12 @@ export function PackPicker({
             )}
           </ScrollView>
 
+          {/* The sheet's own id became `modal:packs`; this one deliberately did not follow it. The
+              `modal:` prefix names a modal, and its value space is the web's two `data-ww-modal`
+              values - `modal:packs-continue` would assert a third sheet by that name. This is a
+              button inside the packs sheet, no other stack has a counterpart for it (the web's
+              outcome Continue carries no hook at all), so there is no contract string to match and
+              renaming it would only break hosts. */}
           {outcomes ? (
             <Pressable
               style={styles.primaryButton}
