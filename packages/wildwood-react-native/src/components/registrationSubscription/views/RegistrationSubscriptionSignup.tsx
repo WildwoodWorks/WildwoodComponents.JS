@@ -51,6 +51,7 @@ import {
   packPurchaseOffered,
   planPeriodSuffix,
   signupBody,
+  signupHighlightTierId,
   signupPaymentOrder,
   signupPaymentProps,
   signupSuccessMessage,
@@ -249,7 +250,7 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
           currency={currency}
           billing={flow.billing}
           onBillingChange={flow.setBilling}
-          highlightTierId={state.selection.tierId ?? props.preSelectedTierId}
+          highlightTierId={signupHighlightTierId(state.selection.tierId, flow.defaultTierId, props.preSelectedTierId)}
           contactUrl={contactUrl}
           labels={labels}
           onSelectTier={flow.choosePlan}

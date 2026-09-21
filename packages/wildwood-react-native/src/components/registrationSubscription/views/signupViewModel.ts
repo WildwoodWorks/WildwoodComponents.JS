@@ -201,6 +201,23 @@ export function signupPaymentProps(
   };
 }
 
+/**
+ * Which plan the grid opens marked, in the order the web resolves it.
+ *
+ * The visitor's own choice first; then the flow's `defaultTierId`, which `planDefault="free"` puts
+ * there. A link's `preSelectedTierId` sits LAST on purpose: a stale or hand-edited one is an id the
+ * flow already refused, so the grid opens on the host's default rather than on nothing at all.
+ *
+ * None of these is a choice - the grid marks one and the visitor still taps it.
+ */
+export function signupHighlightTierId(
+  selectionTierId: string | undefined,
+  defaultTierId: string | undefined,
+  preSelectedTierId: string | undefined,
+): string | undefined {
+  return selectionTierId ?? defaultTierId ?? preSelectedTierId;
+}
+
 /** The per-period suffix shown beside a plan's price. Empty for a frequency with no period. */
 export function planPeriodSuffix(billingFrequency: string | undefined): string {
   const frequency = (billingFrequency ?? '').trim().toLowerCase();

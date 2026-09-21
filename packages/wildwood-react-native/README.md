@@ -222,6 +222,14 @@ differences below — all of them because a phone is not a web page.
 | `paymentActionHandler` (signup, manage) | New. A `PaymentActionAdapter`, as in **Taking card payments** above. | There is no Stripe.js here. See that section for the `@stripe/stripe-react-native` recipe; wire it once on `WildwoodProvider` and every surface picks it up. |
 | `iapProducts` (signup) | New. Maps each tier to a store product id. | A store-billed app buys its plan from the store, through `useInAppPurchases` / `InAppPurchaseSheet`. |
 
+`planDefault` (signup) is one of the props that mirror the web exactly, because the flow behind both
+is the same one: `planDefault="free"` opens the plan step with the app's free plan marked — a
+suggestion the visitor still taps, not a choice already made — and is ignored for an invite, for an
+app with no free plan, and once a link or a grant has chosen. The grid marks
+`state.selection.tierId ?? flow.defaultTierId ?? preSelectedTierId`, in that order: a
+`preSelectedTierId` still on screen at the plan step is one the flow refused, so the default wins
+over it. Use `preSelectedTierId` to choose FOR the visitor — it skips the step outright.
+
 **Without a `paymentActionHandler`** nothing is asked of the app and nothing fails silently. Packs are
 bought against a card already on file or reported as not bought ("This purchase has to be finished on
 the web"); no `SetupIntent` is ever requested, because a client secret nothing on the device can

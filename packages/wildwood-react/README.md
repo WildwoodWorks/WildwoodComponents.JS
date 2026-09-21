@@ -251,7 +251,10 @@ The whole way in, in the order that keeps an account and its money consistent.
 - **Preselection** — `preSelectedTierId`, `preSelectedPricingId`, `preSelectedAddOnIds` (checked
   against the catalog and capped at 25), `registrationToken`, `prefillEmail`.
 - **Flow** — `planSelection` (`'choose'` | `'skip'`; `'skip'` takes the app's default plan and
-  leaves the plan step out), `packSelection` (`'multi'` | `'none'`, default `'none'`: `'none'` only
+  leaves the plan step out), `planDefault` (`'none'` | `'free'`, default `'none'`: `'free'` opens the
+  plan step with the app's free plan marked — a suggestion the visitor still confirms, ignored for an
+  invite and once a link or a grant has chosen; `preSelectedTierId` is how you choose *for* them,
+  because it skips the step), `packSelection` (`'multi'` | `'none'`, default `'none'`: `'none'` only
   removes the step where packs are picked — packs a link already chose are still bought),
   `tokenMode` (`'auto'` follows the app's settings, `'required'` is invite redemption),
   `requireBillingAddress`, `returnUrl` (carried, never navigated to), `initialCatalog`,
@@ -381,6 +384,62 @@ The copy and class locators the live sites' end-to-end suites already use are de
 "Switch to ..." CTAs, `PaymentComponent`'s own pay button and success panel, `.ww-signup-processing`
 with "Something Went Wrong" / "Try Again" / "Start Over", `.ww-signup-disclaimers`, and the "You're
 All Set!" panel with "Get Started".
+
+`DisclaimerComponent`'s buttons additionally carry
+`data-ww-disclaimer-action="accept" | "accept-all" | "retry"`, so a test can tell an Accept from the
+retry the component renders when the pending list fails to load — they share a container, and only a
+style class told them apart before.
+
+### Playwright helpers (`@wildwood/react/testing`)
+
+Rather than every host rediscovering the same scaffolding, the helpers that drive this component ship
+with it:
+
+```ts
+import { waitForSignupStep, finishSignup, dismissConsentBanner } from '@wildwood/react/testing';
+
+await page.goto('/signup');
+await waitForSignupStep(page, 'register');
+await fillRegistrationForm(page, user);
+await submitRegistrationForm(page);
+// Waits out processing, retries a transient failure, accepts whatever disclaimers the app has
+// configured, then asserts the success panel before leaving it.
+await finishSignup(page, { expectSuccessText: 'your 14-day free trial has started' });
+```
+
+Exports: `signupStep`, `waitForSignupStep`, `recordSignupSteps`, `manageStep`, `waitForManageStep`,
+`waitForAnyManageStep`, `fillRegistrationForm`, `submitRegistrationForm`, `acceptDisclaimers`,
+`dismissConsentBanner`, `finishSignup`.
+
+`@playwright/test` is an **optional peer dependency** — only this entry point needs it — and it is
+pinned to an **exact version**, not a range. That is deliberate, and it is the one thing to know
+before adopting these helpers.
+
+Nothing is imported from Playwright at runtime (see `testing/poll.ts`), so there is no "Playwright
+was loaded twice" hazard. The TYPES are a different matter: these helpers' signatures say
+`Page` and `Locator`, and TypeScript resolves those names against the copy of `@playwright/test`
+sitting next to *this* package. Playwright changes those types between minors — 1.48 → 1.58 altered
+`ElementHandleWaitForSelectorOptions`, and 1.58 → 1.61 diverged again — so a consumer on a different
+minor gets `Argument of type 'Page' is not assignable to parameter of type 'Page'`, naming two
+identical-looking types from two paths.
+
+So: **use the same exact Playwright version this package pins.** A caret range will not do it —
+`^1.61.1` silently resolves to 1.63 and breaks the same way. If you cannot match the version, copy
+the helpers rather than importing them, and say in a comment that you did.
+
+Three things these encode that are easy to get wrong, and that only show up against a deployed
+environment rather than a local stack:
+
+- **The completion message is asserted inside `finishSignup`, not by the caller.** It renders only in
+  the `success` step, the final click navigates away from it, and `disclaimers` can sit between
+  payment and success — so a caller checking straight after the card sees the disclaimer instead.
+  Every app with real terms configured hits this.
+- **A refused acceptance looks like a dead button.** `disclaimeracceptance/accept` shares the API's
+  per-IP auth rate limit with login and register, so a suite enrolling several users a minute from one
+  address gets 429s while the button just sits there. `acceptDisclaimers` watches the response, backs
+  off on 429, and names the real cause instead of blaming a disabled button.
+- **Labels are host-configurable, so nothing here locates a button by its text.** The success CTA is
+  `labels.getStarted`; the helpers use `data-ww-*` hooks, `type="submit"` and component class names.
 
 ### SSR and prerendering
 

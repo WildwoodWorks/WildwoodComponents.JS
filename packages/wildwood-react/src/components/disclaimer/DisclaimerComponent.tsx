@@ -118,7 +118,12 @@ export function DisclaimerComponent({
           error message and no way forward (a dead-end when this gates signup / app access). */}
       {error && !isLoading && pendingList.length === 0 && (
         <div className="ww-disclaimer-actions">
-          <button type="button" className="ww-btn ww-btn-primary" onClick={() => load()}>
+          <button
+            type="button"
+            className="ww-btn ww-btn-primary"
+            data-ww-disclaimer-action="retry"
+            onClick={() => load()}
+          >
             Try again
           </button>
         </div>
@@ -148,6 +153,7 @@ export function DisclaimerComponent({
                 <button
                   type="button"
                   className="ww-btn ww-btn-primary"
+                  data-ww-disclaimer-action="accept"
                   onClick={() => handleAccept(d.disclaimerId, d.versionId)}
                   disabled={loading || accepting}
                 >
@@ -162,6 +168,7 @@ export function DisclaimerComponent({
               <button
                 type="button"
                 className="ww-btn ww-btn-primary ww-btn-block"
+                data-ww-disclaimer-action="accept-all"
                 onClick={handleAcceptAll}
                 disabled={loading || accepting}
               >

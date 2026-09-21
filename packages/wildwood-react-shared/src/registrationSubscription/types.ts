@@ -18,6 +18,9 @@ export type PricingBilling = 'monthly' | 'annual';
 /** Whether the signup flow asks the visitor to choose a plan. */
 export type SignupPlanSelection = 'choose' | 'skip';
 
+/** The plan the grid opens on when nothing has chosen one. */
+export type SignupPlanDefault = 'none' | 'free';
+
 /**
  * Whether the signup flow offers packs. `'multi'` is the pack grid, ticked and continued once —
  * the same wording the pricing view uses, because it is the same grid. Packs a signup link already

@@ -277,6 +277,7 @@ export type {
   PricingSelection,
   PricingPackSelection,
   SignupPlanSelection,
+  SignupPlanDefault,
   SignupPackSelection,
   ManageLayout,
   ManageSection,

@@ -33,6 +33,7 @@ import type {
   SignupOutcome,
   SignupPackSelection,
   SignupPaymentOrder,
+  SignupPlanDefault,
   SignupPlanSelection,
   SignupTokenMode,
 } from '@wildwood/react-shared';
@@ -43,6 +44,7 @@ export type {
   PricingBilling,
   RegistrationSubscriptionError,
   SignupPlanSelection,
+  SignupPlanDefault,
   SignupPackSelection,
 } from '@wildwood/react-shared';
 
@@ -163,6 +165,9 @@ export interface RegistrationSubscriptionSignupProps extends RegistrationSubscri
   prefillEmail?: string;
   /** `'skip'` leaves the plan to the host: a single-plan product, or one chosen elsewhere. */
   planSelection?: SignupPlanSelection;
+  /** `'free'` opens the plan step on the app's free plan — a suggestion the visitor still
+   *  confirms, not a choice already made. Ignored once a link or a grant has chosen. */
+  planDefault?: SignupPlanDefault;
   /** Whether the visitor may pick packs on the way in. Default `'none'`. */
   packSelection?: SignupPackSelection;
   /** `'required'` is invite redemption: a token is the only way in. Default `'auto'`. */

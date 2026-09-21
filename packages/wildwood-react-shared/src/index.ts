@@ -185,6 +185,7 @@ export type {
   RegistrationSubscriptionError,
   PricingBilling,
   SignupPlanSelection,
+  SignupPlanDefault,
   SignupPackSelection,
   PaymentRequiredArgs,
   TierSelectedEventArgs,

@@ -53,6 +53,20 @@ export interface ConsentBannerProps {
    * Default true.
    */
   showFooterOptOut?: boolean;
+  /**
+   * While the banner is up, add its height to the page's bottom padding so it does not cover
+   * anything the host anchors to the bottom of the viewport. Default true.
+   *
+   * The banner is `position: fixed; bottom: 0; z-index: 9000`, so without this it silently sits on
+   * top of chat composers, sticky action bars and the like — the host has no way to know how much
+   * room to leave, because the height depends on the configured copy and on how it wraps. Found
+   * covering the send button of a host app's assistant, where the click simply did nothing.
+   *
+   * Either way the measured height is published as `--ww-consent-height` on the document element,
+   * so a host that would rather place the room itself can set `reserveSpace={false}` and use the
+   * variable (it is removed again when the banner goes).
+   */
+  reserveSpace?: boolean;
   className?: string;
 }
 
@@ -64,6 +78,7 @@ export function ConsentBanner({
   autoInit = true,
   showReopenLink = true,
   showFooterOptOut = true,
+  reserveSpace = true,
   className,
 }: ConsentBannerProps) {
   const { config, state, shouldShowBanner, initialize, acceptAll, rejectAll, setCategories } = useConsent();
@@ -71,6 +86,7 @@ export function ConsentBanner({
   const [showPrefs, setShowPrefs] = useState(false);
   const [selection, setSelection] = useState<Partial<Record<ConsentCategory, boolean>>>({});
   const modalRef = useFocusTrap(showPrefs);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (autoInit) {
@@ -93,6 +109,41 @@ export function ConsentBanner({
   useEffect(() => {
     setShowBanner(shouldShowBanner);
   }, [shouldShowBanner]);
+
+  // Keep the fixed banner from covering the page's own bottom-anchored UI. The height is measured
+  // rather than assumed: it depends on the configured copy, and the banner re-wraps on narrow
+  // viewports (the stylesheet stacks it into a column), so a constant would be wrong as often as
+  // it was right.
+  useEffect(() => {
+    const node = bannerRef.current;
+    if (!showBanner || !node) return;
+
+    const root = document.documentElement;
+    const body = document.body;
+    const previousInlinePadding = body.style.paddingBottom;
+    // Read what the page asks for on its own BEFORE adding ours, so the reservation adds to the
+    // host's padding instead of replacing it — and so the cleanup below restores exactly what it
+    // found, inline or not.
+    const basePadding = Number.parseFloat(getComputedStyle(body).paddingBottom) || 0;
+
+    const apply = () => {
+      const height = node.offsetHeight;
+      root.style.setProperty('--ww-consent-height', `${height}px`);
+      if (reserveSpace) body.style.paddingBottom = `${basePadding + height}px`;
+    };
+
+    apply();
+    // Guarded: jsdom and older runtimes have no ResizeObserver, and a consent banner must never be
+    // the reason a host's test suite or browser fails to render.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply);
+    observer?.observe(node);
+
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty('--ww-consent-height');
+      if (reserveSpace) body.style.paddingBottom = previousInlinePadding;
+    };
+  }, [showBanner, reserveSpace]);
 
   const categoryActive = useCallback((c: ConsentCategory) => (config?.categories ?? []).includes(c), [config]);
 
@@ -153,7 +204,7 @@ export function ConsentBanner({
   return (
     <div className={className}>
       {showBanner && (
-        <div className="ww-consent-banner" role="region" aria-label="Cookie consent">
+        <div ref={bannerRef} className="ww-consent-banner" role="region" aria-label="Cookie consent">
           <div className="ww-consent-banner-text">
             <strong className="ww-consent-title">{title}</strong>
             <p className="ww-consent-body">

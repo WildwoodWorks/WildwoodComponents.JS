@@ -184,6 +184,7 @@ export type {
   AddOnGroup,
   AddOnPresentation,
   SignupPlanSelection,
+  SignupPlanDefault,
   SignupPackSelection,
   RegistrationClosedInfo,
   ManageLayout,

@@ -41,6 +41,7 @@ import {
   packPurchaseOffered,
   planPeriodSuffix,
   signupBody,
+  signupHighlightTierId,
   signupPaymentOrder,
   signupPaymentProps,
   signupSuccessMessage,
@@ -195,6 +196,34 @@ describe('showsTokenPlanSummary', () => {
       expect(showsTokenPlanSummary(body, null)).toBe(false);
       expect(showsTokenPlanSummary(body, undefined)).toBe(false);
     }
+  });
+});
+
+// ── Which plan the grid opens marked ───────────────────────────────────────────
+
+describe('signupHighlightTierId', () => {
+  it("prefers the visitor's own choice over anything suggested for them", () => {
+    expect(signupHighlightTierId('tier-team', 'tier-free', 'tier-pro')).toBe('tier-team');
+  });
+
+  it("opens on the flow's default when nothing has been chosen yet", () => {
+    // `planDefault="free"` is what puts a free tier id there. It is a highlight, not a selection:
+    // the plan step still runs and the visitor still taps the card.
+    expect(signupHighlightTierId(undefined, 'tier-free', undefined)).toBe('tier-free');
+  });
+
+  it("puts the link's plan behind the default, exactly as the web does", () => {
+    // A `preSelectedTierId` still on screen at the plan step is one the flow refused - stale or
+    // hand-edited - so the grid opens on the host's default rather than on nothing at all.
+    expect(signupHighlightTierId(undefined, 'tier-free', 'tier-gone')).toBe('tier-free');
+  });
+
+  it("falls back to the link's plan when the host named no default", () => {
+    expect(signupHighlightTierId(undefined, undefined, 'tier-pro')).toBe('tier-pro');
+  });
+
+  it('marks nothing when nothing has named a plan', () => {
+    expect(signupHighlightTierId(undefined, undefined, undefined)).toBeUndefined();
   });
 });
 
