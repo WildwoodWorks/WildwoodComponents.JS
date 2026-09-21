@@ -722,7 +722,8 @@ describe('the signup view source', () => {
     expect(source).toContain('showsTokenPlanSummary(body, flow.tokenGrant)');
     expect(source.match(/<TokenPlanSummary/g) ?? []).toHaveLength(1);
 
-    const roots = source.match(/testID=\{testID \?\?/g) ?? [];
+    // One `testID={ids.host}` per frame the component can return: the outermost element of each.
+    const roots = source.match(/testID=\{ids\.host\}/g) ?? [];
     expect(roots.length).toBeGreaterThan(1);
     expect(source.match(/\{tokenSummary\}/g) ?? []).toHaveLength(roots.length);
   });

@@ -284,6 +284,10 @@ export type {
   AddOnGroup,
   AddOnPresentation,
 } from './components/registrationSubscription/types';
+// The test hooks themselves, so a host's own suite builds the selectors the components render rather
+// than copying the prefixes and drifting the day one of them changes. `wwTestId` also answers what a
+// step is called on this stack, which is the string the web keeps in `data-ww-step`.
+export { wwTestId, wwPackTestId, wwGroupTestId } from './components/registrationSubscription/testIds';
 
 export { UsageLimitsPanel } from './components/subscription/UsageLimitsPanel';
 export type { UsageLimitsPanelProps } from './components/subscription/UsageLimitsPanel';

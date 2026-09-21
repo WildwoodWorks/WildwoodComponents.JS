@@ -44,7 +44,7 @@ import { PackOutcomeList } from '../parts/PackOutcomeList';
 import { PlanGrid } from '../parts/PlanGrid';
 import { PlanSummaryCard } from '../parts/PlanSummaryCard';
 import { TokenPlanSummary } from '../parts/TokenPlanSummary';
-import { wwTestId } from '../testIds';
+import { wwViewTestIds } from '../testIds';
 import type { RegistrationSubscriptionSignupProps } from '../types';
 import {
   cappedPreSelectedPackIds,
@@ -54,6 +54,8 @@ import {
   signupHighlightTierId,
   signupPaymentOrder,
   signupPaymentProps,
+  signupStepTestId,
+  signupStoreVariantTestId,
   signupSuccessMessage,
   showsTokenPlanSummary,
   unbuyablePackOutcomes,
@@ -163,6 +165,12 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
     storeOnly,
     hasStoreProduct,
   });
+
+  /* The host's id, the step and the view's name, on three elements rather than one - see
+     `wwViewTestIds`. Built once so that BOTH frames this component can return carry all three; the
+     disclaimers step returns a frame of its own, and a frame that names itself differently is a
+     frame a test plan cannot follow. */
+  const ids = wwViewTestIds('signup', testID, signupStepTestId(body));
 
   /* A store-billed device has no way to buy a pack, so the basket is reported rather than quoted:
      every pack the visitor asked for is named, with the reason it was not bought. `packsBought`
@@ -301,7 +309,10 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
     const leaveLabel = flow.paymentAfterAccount ? labels.skipForNow : labels.back;
 
     content = (
-      <View style={styles.step}>
+      // `payment` is the step, and it is on the frame above whichever way the money is taken. This
+      // names the store-billed variant for a test that cares which one is up, and is absent on the
+      // card path, where `payment` already says everything.
+      <View style={styles.step} testID={signupStoreVariantTestId(body)}>
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>{labels.orderSummary}</Text>
           <View style={styles.summaryRow}>
@@ -372,22 +383,29 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
     // Rendered outside the outer ScrollView, the way the wizard does it: DisclaimerComponent has its
     // own flex:1 ScrollView, which collapses when nested inside another one. The frame is this
     // step's own, so it renders `tokenSummary` itself - the same element the outer frame renders.
+    // Each of the three ids needs an element of its own, and every one of them passes the height
+    // straight through, so the disclaimer's own scroller still has a bounded box to fill.
     return (
-      <View style={[styles.container, style]} testID={testID ?? wwTestId('signup', 'disclaimers')}>
-        {tokenSummary ? <View style={styles.disclaimersSummary}>{tokenSummary}</View> : null}
-        <View style={styles.disclaimersHeader}>
-          <Text style={styles.stepTitle}>{labels.disclaimersTitle}</Text>
-          <Text style={styles.muted}>{labels.disclaimersIntro}</Text>
+      <View style={[styles.container, style]} testID={ids.host}>
+        <View style={styles.container} testID={ids.view}>
+          <View style={styles.container} testID={ids.step}>
+            {tokenSummary ? <View style={styles.disclaimersSummary}>{tokenSummary}</View> : null}
+            <View style={styles.disclaimersHeader}>
+              <Text style={styles.stepTitle}>{labels.disclaimersTitle}</Text>
+              <Text style={styles.muted}>{labels.disclaimersIntro}</Text>
+            </View>
+            <DisclaimerComponent
+              autoLoad
+              appId={resolvedAppId}
+              onAllAccepted={flow.disclaimersDone}
+              // Nothing pending after all (accepted meanwhile, or none configured): do not strand
+              // them.
+              onLoaded={(count) => {
+                if (count === 0) flow.disclaimersDone();
+              }}
+            />
+          </View>
         </View>
-        <DisclaimerComponent
-          autoLoad
-          appId={resolvedAppId}
-          onAllAccepted={flow.disclaimersDone}
-          // Nothing pending after all (accepted meanwhile, or none configured): do not strand them.
-          onLoaded={(count) => {
-            if (count === 0) flow.disclaimersDone();
-          }}
-        />
       </View>
     );
   } else if (body === 'packCheckout') {
@@ -465,15 +483,20 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
     content = <Working heading={labels.loadingSignup} />;
   }
 
+  /* The host's style stays on the outermost element, which is what it sized and coloured before the
+     frame grew: the scroller inside it fills it. The view's name sits ABOVE the step, the way the
+     web nests `data-ww-step` inside `data-ww-view`, so `within(getByTestId('signup'))` scopes a
+     step read. Step ids are bare - `payment`, `failed` - so on a screen holding two Wildwood
+     surfaces that enclosing element is the only thing telling them apart. */
   return (
-    <ScrollView
-      style={[styles.container, style]}
-      contentContainerStyle={styles.content}
-      testID={testID ?? wwTestId('signup', body === 'signedIn' ? '' : body)}
-    >
-      {tokenSummary}
-      {content}
-    </ScrollView>
+    <View style={[styles.container, style]} testID={ids.host}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} testID={ids.view}>
+        <View testID={ids.step}>
+          {tokenSummary}
+          {content}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

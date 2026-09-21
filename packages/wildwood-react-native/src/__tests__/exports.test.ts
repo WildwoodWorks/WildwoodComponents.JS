@@ -116,6 +116,16 @@ describe('@wildwood/react-native registration & subscription exports', () => {
     expect((reactNative as Record<string, unknown>).PackPicker).toBeUndefined();
   });
 
+  it('exports the test hooks, so a host writes the selectors the components render', () => {
+    // A `pack:<id>` locator built by hand is a locator that drifts the day the prefix changes, and
+    // the prefixes exist precisely because one flat `testID` namespace cannot tell a pack from a
+    // group of the same name. Swift's equivalents are `public` for the same reason.
+    expect(reactNative.wwTestId('signup', 'payment')).toBe('payment');
+    expect(reactNative.wwTestId('pricing')).toBe('pricing');
+    expect(reactNative.wwPackTestId('pack-docs')).toBe('pack:pack-docs');
+    expect(reactNative.wwGroupTestId('more')).toBe('group:more');
+  });
+
   it('exports the shared constants', () => {
     expect(reactNative.ACCESS_GRANTING_STATUSES).toEqual(['Active', 'Trialing', 'PendingCancellation']);
     expect(reactNative.MAX_PLAN_CHANGE_COMPLETE_ATTEMPTS).toBeGreaterThan(0);

@@ -48,7 +48,7 @@ export type {
   SignupPackSelection,
 } from '@wildwood/react-shared';
 
-/** Which surface is being rendered. Also the value its root's `testID` carries. */
+/** Which surface is being rendered. Also the `testID` the surface names itself with throughout. */
 export type RegistrationSubscriptionView = 'pricing' | 'signup' | 'manage';
 
 /** Props every view shares. */
@@ -65,7 +65,13 @@ export interface RegistrationSubscriptionCommonProps {
   onError?: (error: RegistrationSubscriptionError) => void;
   /** Applied to the view's root, as on every component in this package. */
   style?: ViewStyle;
-  /** Replaces the root's built-in test hook (the view's own name). */
+  /**
+   * Names this mount, on the view's outermost element.
+   *
+   * It sits BESIDE the built-in hooks rather than replacing them: the view's own name and the step
+   * the flow is on keep their own elements underneath, so naming a mount never takes the component's
+   * progress off the screen.
+   */
   testID?: string;
 }
 

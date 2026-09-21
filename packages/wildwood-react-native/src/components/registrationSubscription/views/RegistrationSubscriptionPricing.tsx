@@ -23,7 +23,7 @@ import { usePublicCatalog } from '../../../hooks/usePublicCatalog';
 import { PackGrid } from '../parts/PackGrid';
 import { PlanGrid } from '../parts/PlanGrid';
 import { PricingSkeleton } from '../parts/PricingSkeleton';
-import { wwTestId } from '../testIds';
+import { wwViewTestIds } from '../testIds';
 import type { PricingBilling, RegistrationSubscriptionPricingProps } from '../types';
 import {
   CATALOG_ERROR_CODE,
@@ -169,14 +169,18 @@ export function RegistrationSubscriptionPricing({
     );
   }
 
+  /* The host's id on the outer frame and the view's name on the scroller beneath it, so a host that
+     names its own mount does not name it INSTEAD of the surface. There is no step element here: this
+     view runs no flow, and its three bodies are how far the catalog got rather than places in an
+     order. The host's style stays outermost, which is what it sized and coloured before. */
+  const ids = wwViewTestIds('pricing', testID);
+
   return (
-    <ScrollView
-      style={[styles.container, style]}
-      contentContainerStyle={styles.content}
-      testID={testID ?? wwTestId('pricing')}
-    >
-      {body}
-    </ScrollView>
+    <View style={[styles.container, style]} testID={ids.host}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} testID={ids.view}>
+        {body}
+      </ScrollView>
+    </View>
   );
 }
 

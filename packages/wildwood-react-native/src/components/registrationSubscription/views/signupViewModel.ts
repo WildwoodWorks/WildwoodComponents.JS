@@ -61,7 +61,13 @@ export function cappedPreSelectedPackIds(ids: readonly string[] | undefined): st
   return [...new Set(ids ?? [])].slice(0, MAX_ADDON_SELECTION);
 }
 
-/** Which body the signup view renders. Every value but the last two is also a `testID`. */
+/**
+ * Which body the signup view renders.
+ *
+ * Most of these are also the step the view reports, but three of them are not and
+ * {@link signupStepTestId} owns the difference - read it before assuming a body name reaches a
+ * `testID` unchanged.
+ */
 export type SignupBody =
   | 'loading'
   | 'closed'
@@ -113,6 +119,36 @@ export function signupBody(input: SignupBodyInput): SignupBody {
   if (!input.hasPlan || !input.formSubmitted) return 'loading';
   if (!input.storeOnly) return 'payment';
   return input.hasStoreProduct ? 'storePayment' : 'storeUnavailable';
+}
+
+/**
+ * The step the view reports for a body - the same string the web puts in `data-ww-step` and Swift in
+ * an `accessibilityIdentifier` - or the empty string for a body that is not a step at all.
+ *
+ * Three bodies need the mapping. `signedIn` is the early return: nothing is running, so the view's
+ * own name is all there is to say. The two store-billed bodies ARE the payment step - they are how
+ * THIS device takes the money, not a different place in the order - so they report `payment` like
+ * every other stack. Reporting `storePayment` instead would mean a cross-stack test that waits for
+ * `payment` never sees it on a phone billed through the App Store, and waits until it times out.
+ * Which of the two is on screen is {@link signupStoreVariantTestId}, beside the step rather than
+ * instead of it.
+ */
+export function signupStepTestId(body: SignupBody): string {
+  if (body === 'signedIn') return '';
+  if (body === 'storePayment' || body === 'storeUnavailable') return 'payment';
+  return body;
+}
+
+/**
+ * The extra id the payment step carries when the store is taking the money, or none.
+ *
+ * Nothing extra on the card path: `payment` there already means "a card is being asked for", and a
+ * second id saying so would be a string for tests to key on that says nothing new.
+ */
+export function signupStoreVariantTestId(body: SignupBody): string | undefined {
+  if (body === 'storePayment') return 'store-payment';
+  if (body === 'storeUnavailable') return 'store-unavailable';
+  return undefined;
 }
 
 /**

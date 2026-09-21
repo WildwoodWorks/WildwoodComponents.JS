@@ -44,7 +44,7 @@ import { UsageLimitsPanel } from '../../subscription/UsageLimitsPanel';
 import { PackPicker } from '../parts/PackPicker';
 import { PaymentModal } from '../parts/PaymentModal';
 import { PlanChangeNotice } from '../parts/PlanChangeNotice';
-import { wwTestId } from '../testIds';
+import { wwViewTestIds } from '../testIds';
 import type { ManageSection, RegistrationSubscriptionManageProps } from '../types';
 import {
   availablePacks,
@@ -165,6 +165,10 @@ export function RegistrationSubscriptionManage(props: RegistrationSubscriptionMa
     onError,
     labels,
   });
+
+  /* The host's id, the plan change's step and the view's name, on three elements rather than one -
+     see `wwViewTestIds`. Built before the early return below so that frame names itself too. */
+  const ids = wwViewTestIds('manage', testID, flow.step === 'idle' ? '' : flow.step);
 
   // ── What the panels call ────────────────────────────────────────────────────
 
@@ -311,9 +315,11 @@ export function RegistrationSubscriptionManage(props: RegistrationSubscriptionMa
   );
 
   if (!resolvedAppId) {
+    // Nothing can run without an app, so there is no step to report: the notice itself carries the
+    // view's name, and a test looking for `manage` finds this frame as readily as the live one.
     return (
-      <View style={[styles.container, style]} testID={testID ?? wwTestId('manage')}>
-        <View style={styles.alertWarning}>
+      <View style={[styles.container, style]} testID={ids.host}>
+        <View style={styles.alertWarning} testID={ids.view}>
           <Text style={styles.alertWarningText}>An appId is required.</Text>
         </View>
       </View>
@@ -409,102 +415,110 @@ export function RegistrationSubscriptionManage(props: RegistrationSubscriptionMa
   const { statusAbove, body } = manageBodyLayout(visible, showStatusAboveTabs);
   const currentTab = currentManageTab(activeTab, body);
 
+  /* The host's style stays on the outermost element, which is what it sized and coloured before the
+     frame grew: the scroller inside it fills it. The view's name is on the scroller and the plan
+     change's step beneath it, so the two strings the web keeps in `data-ww-view` and `data-ww-step`
+     are both on screen at once rather than taking turns, nested the same way round as the web's:
+     `within(getByTestId('manage'))` scopes a step read, which bare ids like `failed` need on a
+     screen holding more than one Wildwood surface. */
   return (
-    <ScrollView
-      style={[styles.scroll, style]}
-      contentContainerStyle={styles.scrollContent}
-      // The view's own name at rest, the plan change's step while one is running - the same strings
-      // the web puts in `data-ww-view` and `data-ww-step`.
-      testID={testID ?? wwTestId('manage', flow.step === 'idle' ? '' : flow.step)}
-    >
-      {/* The flow's own notice carries a failed change's message, so the data layer's copy of it is
-          not shown a second time. */}
-      {admin.error && flow.step !== 'failed' ? (
-        <View style={styles.alertDanger}>
-          <Text style={styles.alertDangerText}>{admin.error}</Text>
-          <Pressable onPress={() => admin.clearError()} accessibilityRole="button" accessibilityLabel={labels.cancel}>
-            <Text style={styles.alertDismiss}>{'✕'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <PlanChangeNotice flow={flow} labels={labels} collectsPaymentInApp />
-      <CancelResultNotice result={lastCancelResult} onDismiss={() => setLastCancelResult(null)} />
-
-      {statusAbove ? <View style={styles.statusAbove}>{panels.subscription}</View> : null}
-
-      {isTabbedLayout(layout) ? (
-        <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
-            {body.map((section) => (
+    <View style={[styles.scroll, style]} testID={ids.host}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} testID={ids.view}>
+        <View testID={ids.step}>
+          {/* The flow's own notice carries a failed change's message, so the data layer's copy of it
+              is not shown a second time. */}
+          {admin.error && flow.step !== 'failed' ? (
+            <View style={styles.alertDanger}>
+              <Text style={styles.alertDangerText}>{admin.error}</Text>
               <Pressable
-                key={section}
-                style={[styles.tab, currentTab === section && styles.tabActive]}
-                onPress={() => setActiveTab(section)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: currentTab === section }}
-                testID={`section:${section}`}
+                onPress={() => admin.clearError()}
+                accessibilityRole="button"
+                accessibilityLabel={labels.cancel}
               >
-                <Text style={[styles.tabText, currentTab === section && styles.tabTextActive]}>
-                  {manageSectionTitle(section, labels)}
-                </Text>
+                <Text style={styles.alertDismiss}>{'✕'}</Text>
               </Pressable>
-            ))}
-          </ScrollView>
-          <View style={styles.tabContent}>{currentTab ? panels[currentTab] : null}</View>
-        </>
-      ) : (
-        <View style={styles.sections}>
-          {body.map((section) => (
-            <View key={section} style={styles.section} testID={`section:${section}`}>
-              <Text style={styles.sectionTitle}>{manageSectionTitle(section, labels)}</Text>
-              {panels[section]}
             </View>
-          ))}
+          ) : null}
+
+          <PlanChangeNotice flow={flow} labels={labels} collectsPaymentInApp />
+          <CancelResultNotice result={lastCancelResult} onDismiss={() => setLastCancelResult(null)} />
+
+          {statusAbove ? <View style={styles.statusAbove}>{panels.subscription}</View> : null}
+
+          {isTabbedLayout(layout) ? (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
+                {body.map((section) => (
+                  <Pressable
+                    key={section}
+                    style={[styles.tab, currentTab === section && styles.tabActive]}
+                    onPress={() => setActiveTab(section)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: currentTab === section }}
+                    testID={`section:${section}`}
+                  >
+                    <Text style={[styles.tabText, currentTab === section && styles.tabTextActive]}>
+                      {manageSectionTitle(section, labels)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <View style={styles.tabContent}>{currentTab ? panels[currentTab] : null}</View>
+            </>
+          ) : (
+            <View style={styles.sections}>
+              {body.map((section) => (
+                <View key={section} style={styles.section} testID={`section:${section}`}>
+                  <Text style={styles.sectionTitle}>{manageSectionTitle(section, labels)}</Text>
+                  {panels[section]}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Every layout confirms: a plan picked in a stacked layout previewed and then showed
+              nothing when only the tabbed return carried the modal. */}
+          {flow.preview ? (
+            <TierChangeConfirmationModal
+              preview={flow.preview}
+              onConfirm={flow.confirm}
+              onCancel={flow.cancel}
+              loading={flow.busy}
+              storeBilled={!showsProration(storeOnly)}
+              storeNotice={labels.storeManagesBilling}
+            />
+          ) : null}
+
+          {cardSource === 'builtIn' && flow.paymentRequest ? (
+            <PaymentModal
+              visible
+              appId={resolvedAppId}
+              request={flow.paymentRequest}
+              currency={resolvedCurrency}
+              labels={labels}
+              paymentActionHandler={paymentActionHandler}
+              onSettled={flow.providePayment}
+              onError={onError}
+            />
+          ) : null}
+
+          {pickingPacks ? (
+            <PackPicker
+              visible
+              appId={resolvedAppId}
+              addOns={availablePacks(admin.addOns, admin.addOnSubscriptions)}
+              catalog={catalog}
+              currency={resolvedCurrency}
+              labels={labels}
+              paymentActionHandler={paymentActionHandler}
+              onBought={handlePacksBought}
+              onError={onError}
+              onClose={() => setPickingPacks(false)}
+            />
+          ) : null}
         </View>
-      )}
-
-      {/* Every layout confirms: a plan picked in a stacked layout previewed and then showed nothing
-          when only the tabbed return carried the modal. */}
-      {flow.preview ? (
-        <TierChangeConfirmationModal
-          preview={flow.preview}
-          onConfirm={flow.confirm}
-          onCancel={flow.cancel}
-          loading={flow.busy}
-          storeBilled={!showsProration(storeOnly)}
-          storeNotice={labels.storeManagesBilling}
-        />
-      ) : null}
-
-      {cardSource === 'builtIn' && flow.paymentRequest ? (
-        <PaymentModal
-          visible
-          appId={resolvedAppId}
-          request={flow.paymentRequest}
-          currency={resolvedCurrency}
-          labels={labels}
-          paymentActionHandler={paymentActionHandler}
-          onSettled={flow.providePayment}
-          onError={onError}
-        />
-      ) : null}
-
-      {pickingPacks ? (
-        <PackPicker
-          visible
-          appId={resolvedAppId}
-          addOns={availablePacks(admin.addOns, admin.addOnSubscriptions)}
-          catalog={catalog}
-          currency={resolvedCurrency}
-          labels={labels}
-          paymentActionHandler={paymentActionHandler}
-          onBought={handlePacksBought}
-          onError={onError}
-          onClose={() => setPickingPacks(false)}
-        />
-      ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
