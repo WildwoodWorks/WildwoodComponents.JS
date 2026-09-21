@@ -15,7 +15,7 @@
 
 import { WW_SIGNUP_STEPS, type WwSignupStep } from './ids';
 import type { WwStepReader, WwWaitOptions } from './driver';
-import { pollUntil } from './poll';
+import { pollUntil, sleep } from './poll';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_INTERVAL_MS = 100;
@@ -102,4 +102,96 @@ export async function waitForSignupStepToLeave(
     intervalMs,
     () => `the signup stayed on the "${step}" step`,
   );
+}
+
+/**
+ * How often {@link observeSignupSteps} looks, when the caller does not say.
+ *
+ * Deliberately slacker than the waiters' 100ms. A waiter asks about ONE id per poll; the observer
+ * runs the whole probe, which is up to twelve round trips, and it runs for the length of the test
+ * rather than for the length of one wait. 250ms keeps that off the bridge without widening the gap
+ * a step can slip through by much.
+ */
+const DEFAULT_OBSERVE_INTERVAL_MS = 250;
+
+/** What {@link observeSignupSteps} saw. */
+export interface WwSignupStepObserver {
+  /**
+   * The steps seen so far, in the order they were seen, repeats collapsed.
+   *
+   * Synchronous, unlike the web recorder's: that one asks the PAGE for its record, while this one is
+   * kept here. A copy, so a caller cannot edit the record it is reading.
+   */
+  steps(): WwSignupStep[];
+  /**
+   * Stop polling. Resolves once the loop has really exited, so a test can await it and leave no
+   * probe running into the next one.
+   */
+  stop(): Promise<void>;
+  /**
+   * Throw if `step` was SEEN. Read the limitation in {@link observeSignupSteps} before relying on
+   * this: it is evidence, not proof.
+   */
+  expectNeverEntered(step: WwSignupStep): void;
+}
+
+/** How often {@link observeSignupSteps} looks. */
+export interface WwObserveOptions {
+  /** Default 250. Tighter misses less and costs more bridge traffic; see the note above. */
+  intervalMs?: number;
+}
+
+/**
+ * Watch the signup's step and keep a list of the ones seen, in order.
+ *
+ * **Best-effort, and the name says so.** The web's `recordSignupSteps` installs a MutationObserver
+ * inside the page, so it sees every transition the DOM makes and its record is complete. There is no
+ * counterpart here: a native driver can only be ASKED, so this polls, and a step that arrives and
+ * leaves between two polls is never seen. A smaller interval narrows that window and never closes
+ * it - whatever the interval, a step that resolves faster than it is invisible, which is what a poll
+ * is rather than a setting to get right.
+ *
+ * So read the record for what it is: everything in it really happened, in that order. What is NOT in
+ * it may still have happened. {@link WwSignupStepObserver.expectNeverEntered} is the one assertion
+ * this cuts against - a step it clears may simply have been missed - so use it for a step the flow
+ * would REST on if it entered at all (`plan` and `payment` on a token grant, which wait for a tap),
+ * and not for one the flow passes straight through.
+ *
+ * It starts polling immediately, so call it before the action whose steps you want, and
+ * {@link WwSignupStepObserver.stop} it when you are done. It drives the same driver the rest of the
+ * test drives; an adapter that cannot take a second call while one is in flight needs one of its own
+ * here.
+ */
+export function observeSignupSteps(driver: WwStepReader, options: WwObserveOptions = {}): WwSignupStepObserver {
+  const { intervalMs = DEFAULT_OBSERVE_INTERVAL_MS } = options;
+  const seen: WwSignupStep[] = [];
+  let stopped = false;
+
+  // Never rejects: the probe's failures are swallowed below and `sleep` has nothing to fail at. An
+  // observer that could reject would do it with nobody awaiting it, which in Node is a crashed test
+  // run attributed to whatever happened to be executing.
+  const finished = (async () => {
+    while (!stopped) {
+      // A driver that throws mid-run - a screen torn down, a bridge that dropped - is not worth
+      // ending the recording over: the next poll usually answers. `null` is a reading like any
+      // other, and an unreadable screen records nothing rather than a gap marker.
+      const step = await currentSignupStep(driver).catch(() => null);
+      if (step !== null && seen[seen.length - 1] !== step) seen.push(step);
+      // Checked again after the probe, so `stop()` does not have to outwait one more interval.
+      if (stopped) return;
+      await sleep(intervalMs);
+    }
+  })();
+
+  return {
+    steps: () => [...seen],
+    stop: () => {
+      stopped = true;
+      return finished;
+    },
+    expectNeverEntered: (step: WwSignupStep) => {
+      if (!seen.includes(step)) return;
+      throw new Error(`the signup entered the "${step}" step but should not have - steps seen: ${seen.join(' → ')}`);
+    },
+  };
 }

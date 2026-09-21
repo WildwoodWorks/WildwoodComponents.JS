@@ -21,9 +21,14 @@ import {
   WW_REGISTRATION_FIELDS,
   WW_SIGNUP_STEPS,
   WW_VIEWS,
+  acceptDisclaimers,
   currentSignupStep,
+  finishSignup,
+  observeSignupSteps,
   waitForSignupStep,
   waitForSignupStepToLeave,
+  type WwDriver,
+  type WwSignupStep,
   type WwStepReader,
 } from '../testing';
 import {
@@ -199,6 +204,425 @@ describe('waitForSignupStepToLeave', () => {
     const driver = fakeDriver(() => []);
     await waitForSignupStepToLeave(driver, 'failed', FAST);
     expect(driver.probes).toEqual(['failed']);
+  });
+});
+
+// ── observeSignupSteps ─────────────────────────────────────────────────────────
+
+/**
+ * A screen the test moves BETWEEN polls, plus a clock that counts them.
+ *
+ * `currentSignupStep` probes `loading` first and exactly once per pass, so that probe is the poll's
+ * own clock: `afterPolls` waits on passes rather than on elapsed time, and these tests read the same
+ * on a fast machine and a loaded one. Each pass answers from a snapshot taken when it started, so a
+ * screen changed while a pass is running does not change that pass's answer - which is what lets a
+ * test stage "the step came and went between two polls" exactly rather than hoping for it.
+ */
+function observedScreen(initial: WwSignupStep | null) {
+  let live: WwSignupStep | null = initial;
+  let frame: WwSignupStep | null = initial;
+  let polls = 0;
+  const waiting: { at: number; resolve: () => void }[] = [];
+
+  const driver: WwStepReader = {
+    exists: async (testID: string) => {
+      if (testID === WW_SIGNUP_STEPS[0]) {
+        frame = live;
+        polls += 1;
+        for (let i = waiting.length - 1; i >= 0; i--) {
+          if (waiting[i].at <= polls) waiting.splice(i, 1)[0].resolve();
+        }
+      }
+      return frame === testID;
+    },
+  };
+
+  return {
+    driver,
+    polls: () => polls,
+    show: (step: WwSignupStep | null) => {
+      live = step;
+    },
+    /** Resolves once `n` more passes have STARTED, so the pass before the last one has recorded. */
+    afterPolls: (n: number) => new Promise<void>((resolve) => waiting.push({ at: polls + n, resolve })),
+  };
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+describe('observeSignupSteps', () => {
+  it('records the steps it saw, in order, with repeats collapsed', async () => {
+    const screen = observedScreen('register');
+    const observer = observeSignupSteps(screen.driver, { intervalMs: 1 });
+
+    await screen.afterPolls(2);
+    screen.show('creating');
+    await screen.afterPolls(2);
+    screen.show('success');
+    await screen.afterPolls(2);
+    await observer.stop();
+
+    // `register` was on screen for more than one pass and appears once: the interesting question is
+    // which steps were entered and in what order, not how many times React re-rendered them.
+    expect(observer.steps()).toEqual(['register', 'creating', 'success']);
+  });
+
+  it('MISSES a step that came and went between two polls, and so cannot prove a negative', async () => {
+    // The limitation, pinned rather than papered over. The web's recorder installs a MutationObserver
+    // inside the page and sees every transition; this one asks, so a step that is over before the
+    // next ask is never seen. Staged exactly rather than raced for: both changes happen in one
+    // synchronous block and the observer cannot run between two statements, so the step is provably
+    // never on screen at the instant of a poll - which is the shape of the real thing, whatever the
+    // interval and however fast the step.
+    const screen = observedScreen('creating');
+    const observer = observeSignupSteps(screen.driver, { intervalMs: 1 });
+
+    await screen.afterPolls(2);
+    screen.show('disclaimers');
+    screen.show('success');
+    await screen.afterPolls(2);
+    await observer.stop();
+
+    expect(observer.steps()).toEqual(['creating', 'success']);
+    // And so `expectNeverEntered` clears a step that WAS entered. It is evidence, not proof, and the
+    // doc comment says to use it only for a step the flow would rest on if it entered at all.
+    expect(() => observer.expectNeverEntered('disclaimers')).not.toThrow();
+  });
+
+  it('names what it did see when a step it was told to rule out turns up', async () => {
+    const screen = observedScreen('plan');
+    const observer = observeSignupSteps(screen.driver, { intervalMs: 1 });
+
+    await screen.afterPolls(2);
+    await observer.stop();
+
+    expect(() => observer.expectNeverEntered('plan')).toThrow(
+      'the signup entered the "plan" step but should not have - steps seen: plan',
+    );
+  });
+
+  it('really stops, and says so only once it has', async () => {
+    // `stop()` resolving before the loop had exited would leave a probe running into the next test,
+    // where it shows up as an unexplained call on somebody else's driver.
+    const screen = observedScreen('register');
+    const observer = observeSignupSteps(screen.driver, { intervalMs: 1 });
+
+    await screen.afterPolls(2);
+    await observer.stop();
+    const pollsAtStop = screen.polls();
+
+    screen.show('success');
+    await wait(25);
+
+    expect(screen.polls()).toBe(pollsAtStop);
+    expect(observer.steps()).toEqual(['register']);
+  });
+
+  it('keeps going when the driver throws mid-run', async () => {
+    // A screen torn down, a bridge that dropped: the next poll usually answers, and ending the
+    // recording over one bad read would lose everything after it.
+    let live: WwSignupStep = 'creating';
+    let reads = 0;
+    const driver: WwStepReader = {
+      exists: async (testID: string) => {
+        if (testID === WW_SIGNUP_STEPS[0] && ++reads === 2) throw new Error('the bridge dropped');
+        return testID === live;
+      },
+    };
+    const observer = observeSignupSteps(driver, { intervalMs: 1 });
+
+    await wait(25);
+    live = 'success';
+    await wait(25);
+    await observer.stop();
+
+    expect(reads).toBeGreaterThan(2);
+    expect(observer.steps()).toEqual(['creating', 'success']);
+  });
+
+  it('hands out a copy, so a caller cannot edit the record it is reading', async () => {
+    const screen = observedScreen('register');
+    const observer = observeSignupSteps(screen.driver, { intervalMs: 1 });
+    await screen.afterPolls(2);
+    await observer.stop();
+
+    observer.steps().push('success');
+    expect(observer.steps()).toEqual(['register']);
+  });
+});
+
+// ── acceptDisclaimers ──────────────────────────────────────────────────────────
+
+interface DisclaimerScreenOptions {
+  /** How many disclaimers the app has pending. */
+  pending?: number;
+  /** The pending list failed to load, so the component renders its retry and nothing else. */
+  failedToLoad?: boolean;
+  /** The list never loads: the retry comes straight back. */
+  retryNeverHelps?: boolean;
+  /** Every acceptance is refused - a 429, which the driver has no way to see. */
+  refuseAccept?: boolean;
+  /** Suppress Accept All even with several pending, to exercise the one-at-a-time drain. */
+  offerAcceptAll?: boolean;
+}
+
+/**
+ * A screen modelling `DisclaimerComponent`'s three shapes from one number.
+ *
+ * Read off the component rather than written by hand, because the shapes are the trap: it renders
+ * `disclaimer-accept` once per pending disclaimer, `disclaimer-accept-all` ONLY when more than one is
+ * pending, and `disclaimer-retry` only when the fetch failed and nothing is pending. A tap on
+ * `disclaimer-accept` clears ONE card, because the driver contract says an adapter acts on the first
+ * element carrying a repeated id.
+ */
+function disclaimerScreen(options: DisclaimerScreenOptions = {}) {
+  const { retryNeverHelps = false, refuseAccept = false, offerAcceptAll = true } = options;
+  let pending = options.pending ?? 0;
+  let failed = options.failedToLoad ?? false;
+  const taps: string[] = [];
+
+  const driver: WwDriver = {
+    exists: async (testID: string) => {
+      if (failed) return testID === WW_IDS.disclaimerRetry;
+      if (testID === WW_IDS.disclaimerAccept) return pending > 0;
+      if (testID === WW_IDS.disclaimerAcceptAll) return offerAcceptAll && pending > 1;
+      return false;
+    },
+    text: async () => null,
+    tap: async (testID: string) => {
+      taps.push(testID);
+      if (testID === WW_IDS.disclaimerRetry) {
+        if (!retryNeverHelps) failed = false;
+        return;
+      }
+      if (refuseAccept) return;
+      if (testID === WW_IDS.disclaimerAccept) pending = Math.max(0, pending - 1);
+      if (testID === WW_IDS.disclaimerAcceptAll) pending = 0;
+    },
+    type: async () => undefined,
+  };
+
+  return { driver, taps, pendingLeft: () => pending };
+}
+
+/** Short enough that a test which waits a bound out costs milliseconds. */
+const FAST_ACCEPT = { settleMs: 60, intervalMs: 5, tapSettleMs: 0, maxTaps: 3 };
+
+describe('acceptDisclaimers', () => {
+  it('accepts a SINGLE pending disclaimer, which renders no Accept All', async () => {
+    // The trap this helper exists for. With exactly one pending the component renders `accept` and
+    // no `accept-all`, so a loop written for Accept All alone returns having tapped nothing - and the
+    // caller's next wait then times out on a flow nobody advanced, which reads as the product
+    // hanging rather than as the helper missing.
+    const screen = disclaimerScreen({ pending: 1 });
+    await acceptDisclaimers(screen.driver, FAST_ACCEPT);
+
+    expect(screen.taps).toEqual([WW_IDS.disclaimerAccept]);
+    expect(screen.pendingLeft()).toBe(0);
+  });
+
+  it('takes Accept All when several are pending, rather than tapping each', async () => {
+    const screen = disclaimerScreen({ pending: 3 });
+    await acceptDisclaimers(screen.driver, FAST_ACCEPT);
+
+    expect(screen.taps).toEqual([WW_IDS.disclaimerAcceptAll]);
+    expect(screen.pendingLeft()).toBe(0);
+  });
+
+  it('drains a repeated `disclaimer-accept` rather than tapping it once', async () => {
+    // The id is on a control rendered once per pending card and an adapter acts on the first, so one
+    // tap clears one card. This package always offers Accept All when more than one is pending, so
+    // the drain is not the path taken against it today; it is what keeps the loop from accepting one
+    // disclaimer of several and returning as if it were done, and it is what shows the loop
+    // terminates on its own rather than on a bound.
+    const screen = disclaimerScreen({ pending: 3, offerAcceptAll: false });
+    await acceptDisclaimers(screen.driver, { ...FAST_ACCEPT, maxTaps: 5 });
+
+    expect(screen.taps).toEqual([WW_IDS.disclaimerAccept, WW_IDS.disclaimerAccept, WW_IDS.disclaimerAccept]);
+    expect(screen.pendingLeft()).toBe(0);
+  });
+
+  it('answers the load-failure retry first, then accepts what it brings back', async () => {
+    // A retry on screen means there is nothing to accept YET. Reading that as "nothing to accept"
+    // would return successfully from a screen that is showing an error.
+    const screen = disclaimerScreen({ pending: 1, failedToLoad: true });
+    await acceptDisclaimers(screen.driver, FAST_ACCEPT);
+
+    expect(screen.taps).toEqual([WW_IDS.disclaimerRetry, WW_IDS.disclaimerAccept]);
+    expect(screen.pendingLeft()).toBe(0);
+  });
+
+  it('gives up on a retry that never brings the list back, and says that is what happened', async () => {
+    const screen = disclaimerScreen({ pending: 1, failedToLoad: true, retryNeverHelps: true });
+
+    await expect(acceptDisclaimers(screen.driver, FAST_ACCEPT)).rejects.toThrow(
+      'the disclaimers never loaded - the component\'s own "disclaimer-retry" was still on screen after 3 taps',
+    );
+    expect(screen.taps).toHaveLength(3);
+  });
+
+  it('gives up on an acceptance that is refused, and names the rate limit it cannot see', async () => {
+    // The native difference, stated where somebody will read it. The web helper watches the response
+    // and reports "HTTP 429"; a `WwDriver` watches nothing, and the component reports the refusal
+    // through a native `Alert` a testID-addressed driver cannot read either. So the bound is the
+    // same and the message names the usual cause instead of detecting it - which is what a suite
+    // enrolling users in a loop needs to hear, and is still far better than a bare timeout.
+    const screen = disclaimerScreen({ pending: 1, refuseAccept: true });
+
+    const failure = acceptDisclaimers(screen.driver, FAST_ACCEPT);
+    await expect(failure).rejects.toThrow(
+      'the disclaimers would not accept - "disclaimer-accept" was still on screen after 3 taps',
+    );
+    await expect(failure).rejects.toThrow(/rate limit is the usual cause/);
+    expect(screen.taps).toHaveLength(3);
+  });
+
+  it('returns without tapping when the panel has nothing to accept', async () => {
+    // An app with no terms configured. The component's "all accepted" panel carries no identifier, so
+    // this is indistinguishable from a list that never arrived - which is exactly why the settle
+    // expiring is an answer here rather than a failure.
+    const screen = disclaimerScreen({ pending: 0 });
+    await acceptDisclaimers(screen.driver, FAST_ACCEPT);
+
+    expect(screen.taps).toEqual([]);
+  });
+
+  it('stops as soon as the caller says the flow has moved on', async () => {
+    // The flow leaves the disclaimers step the moment the last acceptance lands, so the panel can go
+    // away under the loop. `isDone` is checked before the settle wait too, so a caller who was
+    // already finished pays nothing.
+    const screen = disclaimerScreen({ pending: 3 });
+    await acceptDisclaimers(screen.driver, { ...FAST_ACCEPT, isDone: async () => true });
+
+    expect(screen.taps).toEqual([]);
+  });
+});
+
+// ── finishSignup ───────────────────────────────────────────────────────────────
+
+/**
+ * A signup screen as a set of ids, with a tap handler the test scripts.
+ *
+ * A set rather than one step, because the steps the flow rests on have controls inside them:
+ * `disclaimers` is on screen at the same time as `disclaimer-accept`, and `failed` at the same time
+ * as `signup-retry` and `signup-error-message`.
+ */
+function signupScreen(initial: readonly string[], onTap?: (testID: string, screen: Set<string>) => void) {
+  const screen = new Set<string>(initial);
+  const texts = new Map<string, string>();
+  const taps: string[] = [];
+  let afterNextRead: (() => void) | null = null;
+
+  const driver: WwDriver = {
+    exists: async (testID: string) => {
+      const answer = screen.has(testID);
+      const pending = afterNextRead;
+      afterNextRead = null;
+      pending?.();
+      return answer;
+    },
+    text: async (testID: string) => texts.get(testID) ?? null,
+    tap: async (testID: string) => {
+      taps.push(testID);
+      onTap?.(testID, screen);
+    },
+    type: async () => undefined,
+  };
+
+  return {
+    driver,
+    screen,
+    texts,
+    taps,
+    /** Change the screen once the next read has been answered - a transition with no timer in it. */
+    onNextRead: (change: () => void) => {
+      afterNextRead = change;
+    },
+  };
+}
+
+const FAST_FINISH = { processingTimeoutMs: 200, successTimeoutMs: 200, retryTimeoutMs: 200, intervalMs: 5 };
+
+describe('finishSignup', () => {
+  it('waits out processing and leaves the success panel', async () => {
+    const app = signupScreen(['creating']);
+    app.onNextRead(() => {
+      app.screen.delete('creating');
+      app.screen.add('success');
+    });
+
+    await finishSignup(app.driver, FAST_FINISH);
+
+    expect(app.taps).toEqual([WW_IDS.signupGetStarted]);
+  });
+
+  it('accepts the disclaimers the flow stops on, then leaves', async () => {
+    const app = signupScreen(['disclaimers', WW_IDS.disclaimerAccept], (testID, screen) => {
+      if (testID !== WW_IDS.disclaimerAccept) return;
+      screen.delete(WW_IDS.disclaimerAccept);
+      screen.delete('disclaimers');
+      screen.add('success');
+    });
+
+    await finishSignup(app.driver, { ...FAST_FINISH, disclaimers: { settleMs: 60, intervalMs: 5, tapSettleMs: 0 } });
+
+    expect(app.taps).toEqual([WW_IDS.disclaimerAccept, WW_IDS.signupGetStarted]);
+  });
+
+  it('retries a failure that then goes through', async () => {
+    const app = signupScreen(['failed', WW_IDS.signupRetry], (testID, screen) => {
+      if (testID !== WW_IDS.signupRetry) return;
+      screen.delete('failed');
+      screen.add('creating');
+      // The flow resumes where it stopped; this attempt gets there.
+      app.onNextRead(() => {
+        screen.delete('creating');
+        screen.add('success');
+      });
+    });
+    app.texts.set(WW_IDS.signupErrorMessage, 'The payment could not be confirmed');
+
+    await finishSignup(app.driver, FAST_FINISH);
+
+    expect(app.taps).toEqual([WW_IDS.signupRetry, WW_IDS.signupGetStarted]);
+  });
+
+  it('gives up after its bound, and says what the failure SAID', async () => {
+    // The bound is the point: a `failed` step that keeps coming back is a real defect and has to
+    // fail loudly rather than spin until the runner's own timeout reports a hang with no cause. And
+    // the message carries the text off the panel, which is what the new `signup-error-message` hook
+    // is for - "the signup failed" on its own sends somebody reading server logs for the reason that
+    // was on the screen all along.
+    const app = signupScreen(['failed', WW_IDS.signupRetry], (testID, screen) => {
+      if (testID !== WW_IDS.signupRetry) return;
+      screen.delete('failed');
+      // It resumes, and fails again on the very next read.
+      app.onNextRead(() => screen.add('failed'));
+    });
+    app.texts.set(WW_IDS.signupErrorMessage, 'Registration is not allowed for this app');
+
+    await expect(finishSignup(app.driver, { ...FAST_FINISH, retries: 1 })).rejects.toThrow(
+      'the signup failed on attempt 2 of 2: Registration is not allowed for this app',
+    );
+    // Retried exactly once, and never tapped Get Started on a signup that did not finish.
+    expect(app.taps).toEqual([WW_IDS.signupRetry]);
+  });
+
+  it('says the panel was silent rather than reporting an empty reason', async () => {
+    const app = signupScreen(['failed', WW_IDS.signupRetry]);
+
+    await expect(finishSignup(app.driver, { ...FAST_FINISH, retries: 0 })).rejects.toThrow(
+      'the signup failed on attempt 1 of 1: (the failed step said nothing)',
+    );
+    expect(app.taps).toEqual([]);
+  });
+
+  it('names the step the flow is stuck on when it never reaches a resting one', async () => {
+    const app = signupScreen(['creating']);
+
+    await expect(finishSignup(app.driver, FAST_FINISH)).rejects.toThrow(
+      'the signup never reached any of [success, disclaimers, failed] - it is on "creating" (waited 200ms)',
+    );
   });
 });
 

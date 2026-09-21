@@ -164,7 +164,10 @@ describe('@wildwood/react-native/testing', () => {
       'WW_REGISTRATION_FIELDS',
       'WW_SIGNUP_STEPS',
       'WW_VIEWS',
+      'acceptDisclaimers',
       'currentSignupStep',
+      'finishSignup',
+      'observeSignupSteps',
       'waitForSignupStep',
       'waitForSignupStepToLeave',
       'wwFieldTestId',
@@ -173,6 +176,18 @@ describe('@wildwood/react-native/testing', () => {
       'wwPackTestId',
       'wwTestId',
     ]);
+  });
+
+  it('does not ship the web helpers whose value is entirely Playwright', () => {
+    // `fillRegistrationForm`, `submitRegistrationForm` and `dismissConsentBanner` encode a selector
+    // list whose order matters, an actionability wait and a banner that eats the clicks aimed under
+    // it. None of the three has a native counterpart, and shipping a native namesake would promise
+    // one. Their absence is a decision, so it is pinned rather than left to be re-litigated.
+    for (const webOnly of ['fillRegistrationForm', 'submitRegistrationForm', 'dismissConsentBanner']) {
+      expect((testing as Record<string, unknown>)[webOnly]).toBeUndefined();
+    }
+    // And the recorder is renamed, because a poll cannot promise what a MutationObserver does.
+    expect((testing as Record<string, unknown>).recordSignupSteps).toBeUndefined();
   });
 
   it('hands out the same id builders the components call, rather than a second copy', () => {

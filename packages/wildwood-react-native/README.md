@@ -253,6 +253,138 @@ for the change instead, since a store prices its own subscriptions.
 `SignupWithSubscriptionComponent`, `AppTierComponent` and `PricingDisplayComponent` are deprecated in
 favour of these views. All three keep working exactly as documented; nothing has been removed.
 
+### Test helpers (`@wildwood/react-native/testing`)
+
+A subpath beside the package entry, so an app that never writes tests never loads it:
+
+```ts
+import { WW_IDS, waitForSignupStep, finishSignup } from '@wildwood/react-native/testing';
+```
+
+It ships **no dependency and no peer dependency**, and imports nothing from `react-native` — the
+built module runs in a plain Node script. Detox, React Native Testing Library and Maestro agree on
+nothing but `testID`, so the runner is injected rather than imported.
+
+**The identifier contract, as data.** `WW_SIGNUP_STEPS`, `WW_MANAGE_STEPS`, `WW_VIEWS`,
+`WW_REGISTRATION_FIELDS` and `WW_IDS` are the strings these components render — the same ones the web
+puts in `data-ww-*` and Swift in an `accessibilityIdentifier`, so one test plan reads every stack. A
+Maestro flow takes only these, since YAML cannot call a function. `wwTestId`, `wwPackTestId`,
+`wwGroupTestId`, `wwModalTestId` and `wwFieldTestId` are the same functions the components call, not a
+second copy.
+
+`WW_SIGNUP_STEPS` is the web's twelve `data-ww-step` values and deliberately **not** the signup
+machine's `SignupStep`: the machine's last step is `done` where every stack's identifier says
+`success`.
+
+#### The `WwDriver` contract
+
+Four methods, each addressed by `testID`, each async because an out-of-process runner's every answer
+is a round trip:
+
+| Method | Answers |
+|---|---|
+| `exists(testID)` | is an element carrying this id on screen? `false`, never a throw, when none is |
+| `text(testID)` | its rendered text, or `null` |
+| `tap(testID)` | press it |
+| `type(testID, value)` | **replace** the input's contents |
+
+Two rules the adapter owns rather than the helpers:
+
+- **Scope.** Step ids are bare (`payment`, `failed`), so nothing in the string says which Wildwood
+  surface it belongs to. A screen mounting two of them builds one driver per surface, matching within
+  the view element that encloses the step — `WW_VIEWS` holds the three names. One surface on screen
+  needs none of this.
+- **Repeats.** Where several elements carry one id, act on the first. `disclaimer-accept` is rendered
+  once per pending disclaimer, and the value-built ids name a row wherever it appears.
+
+A Detox adapter, in full:
+
+```ts
+import { by, element, expect as detoxExpect } from 'detox';
+import type { WwDriver } from '@wildwood/react-native/testing';
+
+export const detoxDriver: WwDriver = {
+  async exists(testID) {
+    try {
+      await detoxExpect(element(by.id(testID)).atIndex(0)).toExist();
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  // iOS only: Detox has no stock way to read an element's text on Android. Check its current docs
+  // before relying on this on both platforms.
+  async text(testID) {
+    const attributes = await element(by.id(testID)).atIndex(0).getAttributes();
+    return 'text' in attributes ? (attributes.text ?? null) : null;
+  },
+  tap: (testID) => element(by.id(testID)).atIndex(0).tap(),
+  // `replaceText`, NOT `typeText`: `typeText` appends, so a field refilled after a validation error
+  // would be sent the old value with the new one on the end of it.
+  type: (testID, value) => element(by.id(testID)).atIndex(0).replaceText(value),
+};
+```
+
+React Native Testing Library is the same shape over `queryAllByTestId(id).length > 0`,
+`fireEvent.press` and `fireEvent.changeText`.
+
+#### What the helpers do
+
+`currentSignupStep`, `waitForSignupStep` and `waitForSignupStepToLeave` read the flow's step. On the
+web that is one `getAttribute`, because the step is an attribute VALUE; a `testID` is a name and
+answers only "is an element called this on screen?", so the step has to be **probed** against the
+twelve contract ids in turn. A wait costs one read per poll and spends the probe only on the failure,
+where it names the step the flow is actually on instead of saying "timed out".
+
+`acceptDisclaimers` and `finishSignup` are the scaffolding every host writes once:
+
+```ts
+await waitForSignupStep(driver, 'register');
+await driver.type(wwFieldTestId('email'), user.email);
+await driver.type(wwFieldTestId('password'), user.password);
+// …and the rest. `WW_REGISTRATION_FIELDS` names all seven, the registration token included — which
+// is why filling the form is the host's loop and not ours: which of the seven are on screen depends
+// on the app's registration mode.
+await driver.tap(WW_IDS.submitRegister);
+
+// Waits out processing, retries a transient failure, accepts whatever disclaimers the app has
+// configured, then leaves the success panel.
+await finishSignup(driver);
+```
+
+Three things they encode that are easy to get wrong:
+
+- **Accept All is conditional.** `DisclaimerComponent` renders `disclaimer-accept-all` only when more
+  than one disclaimer is pending; with exactly one, `disclaimer-accept` is the only control. A loop
+  written for Accept All alone returns having tapped nothing, and the next wait then times out on a
+  flow nobody advanced — which reads as the product hanging.
+- **A refused acceptance looks like a dead button, and this cannot see the refusal.**
+  `disclaimeracceptance/accept` shares the API's per-IP auth rate limit with login and register, so a
+  suite enrolling several users a minute from one address gets 429s while the button just sits there.
+  The web helper watches the response and reports the status; a `WwDriver` watches nothing, and the
+  component reports the refusal through a native `Alert` that carries no `testID`. So the bound is
+  the same and the message **names** the rate limit as the usual cause rather than detecting it.
+  Tune `maxTaps` and `tapSettleMs` if the device is merely slow.
+- **Nothing is located by copy.** Every label these panels render comes from `labels.ts` and hosts
+  reword them freely, so a wait on a button's text reads a rewording as a hang.
+
+`observeSignupSteps` records the steps a run passed through, for asserting that one never happened
+(`plan` and `payment` on a token grant). **It is best-effort, and the name says so.** The web's
+`recordSignupSteps` installs a MutationObserver inside the page and sees every transition; a native
+driver can only be asked, so this polls and **can miss a step that came and went between two polls**.
+Everything in the record really happened, in that order; what is not in it may still have happened.
+Use `expectNeverEntered` for a step the flow would rest on if it entered at all, not for one it
+passes straight through.
+
+#### Deliberately not shipped
+
+| Web helper | Why there is no native one |
+|---|---|
+| `fillRegistrationForm` | Its value is entirely Playwright: a per-field selector list where `data-ww-field` is preferred over a React id, and `.first()` because a page may host two registration surfaces. Here it is one `driver.type(wwFieldTestId(field), value)` per field, over `WW_REGISTRATION_FIELDS` — a line a host writes better than we can guess at. |
+| `submitRegistrationForm` | One `driver.tap(WW_IDS.submitRegister)`. The web version exists to prefer `data-ww-action="submit-register"` over `button[type="submit"]`, and there is no `<form>` here to fall back to. |
+| `dismissConsentBanner` | It encodes that a fixed banner takes the clicks aimed at the page underneath it, and waits for actionability. Neither applies: `ConsentComponent` sits in the host's layout flow with no absolute positioning, so it covers nothing. The banner still carries `WW_IDS.consentBanner` and `WW_IDS.consentAcceptAll` for a test that wants to answer it. |
+| `finishSignup`'s `expectSuccessText` | A `WwDriver` reads text by `testID` and the success message carries none; giving it one for this would coin a contract string no other stack has. Assert it with your runner's own text matcher after `finishSignup` returns. |
+
 ## Theme System
 
 `StyleSheet`-based instead of CSS, but the token names mirror the web package's `--ww-*` custom

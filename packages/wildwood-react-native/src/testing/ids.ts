@@ -109,6 +109,10 @@ export const WW_IDS = {
   planSummaryCard: 'plan-summary-card',
   planChange: 'plan-change',
   paymentLeave: 'payment-leave',
+  // What the failed step SAID. The web's hook is a pair - `data-ww-error-message` read under
+  // `[data-ww-step="failed"]` - and a flat `testID` cannot be a pair, so the step half is in the
+  // name, the way the two buttons on that same panel are already named.
+  signupErrorMessage: 'signup-error-message',
   signupRetry: 'signup-retry',
   signupStartOver: 'signup-start-over',
   signupGetStarted: 'signup-get-started',

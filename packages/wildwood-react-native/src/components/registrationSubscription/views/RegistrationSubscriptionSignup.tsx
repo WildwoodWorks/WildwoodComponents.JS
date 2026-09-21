@@ -427,7 +427,14 @@ export function RegistrationSubscriptionSignup(props: RegistrationSubscriptionSi
       <View style={styles.centered}>
         <Text style={styles.errorIcon}>{'✗'}</Text>
         <Text style={styles.heading}>{labels.signupFailed}</Text>
-        <Text style={styles.muted}>{state.error}</Text>
+        {/* What the failure SAID, not just that there was one. The web names this text with
+            `data-ww-error-message` and reads it as `[data-ww-step="failed"] [data-ww-error-message]`;
+            a `testID` is one string rather than a selector, so the step half of that pair travels in
+            the name - which is how `signup-retry` and `signup-start-over` beside it are already
+            spelled. Without it `finishSignup` can say a signup failed and nothing about why. */}
+        <Text style={styles.muted} testID="signup-error-message">
+          {state.error}
+        </Text>
         <View style={styles.processingActions}>
           <Pressable
             style={styles.primaryButton}
