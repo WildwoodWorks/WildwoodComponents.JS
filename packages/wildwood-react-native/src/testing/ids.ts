@@ -76,7 +76,9 @@ export const WW_VIEWS = ['pricing', 'signup', 'manage'] as const satisfies reado
  * The registration form's fields, in form order.
  *
  * The first six are the web's `data-ww-field` names, unchanged. The seventh is this contract's own -
- * the web's token input carries an id and no `data-ww-field`, so there was no string to match. Their
+ * REACT's token input carries an id and no `data-ww-field`, so there was no string to match. Razor
+ * is the exception: it names that input `token` and keys its own collected form values off that
+ * spelling, so a plan asks Razor for `token` and every other stack for `registrationToken`. Their
  * `testID`s are `wwFieldTestId(field)`, not the bare name; see that function for why the prefix.
  */
 export const WW_REGISTRATION_FIELDS = [

@@ -104,9 +104,14 @@ export function wwModalTestId(modal: 'packs' | 'payment'): string {
  * The registration form's fields, by the names the web puts in `data-ww-field`.
  *
  * The six the web names are the contract and are spelled exactly as it spells them. The seventh is
- * this contract's own: the web's registration-token input carries an `id` and no `data-ww-field`, so
+ * this contract's own: REACT's registration-token input carries an `id` and no `data-ww-field`, so
  * there was no string to match, and `registrationToken` is the name the wire format
  * (`RegistrationFormData.registrationToken`) already uses for it.
+ *
+ * Razor is the exception and the reason this says React rather than "the web": it does emit a
+ * `data-ww-field` on that input, spelled `token`, and its own client script keys the collected form
+ * values off that spelling — so it cannot simply be renamed here. A plan that wants the token field
+ * on Razor asks for `token`; everywhere else it is `field:registrationToken`.
  */
 export type RegistrationFieldName =
   | 'firstName'
