@@ -163,6 +163,57 @@ describe('SUBMIT_REGISTER_SELECTOR', () => {
   });
 });
 
+describe('the step-scoped selectors on a stack that mirrors the step onto its root', () => {
+  /**
+   * The server-rendered shape: every panel stays in the DOM, `hidden` picks the visible one, and the
+   * active step is mirrored onto the root so that one readable value exists. Razor renders exactly
+   * this.
+   */
+  const mirrored = (step: string): HTMLElement =>
+    dom(`
+      <div data-ww-view="signup" data-ww-step="${step}">
+        <div data-ww-step="register">
+          <button type="button" class="ww-btn ww-btn-primary" data-ww-action="submit-register">Continue</button>
+        </div>
+        <div data-ww-step="creating" class="ww-signup-processing" hidden>
+          <p class="ww-text-muted">Please wait while we set up your account.</p>
+        </div>
+        <div data-ww-step="failed" class="ww-signup-processing" hidden>
+          <p class="ww-text-muted" data-ww-error-message>The card was declined.</p>
+          <button type="button" class="ww-btn ww-btn-primary" data-ww-action="signup-retry">Try Again</button>
+        </div>
+      </div>
+    `);
+
+  it('takes the failed panel’s Try Again, not the first primary button on the page', () => {
+    // The trap this guards. Mirroring the step onto the root is right - it is how one readable value
+    // exists at all - but it also makes the root an ancestor matching `[data-ww-step="failed"]`, so a
+    // fallback written as `[data-ww-step="failed"] .ww-btn-primary` reaches EVERY primary button in
+    // the view. The register panel's submit precedes the real Try Again in document order and is
+    // hidden, so `.first()` picked it and `click()` waited on an element that can never be
+    // actionable: a hang, on the stack the mirroring was meant to fix.
+    const root = mirrored('failed');
+    const matches = root.querySelectorAll(SIGNUP_RETRY_SELECTOR);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].textContent).toBe('Try Again');
+  });
+
+  it('takes the register step’s own submit while the root says register', () => {
+    const root = mirrored('register');
+    const matches = root.querySelectorAll(SUBMIT_REGISTER_SELECTOR);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].textContent).toBe('Continue');
+  });
+
+  it('reads the failure text from the failed panel, not the processing step’s please-wait', () => {
+    const root = mirrored('failed');
+
+    expect(root.querySelector(SIGNUP_FAILURE_MESSAGE_SELECTORS[0])?.textContent).toBe('The card was declined.');
+  });
+});
+
 // ── Disclaimers ────────────────────────────────────────────────────────────────
 
 describe('RETRY_SELECTOR', () => {
@@ -294,8 +345,13 @@ describe('SIGNUP_FAILURE_MESSAGE_SELECTORS', () => {
       </div>
     `);
 
-  it('puts the error hook first', () => {
-    expect(SIGNUP_FAILURE_MESSAGE_SELECTORS[0]).toBe('[data-ww-step="failed"] [data-ww-error-message]');
+  it('puts the error hook first, scoped to the failed PANEL', () => {
+    // `:not([data-ww-view])` excludes the view root, which a server-rendered stack mirrors the active
+    // step onto. Without it the hook resolves against every `[data-ww-error-message]` in the view
+    // rather than the failed panel's own - see the mirrored-root group above.
+    expect(SIGNUP_FAILURE_MESSAGE_SELECTORS[0]).toBe(
+      '[data-ww-step="failed"]:not([data-ww-view]) [data-ww-error-message]',
+    );
   });
 
   it('reads the real error where every step panel is in the DOM at once', () => {

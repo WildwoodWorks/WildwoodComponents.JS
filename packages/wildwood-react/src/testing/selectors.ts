@@ -69,21 +69,42 @@ export function registrationFieldSelector(field: RegistrationFieldName): string 
 }
 
 /**
+ * One step's PANEL, never the view root, for scoping a control to the step that owns it.
+ *
+ * Reading the step and scoping to it are two different jobs, and the same attribute does both —
+ * which is the trap. `SIGNUP_STEP_SELECTOR` above deliberately accepts the step on the ROOT, because
+ * a server-rendered stack keeps every panel in the DOM and mirrors the active step there so that one
+ * readable value exists. But that same mirroring makes `[data-ww-step="failed"] .ww-btn-primary`
+ * match every primary button under the root the moment the flow is on `failed` — including the
+ * hidden register panel's submit, which precedes the real Try Again in document order. `.first()`
+ * then resolves to a hidden button and `click()` waits on actionability until it times out: a hang,
+ * on a stack the mirroring was supposed to fix.
+ *
+ * The root is always the element carrying `data-ww-view`, and a step panel never carries one, in
+ * every stack that renders this flow. So excluding it costs nothing and keeps the loose class
+ * fallbacks scoped to the panel they were written for.
+ */
+function stepPanel(step: string): string {
+  return `[data-ww-step="${step}"]:not([data-ww-view])`;
+}
+
+/**
  * Submits the registration form.
  *
  * `button[type="submit"]` alone is not enough: a stack whose flow takes the card BEFORE creating the
  * account has no `<form>` to submit, so its control is a `type="button"` carrying the action hook.
- * Both are scoped to the register step, so a comma-joined list cannot pick up a stray submit.
+ * Both are scoped to the register PANEL, which is what keeps the bare `button[type="submit"]` from
+ * picking up a submit belonging to some other step.
  */
 export const SUBMIT_REGISTER_SELECTOR = [
-  '[data-ww-step="register"] [data-ww-action="submit-register"]',
-  '[data-ww-step="register"] button[type="submit"]',
+  `${stepPanel('register')} [data-ww-action="submit-register"]`,
+  `${stepPanel('register')} button[type="submit"]`,
 ].join(', ');
 
 /** The failed step's Try Again. */
 export const SIGNUP_RETRY_SELECTOR = [
-  '[data-ww-step="failed"] [data-ww-action="signup-retry"]',
-  '[data-ww-step="failed"] .ww-btn-primary',
+  `${stepPanel('failed')} [data-ww-action="signup-retry"]`,
+  `${stepPanel('failed')} .ww-btn-primary`,
 ].join(', ');
 
 /** The success panel's final button. */
@@ -101,7 +122,7 @@ export const SIGNUP_GET_STARTED_SELECTOR = [
  * would therefore report boilerplate as the cause of a genuine failure.
  */
 export const SIGNUP_FAILURE_MESSAGE_SELECTORS: readonly string[] = [
-  '[data-ww-step="failed"] [data-ww-error-message]',
+  `${stepPanel('failed')} [data-ww-error-message]`,
   '.ww-signup-processing .ww-text-muted',
 ];
 
