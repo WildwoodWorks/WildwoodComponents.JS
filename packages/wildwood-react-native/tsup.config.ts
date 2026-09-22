@@ -1,7 +1,10 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // The ./testing subpath is built as its own entry so that importing it pulls in the identifier
+  // contract and the step readers alone - it brings no runner and no react-native import, which is
+  // what lets it be imported from a plain Node script.
+  entry: ['src/index.ts', 'src/testing/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,

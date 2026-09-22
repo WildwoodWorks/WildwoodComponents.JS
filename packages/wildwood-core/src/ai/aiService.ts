@@ -1,5 +1,6 @@
 // AI service - ported from WildwoodComponents.Blazor/Services/AIService.cs
 
+import { WildwoodError } from '../client/errors.js';
 import type { HttpClient } from '../client/httpClient.js';
 import type { RequestOptions } from '../client/types.js';
 import type { AIChatRequest, AIChatResponse, AIConfiguration, AISession, AISessionSummary } from './types.js';
@@ -8,6 +9,19 @@ export interface TTSVoice {
   id: string;
   name: string;
   previewUrl?: string;
+}
+
+/**
+ * Result of a server-side speech-to-text transcription (POST api/stt/transcribe).
+ * Mirrors .NET `SpeechTranscriptionResult` (WildwoodComponents.Shared/Models/AIChatModels.cs).
+ */
+export interface SpeechTranscriptionResult {
+  /** Whether the audio was transcribed. False on any server, provider, or network failure. */
+  success: boolean;
+  /** The transcribed text (empty when the clip contained no speech). */
+  text: string;
+  /** A user-presentable reason when `success` is false. */
+  errorMessage?: string;
 }
 
 export class AIService {
@@ -273,6 +287,96 @@ export class AIService {
       return null;
     }
   }
+
+  // Speech-to-text
+  /**
+   * Transcribe recorded audio to text via the server (POST api/stt/transcribe).
+   *
+   * Ported from Blazor's `AIService.TranscribeAudioAsync`: multipart upload with the file part
+   * named `file` and a `speech.<ext>` filename, `configurationId`/`language` omitted when empty.
+   * Never throws — every failure (no audio, non-2xx, network) comes back as a result whose
+   * `success` is false and whose `errorMessage` is presentable to the user.
+   *
+   * `contentType` defaults to the blob's own type, so a `MediaRecorder` chunk can be passed
+   * straight through. Codec parameters are stripped for the part's content type and the filename
+   * ("audio/webm;codecs=opus" -> "audio/webm" -> "speech.webm"); the server ignores them anyway.
+   */
+  async transcribeAudio(
+    audio: Blob,
+    contentType?: string,
+    configurationId?: string,
+    language?: string,
+  ): Promise<SpeechTranscriptionResult> {
+    if (!audio || audio.size === 0) {
+      return transcriptionFailure('No audio was recorded.');
+    }
+
+    try {
+      const mediaType = bareMediaType(contentType ?? audio.type);
+      // Re-wrapped only when the blob's own type still carries the codec parameters, so the
+      // multipart part's Content-Type is the bare media type the .NET client sends.
+      const filePart = mediaType && audio.type !== mediaType ? new Blob([audio], { type: mediaType }) : audio;
+
+      const form = new FormData();
+      // Upload extension per recorded format — the server's transcription provider infers the
+      // container from the file name. Mirrors WildwoodAPI's STTAudioFormats.
+      form.append('file', filePart, `speech${AUDIO_EXTENSION_BY_MEDIA_TYPE[mediaType] ?? ''}`);
+      if (configurationId) form.append('configurationId', configurationId);
+      if (language) form.append('language', language);
+
+      // No Content-Type header here: HttpClient leaves FormData bodies alone so the runtime sets
+      // multipart/form-data with the boundary itself.
+      const { data, status } = await this.http.post<SpeechTranscriptionResult>('api/stt/transcribe', form);
+      if (data?.success) {
+        return { success: true, text: data.text ?? '' };
+      }
+      return transcriptionFailure(data?.errorMessage || `Transcription failed (${status}).`);
+    } catch (err: unknown) {
+      return transcriptionFailure(transcriptionErrorMessage(err));
+    }
+  }
+}
+
+/** Upload extension per recorded format, keyed by BARE media type. Mirrors the Blazor map. */
+const AUDIO_EXTENSION_BY_MEDIA_TYPE: Record<string, string> = {
+  'audio/webm': '.webm',
+  'audio/ogg': '.ogg',
+  'audio/mp4': '.mp4',
+  'audio/x-m4a': '.m4a',
+  'audio/m4a': '.m4a',
+  'audio/mpeg': '.mp3',
+  'audio/mp3': '.mp3',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/wave': '.wav',
+};
+
+/** "audio/webm;codecs=opus" -> "audio/webm". Empty string for a blank input. */
+function bareMediaType(contentType: string | undefined): string {
+  if (!contentType || !contentType.trim()) return '';
+  const separator = contentType.indexOf(';');
+  return (separator >= 0 ? contentType.slice(0, separator) : contentType).trim().toLowerCase();
+}
+
+function transcriptionFailure(errorMessage: string): SpeechTranscriptionResult {
+  return { success: false, text: '', errorMessage };
+}
+
+/**
+ * The server answered, so prefer its own `errorMessage` and fall back to the status code —
+ * the two messages Blazor reports. Anything else (network, timeout, abort) carries no server
+ * message and gets the generic retry copy from Blazor's catch-all.
+ */
+function transcriptionErrorMessage(err: unknown): string {
+  if (err instanceof WildwoodError && err.status > 0) {
+    const body = err.details;
+    if (body && typeof body === 'object') {
+      const fromBody = (body as { errorMessage?: unknown }).errorMessage;
+      if (typeof fromBody === 'string' && fromBody) return fromBody;
+    }
+    return `Transcription failed (${err.status}).`;
+  }
+  return 'Transcription failed. Please try again.';
 }
 
 /** Infer MIME type from file extension when File.type is unavailable */

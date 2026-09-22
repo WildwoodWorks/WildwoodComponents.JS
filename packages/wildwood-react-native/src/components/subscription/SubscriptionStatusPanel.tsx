@@ -11,6 +11,24 @@ export interface SubscriptionStatusPanelProps {
   style?: ViewStyle;
 }
 
+/**
+ * Whether the "Trial Ends" field belongs on screen.
+ *
+ * The server keeps a past trial's end date on the subscription row (that is how it records that the
+ * account has had its trial), so the date alone is not a running trial: show it only while the trial
+ * really is running — never on a plan that is already being paid for, and never once the date has
+ * passed. Exported because this package has no React renderer, so the rule is tested as the function
+ * the panel calls.
+ */
+export function showsTrialEnd(
+  subscription: Pick<UserTierSubscriptionModel, 'status' | 'trialEndDate'>,
+  now: number = Date.now(),
+): boolean {
+  if (!subscription.trialEndDate) return false;
+  if (subscription.status === 'Active') return false;
+  return new Date(subscription.trialEndDate).getTime() > now;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   Active: '#22C55E',
   Trialing: '#3B82F6',
@@ -103,10 +121,10 @@ export function SubscriptionStatusPanel({
             <Text style={styles.dateValue}>{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</Text>
           </View>
         ) : null}
-        {subscription.trialEndDate ? (
+        {showsTrialEnd(subscription) ? (
           <View style={styles.dateCard}>
             <Text style={styles.dateLabel}>Trial Ends</Text>
-            <Text style={styles.dateValue}>{new Date(subscription.trialEndDate).toLocaleDateString()}</Text>
+            <Text style={styles.dateValue}>{new Date(subscription.trialEndDate!).toLocaleDateString()}</Text>
           </View>
         ) : null}
       </View>

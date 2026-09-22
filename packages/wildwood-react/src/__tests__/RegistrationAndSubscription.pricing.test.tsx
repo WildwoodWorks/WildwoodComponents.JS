@@ -204,13 +204,18 @@ describe('RegistrationSubscriptionPricing - when the catalog cannot be read', ()
     await screen.findByText('Pricing is unavailable right now');
     // No stale price, no invented one.
     expect(container.textContent ?? '').not.toContain(formatMoney(PRO_MONTHLY, 'USD'));
-    expect(onError).toHaveBeenCalledTimes(1);
+    // The report comes out of an effect, which runs AFTER the commit that painted the panel above.
+    // Asserting it the moment the text appears races that effect on a loaded machine, so it is
+    // waited for - "exactly once" is still the assertion, and it is still the whole point.
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
     expect(onError.mock.calls[0]?.[0]).toEqual({ code: 'catalog_unavailable', message: 'catalog exploded' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     await screen.findByText(formatMoney(PRO_MONTHLY, 'USD'));
     expect(stubs.tiers).toHaveBeenCalledTimes(2);
+    // A catalog that came back is not news: the failure was reported once and stays reported once.
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 
   it('uses the host errorFallback when one is given', async () => {

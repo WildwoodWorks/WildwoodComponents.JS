@@ -15,7 +15,7 @@ describe('useAI', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('exposes all AI methods including TTS', () => {
+  it('exposes all AI methods including TTS and speech-to-text', () => {
     const { result } = renderHook(() => useAI(), { wrapper: createWrapper() });
     expect(typeof result.current.sendMessage).toBe('function');
     expect(typeof result.current.getSessions).toBe('function');
@@ -29,6 +29,21 @@ describe('useAI', () => {
     expect(typeof result.current.getTTSVoices).toBe('function');
     expect(typeof result.current.getTTSVoicesForConfiguration).toBe('function');
     expect(typeof result.current.synthesizeSpeech).toBe('function');
+    expect(typeof result.current.transcribeAudio).toBe('function');
+  });
+
+  it('transcribeAudio forwards every argument to the core AI service', async () => {
+    const client = createTestClient();
+    const spy = vi
+      .spyOn(client.ai, 'transcribeAudio')
+      .mockResolvedValue({ success: true, text: 'transcribed' } as never);
+    const { result } = renderHook(() => useAI(), { wrapper: createWrapper(client) });
+
+    const clip = new Blob(['RIFFfake'], { type: 'audio/webm;codecs=opus' });
+    const res = await result.current.transcribeAudio(clip, 'audio/webm;codecs=opus', 'cfg-1', 'en-US');
+
+    expect(spy).toHaveBeenCalledWith(clip, 'audio/webm;codecs=opus', 'cfg-1', 'en-US');
+    expect(res).toEqual({ success: true, text: 'transcribed' });
   });
 });
 

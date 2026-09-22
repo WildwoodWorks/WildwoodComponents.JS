@@ -16,7 +16,10 @@ export default defineConfig({
     url: 'https://localhost:5280',
     reuseExistingServer: true,
     ignoreHTTPSErrors: true,
-    timeout: 30000,
+    // Generous because a cold machine — a CI runner, or a fresh clone — builds Vite's dependency
+    // cache on the first request, which 30s was never sized for. A developer with a server already
+    // up is unaffected: `reuseExistingServer` means nothing is started and nothing is waited for.
+    timeout: 120000,
   },
   projects: [
     {

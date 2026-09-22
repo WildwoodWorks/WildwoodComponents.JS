@@ -9,7 +9,24 @@ export interface FeaturesPanelProps {
   isAdmin?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  /** Marks a feature an override grants outside the plan. Defaults to "Included". */
+  includedLabel?: string;
   onToggleFeature?: (featureCode: string, isEnabled: boolean, reason?: string, expiresAt?: string) => Promise<void>;
+}
+
+/**
+ * Whether a feature is badged as included with this account rather than with the plan.
+ *
+ * A feature an override GRANTS is not part of the plan, so "Enabled" alone reads as if the plan
+ * carried it. It is included in this account, and everyone - not just an admin - is told so.
+ * Exported because this package has no React renderer, so the rule is tested as the function the
+ * panel calls.
+ */
+export function showsIncludedBadge(
+  feature: Pick<AppFeatureDefinitionModel, 'featureCode' | 'isEnabled'>,
+  overrides: readonly Pick<AppFeatureOverrideModel, 'featureCode' | 'isEnabled'>[] = [],
+): boolean {
+  return !!feature.isEnabled && overrides.some((o) => o.featureCode === feature.featureCode && o.isEnabled);
 }
 
 const EXPIRATION_OPTIONS = [
@@ -33,6 +50,7 @@ export function FeaturesPanel({
   isAdmin = false,
   loading,
   style,
+  includedLabel = 'Included',
   onToggleFeature,
 }: FeaturesPanelProps) {
   const [confirmingFeature, setConfirmingFeature] = useState<string | null>(null);
@@ -129,6 +147,11 @@ export function FeaturesPanel({
                         <Text style={styles.featureName}>{f.displayName}</Text>
                         {isAdmin && hasOverride(f.featureCode) && (
                           <Text style={styles.overrideBadge}>{'\u{1F6E1}'}</Text>
+                        )}
+                        {showsIncludedBadge(f, featureOverrides) && (
+                          <View style={[styles.badge, styles.badgeInfo]}>
+                            <Text style={[styles.badgeText, styles.badgeInfoText]}>{includedLabel}</Text>
+                          </View>
                         )}
                       </View>
                       {f.description ? <Text style={styles.featureDesc}>{f.description}</Text> : null}
@@ -249,9 +272,11 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   badgeSuccess: { backgroundColor: '#DCFCE7' },
   badgeSecondary: { backgroundColor: '#F3F4F6' },
+  badgeInfo: { backgroundColor: '#DBEAFE' },
   badgeText: { fontSize: 11, fontWeight: '600' },
   badgeSuccessText: { color: '#166534' },
   badgeSecondaryText: { color: '#6B7280' },
+  badgeInfoText: { color: '#1D4ED8' },
   toggleBtn: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   toggleOn: { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' },
   toggleOff: { backgroundColor: '#F3F4F6', borderColor: '#D1D5DB' },

@@ -515,6 +515,7 @@ export function TokenRegistrationComponent({
                 <label htmlFor="ww-reg-first">First Name *</label>
                 <input
                   id="ww-reg-first"
+                  data-ww-field="firstName"
                   type="text"
                   className="ww-form-control"
                   value={firstName}
@@ -527,6 +528,7 @@ export function TokenRegistrationComponent({
                 <label htmlFor="ww-reg-last">Last Name *</label>
                 <input
                   id="ww-reg-last"
+                  data-ww-field="lastName"
                   type="text"
                   className="ww-form-control"
                   value={lastName}
@@ -541,6 +543,7 @@ export function TokenRegistrationComponent({
               <label htmlFor="ww-reg-username">Username *</label>
               <input
                 id="ww-reg-username"
+                data-ww-field="username"
                 type="text"
                 className="ww-form-control"
                 value={username}
@@ -555,6 +558,7 @@ export function TokenRegistrationComponent({
               <label htmlFor="ww-reg-email">Email Address *</label>
               <input
                 id="ww-reg-email"
+                data-ww-field="email"
                 type="email"
                 className="ww-form-control"
                 value={email}
@@ -570,6 +574,7 @@ export function TokenRegistrationComponent({
               <div className="ww-password-input-container">
                 <input
                   id="ww-reg-password"
+                  data-ww-field="password"
                   type={showPassword ? 'text' : 'password'}
                   className="ww-form-control"
                   value={password}
@@ -594,6 +599,7 @@ export function TokenRegistrationComponent({
               <label htmlFor="ww-reg-confirm">Confirm Password *</label>
               <input
                 id="ww-reg-confirm"
+                data-ww-field="confirmPassword"
                 type={showPassword ? 'text' : 'password'}
                 className="ww-form-control"
                 value={confirmPassword}
@@ -605,7 +611,12 @@ export function TokenRegistrationComponent({
             </div>
 
             <div className="ww-reg-actions">
-              <button type="submit" className="ww-btn ww-btn-primary ww-btn-block ww-btn-lg" disabled={isLoading}>
+              <button
+                type="submit"
+                className="ww-btn ww-btn-primary ww-btn-block ww-btn-lg"
+                data-ww-action="submit-register"
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
                     <span className="ww-spinner ww-spinner-sm" />

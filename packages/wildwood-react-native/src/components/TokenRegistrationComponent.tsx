@@ -16,6 +16,10 @@ import {
 import type { ViewStyle } from 'react-native';
 import type { AuthenticationResponse, AuthenticationConfiguration, RegistrationFormData } from '@wildwood/core';
 import { useWildwood } from '../hooks/useWildwood';
+// The form is driven by automated suites that run against every stack, so its inputs are located by
+// the web's `data-ww-field` names rather than by their placeholder copy - copy is translated, and a
+// locator keyed on it stops working the first time this form is localised.
+import { wwFieldTestId } from './registrationSubscription/testIds';
 
 export interface TokenRegistrationComponentProps {
   appId?: string;
@@ -454,7 +458,11 @@ export function TokenRegistrationComponent({
             <Text style={styles.label}>
               Registration Token <Text style={styles.required}>*</Text>
             </Text>
+            {/* The same field as the optional entry further down: one form field with two
+                placements, and the two steps they sit in are mutually exclusive, so only ever one
+                of them is mounted. */}
             <TextInput
+              testID={wwFieldTestId('registrationToken')}
               style={[styles.input, tokenError ? styles.inputError : undefined]}
               value={token}
               onChangeText={setToken}
@@ -506,6 +514,7 @@ export function TokenRegistrationComponent({
                 </Text>
                 <View style={styles.optionalTokenRow}>
                   <TextInput
+                    testID={wwFieldTestId('registrationToken')}
                     style={[
                       styles.input,
                       styles.optionalTokenInput,
@@ -566,6 +575,7 @@ export function TokenRegistrationComponent({
                   First Name <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
+                  testID={wwFieldTestId('firstName')}
                   style={styles.input}
                   value={firstName}
                   onChangeText={setFirstName}
@@ -583,6 +593,7 @@ export function TokenRegistrationComponent({
                   Last Name <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
+                  testID={wwFieldTestId('lastName')}
                   style={styles.input}
                   value={lastName}
                   onChangeText={setLastName}
@@ -600,6 +611,7 @@ export function TokenRegistrationComponent({
             {/* Username */}
             <Text style={styles.label}>Username</Text>
             <TextInput
+              testID={wwFieldTestId('username')}
               style={styles.input}
               value={username}
               onChangeText={setUsername}
@@ -618,6 +630,7 @@ export function TokenRegistrationComponent({
               Email Address <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
+              testID={wwFieldTestId('email')}
               style={styles.input}
               value={email}
               onChangeText={setEmail}
@@ -637,6 +650,7 @@ export function TokenRegistrationComponent({
             </Text>
             <View style={styles.passwordRow}>
               <TextInput
+                testID={wwFieldTestId('password')}
                 style={[styles.input, styles.passwordInput]}
                 value={password}
                 onChangeText={setPassword}
@@ -660,6 +674,7 @@ export function TokenRegistrationComponent({
             </Text>
             <View style={styles.passwordRow}>
               <TextInput
+                testID={wwFieldTestId('confirmPassword')}
                 style={[styles.input, styles.passwordInput]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -677,8 +692,11 @@ export function TokenRegistrationComponent({
               </Pressable>
             </View>
 
-            {/* Submit button */}
+            {/* Submit button. `submit-register` is the web's `data-ww-action` value carried over
+                unchanged - the copy on it is a host-configurable prop, so the copy cannot be the
+                hook. */}
             <Pressable
+              testID="submit-register"
               style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={isLoading}

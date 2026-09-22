@@ -79,7 +79,8 @@ function MyApp() {
   `RegistrationSubscriptionManage`, so a landing page can import the pricing view without dragging
   the admin surfaces along. See [Registration & Subscription](#registration--subscription).
 - `AuthenticationComponent` — Login/register with OAuth, passkeys, 2FA
-- `AIChatComponent` — Chat UI with sessions, messages, TTS
+- `AIChatComponent` — Chat UI with sessions, messages, TTS and voice input
+  ([details](#voice-input-in-aichatcomponent))
 - `AIProxyComponent` — Direct AI model interaction
 - `SecureMessagingComponent` — Threads, messages, reactions, typing
 - `PaymentComponent` — Payment method selection and processing
@@ -105,6 +106,35 @@ Deprecated, and kept working — nothing has been removed:
 `AppTierComponent` also has a known payment bug: its payment step passes no `pricingModelId` to
 `PaymentComponent`, so a paid plan is taken as a one-time charge instead of starting the plan's
 subscription and its trial. The manage view sends the pricing model, so use it for anything priced.
+
+### Voice input in `AIChatComponent`
+
+```tsx
+<AIChatComponent settings={{ enableSpeechToText: true }} />
+```
+
+A mic button appears beside Send and puts what you say into the chat input. The mechanism is
+detected on the client, once per mount:
+
+| Mode | When | What happens |
+|------|------|--------------|
+| `native` | the browser has the Web Speech API (Chrome, Edge, Safari with dictation on) | live recognition; interim words show while you speak and nothing leaves the machine |
+| `recorder` | only `getUserMedia` + `MediaRecorder` (Firefox, Brave/Opera/Vivaldi, WebView2) | a clip is recorded and transcribed server-side with the chat's active AI configuration |
+| `none` | neither is available | no mic button renders at all |
+
+A native session that fails with `network`, `service-not-allowed` or `language-not-supported` means
+the engine exposes recognition without a backend: the component switches to `recorder` for the rest
+of its life and carries on recording, so the tap is not wasted.
+
+Recorded clips are capped at **60 seconds** (the recorder stops itself and transcribes) and **25 MB**
+(refused with a message rather than uploaded). The container is the first of
+`audio/webm;codecs=opus`, `audio/ogg;codecs=opus`, `audio/mp4`, `audio/webm` the browser supports.
+Failures appear in the chat's non-blocking error banner, and the microphone is released on stop, on
+error and on unmount.
+
+Server transcription goes through `useAI().transcribeAudio(audio, contentType?, configurationId?,
+language?)`, which you can also call directly — it never rejects, and answers
+`{ success, text, errorMessage }`.
 
 ### Screenshots and Content-Security-Policy
 
@@ -221,7 +251,10 @@ The whole way in, in the order that keeps an account and its money consistent.
 - **Preselection** — `preSelectedTierId`, `preSelectedPricingId`, `preSelectedAddOnIds` (checked
   against the catalog and capped at 25), `registrationToken`, `prefillEmail`.
 - **Flow** — `planSelection` (`'choose'` | `'skip'`; `'skip'` takes the app's default plan and
-  leaves the plan step out), `packSelection` (`'multi'` | `'none'`, default `'none'`: `'none'` only
+  leaves the plan step out), `planDefault` (`'none'` | `'free'`, default `'none'`: `'free'` opens the
+  plan step with the app's free plan marked — a suggestion the visitor still confirms, ignored for an
+  invite and once a link or a grant has chosen; `preSelectedTierId` is how you choose *for* them,
+  because it skips the step), `packSelection` (`'multi'` | `'none'`, default `'none'`: `'none'` only
   removes the step where packs are picked — packs a link already chose are still bought),
   `tokenMode` (`'auto'` follows the app's settings, `'required'` is invite redemption),
   `requireBillingAddress`, `returnUrl` (carried, never navigated to), `initialCatalog`,
@@ -357,6 +390,33 @@ All Set!" panel with "Get Started".
 retry the component renders when the pending list fails to load — they share a container, and only a
 style class told them apart before.
 
+Two more vocabularies name the things a class selector used to stand in for. They are shared with the
+Blazor, Razor, React Native and SwiftUI ports of this component, so one spec reads every stack —
+which is why they are attributes rather than ids: a server-rendered stack suffixes its ids with a
+per-instance component id, so no constant id selector can exist there.
+
+`data-ww-action` on the controls:
+
+| Value | Control |
+|---|---|
+| `submit-register` | the registration form's submit (still a `button[type="submit"]` in React; a stack that takes the card before creating the account has no form to submit) |
+| `signup-retry` | the failed step's "Try Again" |
+| `signup-start-over` | the failed step's "Start Over" |
+| `signup-get-started` | the success panel's final button |
+
+`data-ww-field` on the six registration inputs — `firstName`, `lastName`, `username`, `email`,
+`password`, `confirmPassword` — **alongside** their existing `#ww-reg-first | -last | -username |
+-email | -password | -confirm` ids, which are unchanged and still work. And `data-ww-error-message`
+on the failed step's message, because `.ww-text-muted` is shared with the processing steps'
+"please wait".
+
+`fillRegistrationForm` searches the whole page and takes the first match of each field, because
+`TokenRegistrationComponent` is also driven standalone, outside any signup view. `AuthenticationComponent`'s
+register view carries the same `#ww-reg-*` ids, so on a page that mounts both at once — a header
+sign-in widget beside the signup flow — the helper can fill the wrong form, and adding `data-ww-field`
+to both would not break the tie. Drive one registration surface per page, or fill the fields yourself
+from a locator scoped to the one you mean.
+
 ### Playwright helpers (`@wildwood/react/testing`)
 
 Rather than every host rediscovering the same scaffolding, the helpers that drive this component ship
@@ -376,7 +436,19 @@ await finishSignup(page, { expectSuccessText: 'your 14-day free trial has starte
 
 Exports: `signupStep`, `waitForSignupStep`, `recordSignupSteps`, `manageStep`, `waitForManageStep`,
 `waitForAnyManageStep`, `fillRegistrationForm`, `submitRegistrationForm`, `acceptDisclaimers`,
-`dismissConsentBanner`, `finishSignup`.
+`dismissConsentBanner`, `finishSignup` — plus the selector constants themselves
+(`SIGNUP_STEP_SELECTOR`, `REGISTRATION_FIELD_IDS`, `registrationFieldSelector`,
+`SUBMIT_REGISTER_SELECTOR`, `SIGNUP_RETRY_SELECTOR`, `SIGNUP_GET_STARTED_SELECTOR`,
+`ACCEPT_SELECTOR`, `RETRY_SELECTOR`, `ACCEPT_RESPONSE_PATTERN`, …), so a spec of your own can key on
+the same strings rather than copy them and drift.
+
+Every helper prefers the `data-ww-*` hook above and falls back to the class or `type="submit"`
+selector it shipped with, so a suite pointed at a deployment built before this release still works.
+
+`acceptDisclaimers` and `finishSignup` take an optional `acceptResponsePattern`: which response URLs
+to read as the acceptance call, for the 429 back-off below. It defaults to
+`/(disclaimeracceptance|disclaimer-gate)\/accept/i`, covering both the direct API call and the
+proxied path a server-rendered host uses. Override it if your host proxies acceptance somewhere else.
 
 `@playwright/test` is an **optional peer dependency** — only this entry point needs it — and it is
 pinned to an **exact version**, not a range. That is deliberate, and it is the one thing to know
@@ -394,7 +466,7 @@ So: **use the same exact Playwright version this package pins.** A caret range w
 `^1.61.1` silently resolves to 1.63 and breaks the same way. If you cannot match the version, copy
 the helpers rather than importing them, and say in a comment that you did.
 
-Three things these encode that are easy to get wrong, and that only show up against a deployed
+Four things these encode that are easy to get wrong, and that only show up against a deployed
 environment rather than a local stack:
 
 - **The completion message is asserted inside `finishSignup`, not by the caller.** It renders only in
@@ -407,6 +479,14 @@ environment rather than a local stack:
   off on 429, and names the real cause instead of blaming a disabled button.
 - **Labels are host-configurable, so nothing here locates a button by its text.** The success CTA is
   `labels.getStarted`; the helpers use `data-ww-*` hooks, `type="submit"` and component class names.
+- **On a server-rendered host the response watcher is blind, so a 429 reads as a stuck button.**
+  Blazor Server posts the acceptance from the server, where the browser never sees the response, and
+  no `acceptResponsePattern` can help — there is no response in the page to match. The same run on
+  React names the rate limit; on Blazor Server it degrades to "Disclaimer accept did not converge
+  after 10 clicks — is an Accept button stuck disabled?" If you see that against a server-rendered
+  host, check the API's per-IP auth rate limit before you go looking at the button. (Where Accept is
+  gated on required checkboxes, as both .NET stacks gate it, `acceptDisclaimers` ticks them before
+  clicking — that much *is* handled.)
 
 ### SSR and prerendering
 

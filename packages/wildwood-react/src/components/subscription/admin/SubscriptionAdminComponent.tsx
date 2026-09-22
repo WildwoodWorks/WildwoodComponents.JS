@@ -14,6 +14,7 @@ import type {
   AppTierLimitStatusModel,
   UserTierSubscriptionModel,
 } from '@wildwood/core';
+import type { PaymentRequiredArgs } from '@wildwood/react-shared';
 import { useSubscriptionAdmin } from '../../../hooks/useSubscriptionAdmin.js';
 import { DEFAULT_LABELS } from '../../registrationSubscription/labels.js';
 import { PaymentModal } from '../../registrationSubscription/parts/PaymentModal.js';
@@ -30,21 +31,9 @@ import { TierChangeConfirmationModal } from '../TierChangeConfirmationModal.js';
 
 export type SubscriptionAdminDisplayMode = 'tabs' | 'subscription' | 'tiers' | 'features' | 'usage' | 'overrides';
 
-export interface PaymentRequiredArgs {
-  tierId: string;
-  tierName: string;
-  /** The tier's pricing option (AppTierPricing id). Not a pricing model id. */
-  pricingId?: string;
-  /**
-   * The pricing model behind that option — what `PaymentComponent`'s `pricingModelId` needs, so the payment
-   * starts the plan's recurring subscription (and its trial) rather than a one-time charge.
-   */
-  pricingModelId?: string;
-  /** The amount the plan's subscription charges (the pricing option's price). */
-  price?: number;
-  /** Free-trial days on the pricing option; pass to `PaymentComponent`'s `trialDays`. */
-  trialDays?: number;
-}
+// Declared in `@wildwood/react-shared` with the flow that hands it out, and re-exported from here
+// so the path every host and every panel already imports it from still answers.
+export type { PaymentRequiredArgs } from '@wildwood/react-shared';
 
 export interface SubscriptionAdminComponentProps {
   appId: string;

@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { AppTierChangeResultModel, TierChangePreviewModel } from '@wildwood/core';
+import type { AppTierChangeResultModel, AppTierModel, TierChangePreviewModel } from '@wildwood/core';
 
 // The seam is a plain module (type-only core imports, no react-native), so it is unit-testable
 // even though this package has no React renderer and cannot mount AppTierComponent itself.
 import {
   PAYMENT_CALLBACK_MISSING_MESSAGE,
-  paymentAmountForPreview,
+  findTierPricing,
+  paymentArgsForTierChange,
   shouldPreviewTierChange,
   runTierChangeWithPayment,
 } from '../components/subscription/paymentSeam';
@@ -38,19 +39,68 @@ const preview = (over: Partial<TierChangePreviewModel> = {}): TierChangePreviewM
 const ok: AppTierChangeResultModel = { success: true, errorMessage: '', isScheduled: false };
 const failed: AppTierChangeResultModel = { success: false, errorMessage: 'Server said no', isScheduled: false };
 
-describe('paymentAmountForPreview', () => {
-  it('prefers the prorated charge over the list price', () => {
-    expect(paymentAmountForPreview({ proratedChargeToday: 12.5, newPrice: 40 })).toBe(12.5);
+const pricingOption = {
+  id: 'price-monthly',
+  pricingModelId: 'model-pro-monthly',
+  price: 40,
+  trialDays: 14,
+  billingFrequency: 'Monthly',
+  isDefault: true,
+  displayOrder: 1,
+  currency: 'USD',
+};
+
+const proTier = {
+  id: 'tier-pro',
+  name: 'Pro',
+  isFreeTier: false,
+  pricingOptions: [pricingOption],
+} as unknown as AppTierModel;
+
+describe('findTierPricing', () => {
+  it('finds the tier, then its pricing option by the link id the grid handed out', () => {
+    expect(findTierPricing([proTier], 'tier-pro', 'price-monthly')).toBe(pricingOption);
   });
 
-  it('falls back to the new price, then to zero', () => {
-    expect(paymentAmountForPreview({ proratedChargeToday: undefined, newPrice: 40 })).toBe(40);
-    expect(paymentAmountForPreview({ proratedChargeToday: undefined, newPrice: undefined })).toBe(0);
+  it('is undefined for an unknown tier or an unknown/absent pricing id', () => {
+    expect(findTierPricing([proTier], 'tier-nope', 'price-monthly')).toBeUndefined();
+    expect(findTierPricing([proTier], 'tier-pro', 'price-nope')).toBeUndefined();
+    expect(findTierPricing([proTier], 'tier-pro', undefined)).toBeUndefined();
+  });
+});
+
+describe('paymentArgsForTierChange', () => {
+  const selection = { tierId: 'tier-pro', tierName: 'Pro', pricingId: 'price-monthly' };
+
+  it("quotes the PLAN's price, pricing model and trial — not the preview's proration", () => {
+    // The payment starts the plan's own recurring subscription. Charging the prorated figure against
+    // a pricing model the server cannot find left no subscription, no renewal and no trial.
+    expect(paymentArgsForTierChange(selection, { proratedChargeToday: 12.5, newPrice: 35 }, pricingOption)).toEqual({
+      tierId: 'tier-pro',
+      tierName: 'Pro',
+      pricingId: 'price-monthly',
+      pricingModelId: 'model-pro-monthly',
+      price: 40,
+      trialDays: 14,
+    });
   });
 
-  it('keeps a zero prorated charge rather than sliding to the list price', () => {
-    // ?? not || — a fully credited upgrade really does cost nothing today.
-    expect(paymentAmountForPreview({ proratedChargeToday: 0, newPrice: 40 })).toBe(0);
+  it('falls back to the preview when the pricing option cannot be resolved', () => {
+    expect(paymentArgsForTierChange(selection, { proratedChargeToday: 12.5, newPrice: 35 })).toEqual({
+      tierId: 'tier-pro',
+      tierName: 'Pro',
+      pricingId: 'price-monthly',
+      pricingModelId: undefined,
+      price: 35,
+      trialDays: undefined,
+    });
+    expect(paymentArgsForTierChange(selection, { proratedChargeToday: 12.5 }).price).toBe(12.5);
+    expect(paymentArgsForTierChange(selection, {}).price).toBe(0);
+  });
+
+  it('keeps a free plan at zero rather than sliding to another figure', () => {
+    // ?? not || — a plan that really costs nothing must not be quoted at the preview's price.
+    expect(paymentArgsForTierChange(selection, { newPrice: 35 }, { ...pricingOption, price: 0 }).price).toBe(0);
   });
 });
 
@@ -110,9 +160,39 @@ describe('runTierChangeWithPayment', () => {
       onPaymentRequired,
     });
 
-    expect(seen).toEqual([{ tierId: 'tier-pro', tierName: 'Pro', price: 12.5 }]);
+    // No pricing option was handed in, so the plan's price comes from the preview.
+    expect(seen).toEqual([{ tierId: 'tier-pro', tierName: 'Pro', price: 40 }]);
     expect(applyChange).toHaveBeenCalledWith('txn-123');
     expect(outcome).toEqual({ status: 'changed' });
+  });
+
+  it("hands the host the selected plan's pricing model, price and trial", async () => {
+    const seen: PaymentRequiredArgs[] = [];
+    const onPaymentRequired: OnPaymentRequired = async (args) => {
+      seen.push(args);
+      return 'txn-123';
+    };
+
+    await runTierChangeWithPayment({
+      tier: tier(),
+      pricing: pricingOption,
+      previewTierChange: vi
+        .fn()
+        .mockResolvedValue(preview({ paymentRequired: true, proratedChargeToday: 12.5, newPrice: 35 })),
+      applyChange: vi.fn().mockResolvedValue(ok),
+      onPaymentRequired,
+    });
+
+    expect(seen).toEqual([
+      {
+        tierId: 'tier-pro',
+        tierName: 'Pro',
+        pricingId: 'price-monthly',
+        pricingModelId: 'model-pro-monthly',
+        price: 40,
+        trialDays: 14,
+      },
+    ]);
   });
 
   it.each([[null], [undefined]])('treats %s from the payment callback as a cancellation', async (result) => {

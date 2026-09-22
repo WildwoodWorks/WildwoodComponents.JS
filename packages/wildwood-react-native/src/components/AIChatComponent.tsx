@@ -31,6 +31,13 @@ export interface FilePickerResult {
 
 export interface AIChatSettings {
   enableSessions?: boolean;
+  /**
+   * Accepted for parity with the React and Blazor chat components, but **voice input is not
+   * implemented on React Native** and this flag renders no mic button. Native audio capture needs a
+   * host-supplied module (`expo-av`, `react-native-audio-recorder-player`, ...) plus the iOS/Android
+   * microphone permission strings, neither of which this package can ship. Record in the host app
+   * and send the clip through `useAI().transcribeAudio(blob, mimeType)` yourself.
+   */
   enableSpeechToText?: boolean;
   enableTextToSpeech?: boolean;
   enableFileUpload?: boolean;

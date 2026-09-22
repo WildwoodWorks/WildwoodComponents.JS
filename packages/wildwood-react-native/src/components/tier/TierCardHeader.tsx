@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AppTierPricingModel } from '@wildwood/core';
-import { formatPrice, isRawBadgeColor, shouldShowTierStatusBadge } from '@wildwood/core';
+import { formatMoney, isRawBadgeColor, shouldShowTierStatusBadge, trialLabel } from '@wildwood/core';
 
 export interface TierCardHeaderProps {
   name: string;
@@ -15,6 +15,22 @@ export interface TierCardHeaderProps {
   discount?: number | null;
   currency: string;
   style?: ViewStyle;
+}
+
+/**
+ * Whether the card advertises a free trial. Only a priced plan can start one: an enterprise
+ * "contact us" card, a free tier and a plan whose price is zero have nothing to trial, and a card
+ * that hides its price says nothing about billing at all. Exported because this package has no React
+ * renderer, so the rule is tested as the function the header calls.
+ */
+export function showsTrialLine(input: {
+  showPrice: boolean;
+  isEnterprise: boolean;
+  isFreeTier: boolean;
+  pricing?: Pick<AppTierPricingModel, 'price' | 'trialDays'>;
+}): boolean {
+  const { showPrice, isEnterprise, isFreeTier, pricing } = input;
+  return showPrice && !isEnterprise && !isFreeTier && !!pricing && pricing.price > 0 && (pricing.trialDays ?? 0) > 0;
 }
 
 export function TierCardHeader({
@@ -49,7 +65,11 @@ export function TierCardHeader({
             <Text style={styles.priceAmount}>Free</Text>
           ) : pricing ? (
             <>
-              <Text style={styles.priceAmount}>{formatPrice(pricing.price, currency)}</Text>
+              {/* `formatMoney`, not the older `formatPrice`: the symbol comes from Intl, so a
+                  currency outside the seven-entry symbol table (CHF, SEK, ...) renders as itself
+                  instead of silently falling back to a dollar sign. Byte-identical output for the
+                  currencies that table does carry. */}
+              <Text style={styles.priceAmount}>{formatMoney(pricing.price, currency)}</Text>
               <Text style={styles.priceInterval}>/{pricing.billingFrequency?.toLowerCase() ?? 'month'}</Text>
             </>
           ) : null}
@@ -59,6 +79,9 @@ export function TierCardHeader({
         <View style={styles.discountBadge}>
           <Text style={styles.discountText}>Save {discount}%</Text>
         </View>
+      ) : null}
+      {showsTrialLine({ showPrice, isEnterprise, isFreeTier, pricing }) ? (
+        <Text style={styles.trialLine}>{trialLabel(pricing?.trialDays)}</Text>
       ) : null}
     </View>
   );
@@ -89,4 +112,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   discountText: { color: '#166534', fontSize: 11, fontWeight: '600' },
+  trialLine: { fontSize: 13, fontWeight: '600', color: '#166534', marginTop: 4 },
 });

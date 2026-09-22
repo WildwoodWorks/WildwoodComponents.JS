@@ -1,19 +1,34 @@
 import type { Locator, Page, Response } from '@playwright/test';
 import { signupStep, waitForSignupStep, waitForSignupStepToLeave } from './steps.js';
 import { sleep, until, untilValue } from './poll.js';
+import {
+  ACCEPT_RESPONSE_PATTERN,
+  ACCEPT_SELECTOR,
+  DISCLAIMER_CHECK_SELECTORS,
+  RETRY_SELECTOR,
+  SIGNUP_FAILURE_MESSAGE_SELECTORS,
+  SIGNUP_GET_STARTED_SELECTOR,
+  SIGNUP_RETRY_SELECTOR,
+  SUBMIT_REGISTER_SELECTOR,
+  matchesAcceptResponse,
+  registrationFieldSelector,
+} from './selectors.js';
 
 /**
  * Driving the signup flow end to end, and the two things that reliably get in its way on a real
  * deployment: a pending disclaimer, and the consent banner.
  *
- * Everything here keys on structural hooks (`data-ww-step`, `data-ww-disclaimer-action`,
- * `type="submit"`, component class names) rather than on button copy, because every label the
- * component renders is host-configurable through `labels.ts`.
+ * Everything here keys on structural hooks (`data-ww-step`, `data-ww-field`, `data-ww-action`,
+ * `data-ww-disclaimer-action`) rather than on button copy, because every label the component
+ * renders is host-configurable through `labels.ts`. The class-name and `type="submit"` selectors
+ * these helpers shipped with are kept as fallbacks so a host testing an older build, or a
+ * deployment that has not upgraded yet, is not told its component is broken. Every selector lives
+ * in `selectors.ts`.
  *
  * `@playwright/test` is imported for TYPES ONLY; see `poll.ts` for why.
  */
 
-/** The fields TokenRegistrationComponent renders, by their stable ids. */
+/** The fields the registration form renders, by their contract names. */
 export interface RegistrationFields {
   firstName: string;
   lastName: string;
@@ -22,25 +37,46 @@ export interface RegistrationFields {
   password: string;
 }
 
-/** Fill the registration form. */
+/**
+ * Fill the registration form.
+ *
+ * Each field is located by `data-ww-field` first and by its React id second — see
+ * `REGISTRATION_FIELD_IDS` for why the id cannot be the contract. `.first()` because a page may
+ * host more than one registration surface; the register step is the one on screen.
+ */
 export async function fillRegistrationForm(page: Page, user: RegistrationFields): Promise<void> {
-  await page.locator('#ww-reg-first').fill(user.firstName);
-  await page.locator('#ww-reg-last').fill(user.lastName);
-  await page.locator('#ww-reg-username').fill(user.username);
-  await page.locator('#ww-reg-email').fill(user.email);
-  await page.locator('#ww-reg-password').fill(user.password);
-  await page.locator('#ww-reg-confirm').fill(user.password);
+  await page.locator(registrationFieldSelector('firstName')).first().fill(user.firstName);
+  await page.locator(registrationFieldSelector('lastName')).first().fill(user.lastName);
+  await page.locator(registrationFieldSelector('username')).first().fill(user.username);
+  await page.locator(registrationFieldSelector('email')).first().fill(user.email);
+  await page.locator(registrationFieldSelector('password')).first().fill(user.password);
+  await page.locator(registrationFieldSelector('confirmPassword')).first().fill(user.password);
 }
 
 /**
  * Submit the registration form.
  *
- * By `type="submit"` inside the register step, not by name: the component labels this button
- * differently depending on whether a plan step follows ("Continue") or the card comes next
- * ("Create Account"), and both strings are configurable.
+ * Structurally, not by name: the component labels this button differently depending on whether a
+ * plan step follows ("Continue") or the card comes next ("Create Account"), and both strings are
+ * configurable. `data-ww-action="submit-register"` is the contract and `button[type="submit"]` the
+ * fallback — a stack whose flow takes the card before the account exists has no form to submit.
  */
 export async function submitRegistrationForm(page: Page): Promise<void> {
-  await page.locator('[data-ww-step="register"] button[type="submit"]').click();
+  await page.locator(SUBMIT_REGISTER_SELECTOR).first().click();
+}
+
+/**
+ * The first selector in `candidates` that matches anything, or null.
+ *
+ * For lists where PREFERENCE is the point: a CSS selector list resolves in DOM order, so
+ * `a, b` + `.first()` can hand back `b` when `a` also matched.
+ */
+async function firstPresent(scope: Page | Locator, candidates: readonly string[]): Promise<Locator | null> {
+  for (const selector of candidates) {
+    const located = scope.locator(selector).first();
+    if ((await located.count().catch(() => 0)) > 0) return located;
+  }
+  return null;
 }
 
 /**
@@ -65,18 +101,37 @@ export async function dismissConsentBanner(page: Page, waitMs = 5_000): Promise<
 
 // `data-ww-disclaimer-action` was added alongside these helpers, so the structural selectors are
 // kept as fallbacks: a host on an older component build — or one testing a deployed environment
-// built before it upgraded — must not be told its disclaimers never loaded. The fallbacks lean on
-// `ww-btn-block`, which is what distinguishes "Accept All" from the load-failure retry that shares
-// its container.
-const ACCEPT = [
-  '[data-ww-disclaimer-action="accept"]',
-  '[data-ww-disclaimer-action="accept-all"]',
-  '.ww-disclaimer-footer .ww-btn-primary',
-  '.ww-disclaimer-actions .ww-btn-block',
-].join(', ');
-const RETRY = ['[data-ww-disclaimer-action="retry"]', '.ww-disclaimer-actions .ww-btn-primary:not(.ww-btn-block)'].join(
-  ', ',
-);
+// built before it upgraded — must not be told its disclaimers never loaded. See `selectors.ts` for
+// what each list covers and why the retry fallback excludes anything that names an action.
+const ACCEPT = ACCEPT_SELECTOR;
+const RETRY = RETRY_SELECTOR;
+
+/**
+ * Tick whatever gates the Accept button, where one exists.
+ *
+ * Not every stack has one: React disables Accept only while a request is in flight, so nothing here
+ * matches and this returns having done nothing. The server-rendered stacks disable it until every
+ * required box is ticked — and `click()` waits for actionability, so the helper would otherwise hang
+ * on the button and report it as a server refusal.
+ *
+ * Failures are swallowed on purpose. A box that cannot be ticked is not evidence of anything on its
+ * own; the Accept click that follows produces the real diagnostic.
+ */
+async function tickDisclaimerGate(scope: Locator): Promise<void> {
+  for (const selector of DISCLAIMER_CHECK_SELECTORS) {
+    const boxes = scope.locator(selector);
+    const count = await boxes.count().catch(() => 0);
+    if (count === 0) continue;
+    for (let i = 0; i < count; i++) {
+      const box = boxes.nth(i);
+      if (await box.isChecked().catch(() => true)) continue;
+      await box.check({ timeout: 5_000 }).catch(() => undefined);
+    }
+    // The first list entry that exists IS the gate — the later entries are broader fallbacks for
+    // markup that does not name its checkboxes, and running them too would tick unrelated boxes.
+    return;
+  }
+}
 
 export interface AcceptDisclaimersOptions {
   /**
@@ -89,6 +144,16 @@ export interface AcceptDisclaimersOptions {
    * Default 15s. Only matters on entry — once a control is on screen the loop drives itself.
    */
   settleMs?: number;
+  /**
+   * Which response URLs to read as the acceptance call, for the 429 back-off and the "refused by
+   * the server" diagnostic. Defaults to `ACCEPT_RESPONSE_PATTERN`, which covers both the direct API
+   * path and the proxied one a server-rendered host uses.
+   *
+   * Override it when the host proxies acceptance under a path of its own. There is nothing to
+   * override on a host that makes the call from the SERVER — the browser never sees a response, so
+   * the 429 diagnostic degrades to the generic bounded-failure message.
+   */
+  acceptResponsePattern?: RegExp;
 }
 
 /**
@@ -106,13 +171,16 @@ export interface AcceptDisclaimersOptions {
  *    response this reads as "the button does nothing".
  *  - the pending list FAILS TO LOAD, in which case the component renders its own retry instead of
  *    an Accept, and waiting only for an Accept times out on a button that is never coming.
+ *
+ * And one that is a stack difference rather than a failure: where Accept is gated on required
+ * checkboxes, they are ticked before the click. See `tickDisclaimerGate`.
  */
 export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaimersOptions = {}): Promise<void> {
-  const { isDone, settleMs = 15_000 } = options;
+  const { isDone, settleMs = 15_000, acceptResponsePattern = ACCEPT_RESPONSE_PATTERN } = options;
   const page = scope.page();
   let lastStatus = 0;
   const watchAccept = (res: Response) => {
-    if (/disclaimeracceptance\/accept/i.test(res.url())) lastStatus = res.status();
+    if (matchesAcceptResponse(res.url(), acceptResponsePattern)) lastStatus = res.status();
   };
   page.on('response', watchAccept);
 
@@ -158,6 +226,9 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
       }
 
       lastStatus = 0;
+      // Before the click, not after a hang: where Accept is gated on checkboxes, an unticked gate
+      // leaves it `disabled` and `click()` waits for actionability until the test's own timeout.
+      await tickDisclaimerGate(scope);
       await accept.click();
       await sleep(400);
       if (isDone && (await isDone())) return;
@@ -197,6 +268,11 @@ export interface FinishSignupOptions {
   expectSuccessText?: string | RegExp;
   /** How many times to retry a `failed` processing step. Default 2. */
   retries?: number;
+  /**
+   * Forwarded to `acceptDisclaimers` when the flow stops on the `disclaimers` step. See
+   * `AcceptDisclaimersOptions.acceptResponsePattern`.
+   */
+  acceptResponsePattern?: RegExp;
 }
 
 /**
@@ -204,11 +280,12 @@ export interface FinishSignupOptions {
  * failure, accept any pending disclaimers, optionally assert what the success panel says, then
  * click the success button.
  *
- * The final click is located by class, not by name: its label is `labels.getStarted`, which hosts
- * routinely reword.
+ * Nothing is located by name: the retry is `labels.tryAgain` and the final button
+ * `labels.getStarted`, both of which hosts routinely reword. Both are found by their
+ * `data-ww-action` hook, falling back to the class selectors these helpers shipped with.
  */
 export async function finishSignup(page: Page, options: FinishSignupOptions = {}): Promise<void> {
-  const { retries = 2 } = options;
+  const { retries = 2, acceptResponsePattern } = options;
 
   for (let attempt = 0; ; attempt++) {
     // Generous: this window covers registering the account, signing it in, linking the payment and
@@ -221,11 +298,15 @@ export async function finishSignup(page: Page, options: FinishSignupOptions = {}
     );
 
     if ((await signupStep(page)) !== 'failed') break;
-    const message = (await page.locator('.ww-signup-processing .ww-text-muted').first().textContent()) ?? '';
+    // The error hook first, the shared `.ww-text-muted` class second, and in that order rather than
+    // as one selector list: on a stack that keeps every step panel in the DOM, the fallback matches
+    // the `creating` step's "please wait", which sits EARLIER in the document than the real error.
+    const errorText = await firstPresent(page, SIGNUP_FAILURE_MESSAGE_SELECTORS);
+    const message = (await errorText?.textContent().catch(() => null)) ?? '';
     if (attempt >= retries) throw new Error(`Signup processing failed: ${message}`);
     // The flow tracks completed sub-steps, so its retry resumes where it failed rather than
     // registering the user a second time.
-    await page.locator('[data-ww-step="failed"] .ww-btn-primary').first().click();
+    await page.locator(SIGNUP_RETRY_SELECTOR).first().click();
     // Leave the failed step before polling again, or the next poll re-reads this same failure and
     // burns a retry on it.
     await waitForSignupStepToLeave(page, 'failed', 30_000);
@@ -246,7 +327,10 @@ export async function finishSignup(page: Page, options: FinishSignupOptions = {}
       30_000,
       () => 'the disclaimers step rendered neither an Accept, its retry, nor the success panel',
     );
-    await acceptDisclaimers(disclaimers, { isDone: () => success.isVisible().catch(() => false) });
+    await acceptDisclaimers(disclaimers, {
+      isDone: () => success.isVisible().catch(() => false),
+      ...(acceptResponsePattern ? { acceptResponsePattern } : {}),
+    });
   }
 
   await waitForSignupStep(page, 'success', 60_000);
@@ -260,5 +344,5 @@ export async function finishSignup(page: Page, options: FinishSignupOptions = {}
         throw new Error(`the success panel never showed ${text instanceof RegExp ? text : JSON.stringify(text)}`);
       });
   }
-  await page.locator('.ww-signup-success .ww-btn-primary').click();
+  await page.locator(SIGNUP_GET_STARTED_SELECTOR).first().click();
 }
