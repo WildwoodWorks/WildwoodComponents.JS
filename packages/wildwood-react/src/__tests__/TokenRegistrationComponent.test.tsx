@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { AuthenticationResponse } from '@wildwood/core';
+import { WildwoodError, type AuthenticationResponse } from '@wildwood/core';
 import { TokenRegistrationComponent } from '../components/registration/TokenRegistrationComponent.js';
 import { createTestClient, createWrapper } from './testUtils.js';
 
@@ -106,5 +106,94 @@ describe('TokenRegistrationComponent auto-login', () => {
 
     expect(await screen.findByText(/log in manually/i)).toBeTruthy();
     expect(client.session.login).not.toHaveBeenCalled();
+  });
+});
+
+describe('TokenRegistrationComponent funnel events', () => {
+  function setup(stub?: (client: ReturnType<typeof createTestClient>) => void) {
+    const client = createTestClient();
+    stubCommon(client);
+    stub?.(client);
+    const track = vi.spyOn(client.attribution, 'track').mockImplementation(() => {});
+    const sent = () =>
+      track.mock.calls.map(([name, options]) => (options?.label != null ? `${name}:${options.label}` : name));
+    return { client, track, sent };
+  }
+
+  it('sends signup_view on mount and signup_start on the first field focus only', () => {
+    const { client, sent } = setup();
+    render(<TokenRegistrationComponent appId="test-app-id" requireToken={false} allowOpenRegistration />, {
+      wrapper: createWrapper(client),
+    });
+
+    expect(sent()).toEqual(['signup_view']);
+    fireEvent.click(screen.getByRole('button', { name: /Show/i }));
+    expect(sent()).toEqual(['signup_view']);
+    fireEvent.focus(screen.getByLabelText(/First Name/i));
+    fireEvent.focus(screen.getByLabelText(/Last Name/i));
+    expect(sent()).toEqual(['signup_view', 'signup_start']);
+  });
+
+  it('sends signup_submit before the request and a validation error category', () => {
+    const { client, sent } = setup();
+    render(<TokenRegistrationComponent appId="test-app-id" requireToken={false} allowOpenRegistration />, {
+      wrapper: createWrapper(client),
+    });
+
+    fillAccountForm();
+    fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'different' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    expect(sent()).toEqual(['signup_view', 'signup_start', 'signup_submit', 'signup_error:validation']);
+  });
+
+  it('maps taken usernames and emails to their categories', async () => {
+    const { client, sent } = setup((c) => {
+      c.auth.validateRegistration = vi.fn().mockResolvedValue({
+        usernameAvailable: true,
+        emailAvailable: false,
+        passwordValid: true,
+        passwordErrors: [],
+      });
+    });
+    render(<TokenRegistrationComponent appId="test-app-id" requireToken={false} allowOpenRegistration />, {
+      wrapper: createWrapper(client),
+    });
+
+    fillAccountForm();
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    await waitFor(() => expect(sent()).toContain('signup_error:email_taken'));
+  });
+
+  it('sends a server failure as its category, never the message or the input', async () => {
+    const { client, track, sent } = setup((c) => {
+      c.auth.register = vi
+        .fn()
+        .mockRejectedValue(new WildwoodError('Database exploded for token@example.com', 500, undefined, {}));
+    });
+    render(<TokenRegistrationComponent appId="test-app-id" requireToken={false} allowOpenRegistration />, {
+      wrapper: createWrapper(client),
+    });
+
+    fillAccountForm();
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    await waitFor(() => expect(sent()).toContain('signup_error:server'));
+    const payload = JSON.stringify(track.mock.calls);
+    expect(payload).not.toContain('token@example.com');
+    expect(payload).not.toContain('tokenuser');
+  });
+
+  it('reports an invalid token', async () => {
+    const { client, sent } = setup((c) => {
+      c.auth.validateRegistrationToken = vi.fn().mockResolvedValue(false);
+    });
+    render(<TokenRegistrationComponent appId="test-app-id" />, { wrapper: createWrapper(client) });
+
+    fireEvent.change(screen.getByLabelText(/Registration Token/i), { target: { value: 'bad' } });
+    fireEvent.click(screen.getByRole('button', { name: /Validate Token/i }));
+
+    await waitFor(() => expect(sent()).toContain('signup_error:invalid_token'));
   });
 });

@@ -182,6 +182,13 @@ export interface FunnelTrackOptions {
   /** CTA name, plan, error category... Trimmed and capped at 100 characters. */
   label?: string | null;
   value?: number | null;
+  /**
+   * The page or screen the event happened on (for example "/pricing"), for hosts with no URL to read
+   * it from, such as React Native. A query string or fragment is dropped, a leading "/" is added and
+   * the path is capped at 500 characters. Omitted, the event carries the current page's path. A
+   * `page_view` with a path also makes it the current page, so later events carry it too.
+   */
+  path?: string | null;
 }
 
 /** One funnel event inside {@link AttributionEventsRequest}. */

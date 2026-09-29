@@ -44,6 +44,16 @@ export { useConsent } from './hooks/useConsent.js';
 export type { UseConsentReturn } from './hooks/useConsent.js';
 export { useAttribution } from './hooks/useAttribution.js';
 export type { UseAttributionReturn } from './hooks/useAttribution.js';
+// Registration funnel events, for hosts that build their own registration form.
+export {
+  useSignupFunnel,
+  signupErrorCategory,
+  signupErrorCategoryFromCode,
+  signupPlanKey,
+  trackSignupFunnel,
+  SIGNUP_ERROR_CATEGORIES,
+} from '@wildwood/react-shared';
+export type { SignupFunnel, SignupErrorCategory } from '@wildwood/react-shared';
 export { useFeedback } from './hooks/useFeedback.js';
 export type { UseFeedbackReturn } from './hooks/useFeedback.js';
 export { useAppTier } from './hooks/useAppTier.js';

@@ -571,3 +571,86 @@ describe('signup view - disclaimers', () => {
     await waitFor(() => expect(stepOf(container)).toBe('success'));
   });
 });
+
+// ── Registration funnel events ──────────────────────────────────────────────────
+
+describe('signup view - funnel events', () => {
+  function spyTrack(stubs: SignupStubs) {
+    return vi.spyOn(stubs.client.attribution, 'track').mockImplementation(() => {});
+  }
+  const sent = (track: ReturnType<typeof spyTrack>) =>
+    track.mock.calls.map(([name, options]) => (options?.label != null ? `${name}:${options.label}` : name));
+
+  it('reports the view, start, submit and the plan chosen on the grid', async () => {
+    const stubs = signupClient();
+    const track = spyTrack(stubs);
+    const { container } = renderSignup({}, stubs);
+
+    await screen.findByText('Create Your Account');
+    fireEvent.focus(screen.getByLabelText('First Name *'));
+    await submitRegistration('Continue');
+    await waitFor(() => expect(stepOf(container)).toBe('plan'));
+
+    const starter = [...container.querySelectorAll<HTMLElement>('.ww-tier-card')].find(
+      (card) => card.querySelector('h3')?.textContent === 'Starter',
+    );
+    fireEvent.click(starter!.querySelector('button')!);
+    await waitFor(() => expect(stepOf(container)).toBe('success'));
+
+    const names = sent(track);
+    expect(names).toContain('signup_view');
+    expect(names).toContain('signup_start');
+    expect(names).toContain('signup_submit');
+    expect(names).toContain('plan_selected:tier-free');
+    // A free plan takes no card, so there is no checkout.
+    expect(names.some((n) => n.startsWith('checkout_start'))).toBe(false);
+    expect(names.indexOf('signup_view')).toBeLessThan(names.indexOf('signup_submit'));
+  });
+
+  it('reports checkout_start with the pricing id when the card step opens for a paid plan', async () => {
+    const stubs = signupClient();
+    const track = spyTrack(stubs);
+    const { container } = renderSignup(
+      { preSelectedTierId: 'tier-pro', preSelectedPricingId: 'price-pro-monthly' },
+      stubs,
+    );
+
+    await submitRegistration('Create Account');
+    await waitFor(() => expect(stepOf(container)).toBe('payment'));
+
+    expect(sent(track)).toContain('checkout_start:price-pro-monthly');
+  });
+
+  it('reports a refused registration as a category, never the server message', async () => {
+    const stubs = signupClient();
+    const track = spyTrack(stubs);
+    stubs.registerOpen.mockRejectedValue(
+      new WildwoodError('Registration is not allowed for this app', 403, undefined, {
+        errorCode: 'RegistrationNotAllowed',
+      }),
+    );
+    const { container } = renderSignup({ planSelection: 'skip' }, stubs);
+
+    await submitRegistration('Create Account');
+    await waitFor(() => expect(stepOf(container)).toBe('failed'));
+
+    expect(sent(track)).toContain('signup_error:registration_closed');
+    expect(JSON.stringify(track.mock.calls)).not.toContain('not allowed');
+  });
+
+  it('reports a registerOpen refusal by its error code', async () => {
+    const stubs = signupClient();
+    const track = spyTrack(stubs);
+    stubs.registerOpen.mockResolvedValue({
+      success: false,
+      message: 'Username is already taken',
+      errorCode: 'USERNAME_EXISTS',
+    });
+    const { container } = renderSignup({ planSelection: 'skip' }, stubs);
+
+    await submitRegistration('Create Account');
+    await waitFor(() => expect(stepOf(container)).toBe('failed'));
+
+    expect(sent(track)).toContain('signup_error:username_taken');
+  });
+});

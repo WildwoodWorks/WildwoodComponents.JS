@@ -654,6 +654,30 @@ describe('AttributionService funnel events', () => {
     expect((events[0].body as AttributionEventsRequest).sessionKey).toBe(service.getForRegistration()!.sessionKey);
   });
 
+  it('takes a native host screen path and device class (React Native)', async () => {
+    vi.useFakeTimers();
+    const { http, posts } = makeHttp(makeConfig(FUNNEL));
+    const consent = makeConsent({ granted: true, decided: true });
+    const service = new AttributionService(http, new MemoryStorageAdapter(), consent.consent, null, 'app-1', {
+      platform: 'ios',
+      getDeviceClass: () => 'tablet',
+    });
+    await service.initialize();
+
+    service.track('page_view', { path: 'Pricing' });
+    service.track('plan_selected', { label: 'pro' });
+    await service.flush();
+
+    const bodies = eventBodies(posts);
+    expect(bodies[0]).toMatchObject({ platform: 'ios', deviceClass: 'tablet' });
+    expect(bodies.flatMap((b) => b.events).map((e) => [e.name, e.path])).toEqual([
+      ['page_view', '/Pricing'],
+      ['plan_selected', '/Pricing'],
+    ]);
+    service.captureUrl('https://cairnfed.ai/?utm_source=reddit');
+    expect(service.getForRegistration()).toMatchObject({ deviceClass: 'tablet', sessionCount: 1 });
+  });
+
   it('flushes track() calls made before the config loaded', async () => {
     vi.useFakeTimers();
     installFakeDom({ href: 'https://cairnfed.ai/' });

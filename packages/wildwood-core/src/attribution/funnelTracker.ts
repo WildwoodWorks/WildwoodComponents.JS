@@ -221,15 +221,22 @@ export class FunnelTracker {
   /** Queues a funnel event. Before the config loads it is buffered; invalid or disallowed names are dropped. */
   track(name: string, options?: FunnelTrackOptions): void {
     try {
+      const explicitPath = options?.path != null ? screenPath(options.path) : null;
+      // A page_view naming its page is a navigation (the React Native screen-focus path).
+      if (name === 'page_view' && explicitPath !== null) {
+        this.notifyPath(explicitPath);
+        return;
+      }
+      const path = explicitPath ?? this.currentPath;
       const at = Date.now();
       if (!this.configResolved) {
         if (this.pending.length < MAX_PENDING_BEFORE_CONFIG) {
-          this.pending.push({ name, options, at, path: this.currentPath });
+          this.pending.push({ name, options, at, path });
         }
         return;
       }
       if (!this.isEnabled()) return;
-      this.accept(name, options, at, this.currentPath);
+      this.accept(name, options, at, path);
     } catch {
       /* never throw into the host app */
     }
@@ -245,7 +252,12 @@ export class FunnelTracker {
    */
   notifyNavigation(href: string): void {
     const path = pathOf(href);
-    if (path === null || path === this.currentPath) return;
+    if (path !== null) this.notifyPath(path);
+  }
+
+  /** A navigation to `path` (already reduced): a page_view when it differs from the current page. */
+  private notifyPath(path: string): void {
+    if (path === this.currentPath) return;
     if (this.currentPath !== null) this.emitTimeOnPage();
     this.currentPath = path;
     this.pageMilestones = new Set();
@@ -660,6 +672,14 @@ function pathOf(href: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** A caller-supplied page or screen path: no query or fragment, a leading "/", capped. Null when empty. */
+function screenPath(raw: string): string | null {
+  const cut = String(raw).split(/[?#]/, 1)[0].trim();
+  if (cut.length === 0) return null;
+  const path = cut.startsWith('/') ? cut : `/${cut}`;
+  return path.length <= PATH_MAX_LENGTH ? path : path.slice(0, PATH_MAX_LENGTH);
 }
 
 /** A signup_error label reduced to the server's category shape (^[a-z0-9_]{1,40}$). */

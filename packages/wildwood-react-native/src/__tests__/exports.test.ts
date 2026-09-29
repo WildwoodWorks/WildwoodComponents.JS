@@ -32,6 +32,24 @@ describe('@wildwood/react-native hooks', () => {
   it('useAttribution is a function', () => {
     expect(typeof useAttribution).toBe('function');
   });
+
+  it('exports the attribution screen hook, the native helpers and the registration funnel helpers', () => {
+    for (const name of [
+      'useAttributionScreen',
+      'trackScreenView',
+      'nativeDeviceClass',
+      'subscribeAttributionFlush',
+      'useSignupFunnel',
+      'signupErrorCategory',
+      'signupErrorCategoryFromCode',
+      'signupPlanKey',
+      'trackSignupFunnel',
+    ]) {
+      expect(typeof (reactNative as Record<string, unknown>)[name]).toBe('function');
+    }
+    expect(reactNative.TABLET_MIN_SHORTEST_SIDE).toBe(600);
+    expect(reactNative.SIGNUP_ERROR_CATEGORIES).toContain('invalid_token');
+  });
 });
 
 describe('@wildwood/react-native registration & subscription exports', () => {

@@ -29,6 +29,29 @@ describe('useAttribution', () => {
   });
 });
 
+describe('useAttribution funnel tracking', () => {
+  it('hands out stable track, trackCta and flush bound to the client', async () => {
+    const client = createTestClient();
+    const track = vi.spyOn(client.attribution, 'track').mockImplementation(() => {});
+    const trackCta = vi.spyOn(client.attribution, 'trackCta').mockImplementation(() => {});
+    const flush = vi.spyOn(client.attribution, 'flush').mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(() => useAttribution(), { wrapper: createWrapper(client) });
+    const first = result.current;
+
+    result.current.track('demo_booked', { label: 'hero', value: 2 });
+    result.current.trackCta('pricing');
+    await result.current.flush();
+    rerender();
+
+    expect(track).toHaveBeenCalledWith('demo_booked', { label: 'hero', value: 2 });
+    expect(trackCta).toHaveBeenCalledWith('pricing');
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(result.current.track).toBe(first.track);
+    expect(result.current.trackCta).toBe(first.trackCta);
+    expect(result.current.flush).toBe(first.flush);
+  });
+});
+
 describe('WildwoodProvider campaign attribution', () => {
   it('starts attribution capture when it mounts', () => {
     const initialize = vi

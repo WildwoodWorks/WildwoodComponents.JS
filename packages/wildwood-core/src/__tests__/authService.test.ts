@@ -5,6 +5,7 @@ import { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import { MemoryStorageAdapter } from '../platform/storageService.js';
 import type { AuthenticationResponse } from '../auth/types.js';
 import type { AttributionPayload } from '../attribution/types.js';
+import { createWildwoodClient } from '../client/WildwoodClient.js';
 
 function createConfig() {
   return { baseUrl: 'https://api.example.com', enableRetry: false };
@@ -715,6 +716,65 @@ describe('AuthService campaign attribution', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  describe('funnel session fields', () => {
+    const sessionPayload: AttributionPayload = {
+      ...payload,
+      sessionKey: 'session-key-0001',
+      deviceClass: 'tablet',
+      sessionCount: 3,
+    };
+    const sessionFields = { sessionKey: 'session-key-0001', deviceClass: 'tablet', sessionCount: 3 };
+
+    beforeEach(() => {
+      source.getForRegistration.mockReturnValue(sessionPayload);
+    });
+
+    it('register sends the session key, device class and session count', async () => {
+      respond(mockAuthResponse());
+      await auth.register(registration);
+      expect(bodyOf(0).attribution).toMatchObject(sessionFields);
+    });
+
+    it('registerOpen sends them', async () => {
+      respond({ success: true, message: 'ok', userId: 'user-9' });
+      await auth.registerOpen(registration);
+      expect(bodyOf(0).Attribution).toMatchObject(sessionFields);
+    });
+
+    it('registerWithToken sends them', async () => {
+      respond({ success: true, message: 'ok', userId: 'user-9' });
+      await auth.registerWithToken({ ...registration, registrationToken: 'token-1' });
+      expect(bodyOf(0).Attribution).toMatchObject(sessionFields);
+    });
+
+    it('a claim sends them', async () => {
+      respond({ recorded: true, reason: null });
+      await auth.claimAttribution('app-1');
+      expect(bodyOf(0)).toMatchObject({ appId: 'app-1', ...sessionFields });
+    });
+  });
+
+  it('a real client registration carries the funnel session from the attribution service', async () => {
+    const client = createWildwoodClient({
+      baseUrl: 'https://api.example.com',
+      appId: 'app-1',
+      storage: 'memory',
+      enableRetry: false,
+      attribution: { platform: 'ios', getDeviceClass: () => 'tablet' },
+    });
+    client.attribution.captureUrl('https://cairnfed.ai/?utm_source=reddit&utm_medium=paid');
+    respond({ success: true, message: 'ok', userId: 'user-9' });
+
+    await client.auth.registerOpen(registration);
+
+    const sent = bodyOf(0).Attribution;
+    expect(sent.lastTouch.source).toBe('reddit');
+    expect(typeof sent.sessionKey).toBe('string');
+    expect(sent.sessionKey.length).toBeGreaterThan(0);
+    expect(sent.deviceClass).toBe('tablet');
+    expect(sent.sessionCount).toBe(1);
   });
 
   it('claimAttribution sends nothing without a payload and never throws on failure', async () => {

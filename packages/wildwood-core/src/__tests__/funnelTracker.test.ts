@@ -205,6 +205,46 @@ describe('FunnelTracker event validation', () => {
   });
 });
 
+describe('FunnelTracker explicit paths', () => {
+  it('treats a page_view with a path as a navigation that later events carry', async () => {
+    const { tracker, events } = makeTracker({ platform: 'ios' });
+    tracker.setConfig(funnelConfig());
+    tracker.track('page_view', { path: 'Pricing?plan=pro#top' });
+    tracker.track('page_view', { path: '/Pricing' });
+    tracker.track('plan_selected', { label: 'pro' });
+    tracker.track('page_view', { path: '/signup' });
+    tracker.track('cta_click', { label: 'faq', path: '/help' });
+    await tracker.flush();
+
+    expect(events().map((e) => [e.name, e.path ?? null])).toEqual([
+      ['page_view', '/Pricing'],
+      ['plan_selected', '/Pricing'],
+      ['page_view', '/signup'],
+      ['cta_click', '/help'],
+    ]);
+  });
+
+  it('ignores an empty path and caps a long one', async () => {
+    const { tracker, events } = makeTracker({ platform: 'android' });
+    tracker.setConfig(funnelConfig());
+    tracker.track('cta_click', { label: 'a', path: '   ' });
+    tracker.track('page_view', { path: `/${'x'.repeat(600)}` });
+    await tracker.flush();
+
+    expect(events()[0].path).toBeUndefined();
+    expect(events()[1].path).toHaveLength(500);
+  });
+
+  it('buffers a path-carrying event until the config loads', async () => {
+    const { tracker, events } = makeTracker({ platform: 'ios' });
+    tracker.track('page_view', { path: '/home' });
+    tracker.setConfig(funnelConfig());
+    await tracker.flush();
+
+    expect(events().map((e) => [e.name, e.path])).toEqual([['page_view', '/home']]);
+  });
+});
+
 describe('FunnelTracker queue and transport', () => {
   it('flushes every 5 s while the queue is non-empty', async () => {
     const { tracker, host, posts } = makeTracker();

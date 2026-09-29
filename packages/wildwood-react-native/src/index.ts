@@ -42,6 +42,23 @@ export { useConsent } from './hooks/useConsent';
 export type { UseConsentReturn } from './hooks/useConsent';
 export { useAttribution } from './hooks/useAttribution';
 export type { UseAttributionReturn } from './hooks/useAttribution';
+export { useAttributionScreen, trackScreenView } from './hooks/useAttributionScreen';
+export {
+  nativeAttributionOptions,
+  nativeDeviceClass,
+  subscribeAttributionFlush,
+  TABLET_MIN_SHORTEST_SIDE,
+} from './provider/nativeAttribution';
+// Registration funnel events, for hosts that build their own registration form.
+export {
+  useSignupFunnel,
+  signupErrorCategory,
+  signupErrorCategoryFromCode,
+  signupPlanKey,
+  trackSignupFunnel,
+  SIGNUP_ERROR_CATEGORIES,
+} from '@wildwood/react-shared';
+export type { SignupFunnel, SignupErrorCategory } from '@wildwood/react-shared';
 export { useFeedback } from './hooks/useFeedback';
 export type { UseFeedbackReturn } from './hooks/useFeedback';
 export { useAppTier } from './hooks/useAppTier';

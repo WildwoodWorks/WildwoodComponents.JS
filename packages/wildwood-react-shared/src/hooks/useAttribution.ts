@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { AttributionPayload, AttributionState, AttributionTouch } from '@wildwood/core';
+import type { AttributionPayload, AttributionState, AttributionTouch, FunnelTrackOptions } from '@wildwood/core';
 import { useWildwood } from './useWildwood.js';
 
 export interface UseAttributionReturn {
@@ -17,6 +17,15 @@ export interface UseAttributionReturn {
   getForRegistration: () => AttributionPayload | null;
   /** Drops the captured touches from memory and storage. */
   clear: () => void;
+  /**
+   * Tracks a funnel event (a standard client event or one of the app's custom names). Dropped when the
+   * app has funnel tracking off or the name is not allowed. Never throws.
+   */
+  track: (name: string, options?: FunnelTrackOptions) => void;
+  /** Tracks a cta_click with this label, for CTAs the `data-ww-cta` attribute cannot mark (native, canvas). */
+  trackCta: (label: string) => void;
+  /** Sends the queued funnel events now (before a hard navigation or when the app is backgrounded). */
+  flush: () => Promise<void>;
 }
 
 /**
@@ -40,6 +49,12 @@ export function useAttribution(): UseAttributionReturn {
   );
   const getForRegistration = useCallback(() => client.attribution.getForRegistration(), [client]);
   const clear = useCallback(() => client.attribution.clear(), [client]);
+  const track = useCallback(
+    (name: string, options?: FunnelTrackOptions) => client.attribution.track(name, options),
+    [client],
+  );
+  const trackCta = useCallback((label: string) => client.attribution.trackCta(label), [client]);
+  const flush = useCallback(() => client.attribution.flush(), [client]);
 
   return {
     state,
@@ -48,5 +63,8 @@ export function useAttribution(): UseAttributionReturn {
     captureUrl,
     getForRegistration,
     clear,
+    track,
+    trackCta,
+    flush,
   };
 }
