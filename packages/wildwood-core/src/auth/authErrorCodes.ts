@@ -6,6 +6,7 @@ export const AuthErrorCodes = {
   InvalidCredentials: 'InvalidCredentials',
   NotAuthorizedForApplication: 'NotAuthorizedForApplication',
   AccountDeactivated: 'AccountDeactivated',
+  TemporaryPasswordExpired: 'TemporaryPasswordExpired',
   UserExists: 'USER_EXISTS',
 } as const;
 
