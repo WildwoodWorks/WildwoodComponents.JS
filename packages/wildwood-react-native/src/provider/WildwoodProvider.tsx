@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Linking, Platform } from 'react-native';
+import { AppState, Dimensions, Linking, Platform } from 'react-native';
 import { createWildwoodClient, type AttributionPlatform, type ThemeName, type WildwoodConfig } from '@wildwood/core';
 import type { PaymentActionAdapter } from '@wildwood/react-shared';
 import { WildwoodContext } from './WildwoodContext';
 import { PaymentActionContext } from './PaymentActionContext';
 import { ThemeContext } from '../styles/ThemeContext';
+import { nativeAttributionOptions, subscribeAttributionFlush } from './nativeAttribution';
 import { resolveTheme, type WildwoodTheme } from '../styles/theme';
 
 export interface WildwoodProviderProps {
@@ -48,8 +49,9 @@ export function WildwoodProvider({ config, children, theme, paymentActionHandler
     const effectiveConfig: WildwoodConfig = {
       ...config,
       storage: config.storage ?? 'memory',
-      // Attribution payloads name the native platform unless the host chose one.
-      attribution: { platform: nativeAttributionPlatform(), ...config.attribution },
+      // Attribution payloads name the native platform, and funnel events and registrations a device
+      // class read from the screen, unless the host chose its own.
+      attribution: nativeAttributionOptions(config.attribution, nativeAttributionPlatform(), Dimensions),
     };
     return createWildwoodClient(effectiveConfig);
   }, [config.baseUrl, config.appId, config.storage]);
@@ -80,6 +82,8 @@ export function WildwoodProvider({ config, children, theme, paymentActionHandler
     } catch {
       /* Linking unavailable on this host */
     }
+    // Funnel events queued when the app is backgrounded go out then: a native host has no sendBeacon.
+    const unsubscribeFlush = subscribeAttributionFlush(AppState, client.attribution);
 
     client.session.initialize();
 
@@ -102,6 +106,7 @@ export function WildwoodProvider({ config, children, theme, paymentActionHandler
       cancelled = true;
       unsubscribe();
       linkSubscription?.remove();
+      unsubscribeFlush();
       client.attribution.dispose();
       client.session.dispose();
     };

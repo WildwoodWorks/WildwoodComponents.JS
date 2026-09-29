@@ -49,6 +49,7 @@ import {
 } from './signupMachine.js';
 import type { StepToken } from './stepTokens.js';
 import { resolveLabels, type RegistrationSubscriptionLabels } from './labels.js';
+import { signupErrorCategory, signupPlanKey, trackSignupFunnel } from './signupFunnel.js';
 import type {
   PricingBilling,
   RegistrationSubscriptionError,
@@ -452,6 +453,7 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
       if (details && !details.isValid) {
         const message = details.errorMessage ?? 'Invalid or expired registration token';
         latest.current.report({ code: 'registration_token_rejected', message });
+        trackSignupFunnel(client, 'signup_error', { label: 'invalid_token' });
         setTokenMessage(message);
         dispatch({ type: 'TOKEN_REJECTED', token: token as StepToken, message });
         return;
@@ -620,6 +622,8 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
         });
       } catch (err) {
         const failure = toFailure(err, 'signup_failed', 'Signup failed. Please try again.');
+        // The category only: never the visitor's input or the server's words.
+        trackSignupFunnel(client, 'signup_error', { label: signupErrorCategory(err) });
         latest.current.report(failure);
         dispatch({ type: 'ACCOUNT_FAILED', token, message: failure.message });
       }
@@ -663,17 +667,37 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
     latest.current.onEntitlementsChanged?.('signup');
   }, [state.step, notifyEntitlementsChanged]);
 
+  // ── Funnel events ───────────────────────────────────────────────────────────
+  // Core sends each of these once per session (per plan for the plan events) and drops them when the
+  // app has funnel tracking off, so re-entering a step never double counts it.
+
+  useEffect(() => {
+    if (state.step === 'register' && !alreadySignedIn) trackSignupFunnel(client, 'signup_view');
+  }, [state.step, alreadySignedIn, client]);
+
+  useEffect(() => {
+    if (state.step !== 'payment' || !plan || !requiresPayment(plan.tier, plan.pricing)) return;
+    const label = signupPlanKey(plan.pricing) ?? signupPlanKey(plan.tier);
+    trackSignupFunnel(client, 'checkout_start', label ? { label } : undefined);
+  }, [state.step, plan, client]);
+
   // ── What the view calls ─────────────────────────────────────────────────────
 
-  const submitForm = useCallback((data: RegistrationFormData) => {
-    setFormData(data);
-    setTokenMessage(null);
-    dispatch({ type: 'REGISTER_SUBMITTED', email: data.email });
-  }, []);
+  const submitForm = useCallback(
+    (data: RegistrationFormData) => {
+      trackSignupFunnel(client, 'signup_submit');
+      setFormData(data);
+      setTokenMessage(null);
+      dispatch({ type: 'REGISTER_SUBMITTED', email: data.email });
+    },
+    [client],
+  );
 
   const choosePlan = useCallback(
     (tier: AppTierModel) => {
       const pricing = resolvePriceOption(tier, { billing }) ?? null;
+      const planKey = signupPlanKey(tier);
+      trackSignupFunnel(client, 'plan_selected', planKey ? { label: planKey } : undefined);
       setChosenPlan({ tier, pricing });
       dispatch({
         type: 'PLAN_CHOSEN',
@@ -682,7 +706,7 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
         requiresPayment: requiresPayment(tier, pricing),
       });
     },
-    [billing],
+    [billing, client],
   );
 
   const togglePack = useCallback((addOnId: string) => {

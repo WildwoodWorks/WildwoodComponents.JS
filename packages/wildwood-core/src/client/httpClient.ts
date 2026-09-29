@@ -84,6 +84,11 @@ export class HttpClient {
     return this.request<T>('DELETE', path, undefined, options);
   }
 
+  /** The absolute URL a request to `path` goes to (for transports outside this client, e.g. sendBeacon). */
+  resolveUrl(path: string): string {
+    return this.joinUrl(this.config.baseUrl, path);
+  }
+
   private joinUrl(base: string, path: string): string {
     const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;

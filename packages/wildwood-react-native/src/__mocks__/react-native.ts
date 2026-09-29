@@ -40,6 +40,11 @@ export const Linking = {
   addEventListener: (_type: string, _handler: (event: { url: string }) => void) => ({ remove: () => {} }),
 };
 
+export const AppState = {
+  currentState: 'active' as string,
+  addEventListener: (_type: string, _handler: (state: string) => void) => ({ remove: () => {} }),
+};
+
 export const Dimensions = {
   get: () => ({ width: 375, height: 812, scale: 2, fontScale: 1 }),
 };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import type { AuthenticationResponse, AuthenticationConfiguration, RegistrationFormData } from '@wildwood/core';
+import { useSignupFunnel } from '@wildwood/react-shared';
 import { useWildwood } from '../../hooks/useWildwood.js';
 
 export interface TokenRegistrationComponentProps {
@@ -55,6 +56,9 @@ export function TokenRegistrationComponent({
   className,
 }: TokenRegistrationComponentProps) {
   const client = useWildwood();
+  // Registration funnel events (signup_view on mount, then start / submit / error). Core gates them on
+  // the app's funnel settings and never lets them throw.
+  const funnel = useSignupFunnel();
 
   // Step management
   const tokenIsRequired = requireToken && !allowOpenRegistration;
@@ -141,13 +145,15 @@ export function TokenRegistrationComponent({
         setCurrentStep('account');
       } else {
         setTokenError('Invalid or expired registration token');
+        funnel.error('invalid_token');
       }
-    } catch {
+    } catch (err) {
       setTokenError('Failed to validate token. Please try again.');
+      funnel.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [token, client.auth]);
+  }, [token, client.auth, funnel]);
 
   // Handle token input Enter key
   const handleTokenKeyPress = (e: React.KeyboardEvent) => {
@@ -169,13 +175,15 @@ export function TokenRegistrationComponent({
         setTokenValidated(true);
       } else {
         setTokenError('Invalid or expired registration token');
+        funnel.error('invalid_token');
       }
-    } catch {
+    } catch (err) {
       setTokenError('Failed to validate token');
+      funnel.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [token, client.auth]);
+  }, [token, client.auth, funnel]);
 
   const clearToken = () => {
     setToken('');
@@ -213,21 +221,25 @@ export function TokenRegistrationComponent({
     async (e: FormEvent) => {
       e.preventDefault();
       setError('');
+      funnel.submit();
 
       // Validation
       if (password !== confirmPassword) {
         setError('Passwords do not match');
+        funnel.error('validation');
         return;
       }
 
       const pwdError = validatePassword(password);
       if (pwdError) {
         setError(pwdError);
+        funnel.error('password_policy');
         return;
       }
 
       if (useToken && !token.trim()) {
         setError('Registration token is required');
+        funnel.error('validation');
         return;
       }
 
@@ -244,16 +256,19 @@ export function TokenRegistrationComponent({
 
         if (!validation.usernameAvailable) {
           setError('This username is already taken. Please choose a different one.');
+          funnel.error('username_taken');
           setIsLoading(false);
           return;
         }
         if (!validation.emailAvailable) {
           setError('An account with this email address already exists.');
+          funnel.error('email_taken');
           setIsLoading(false);
           return;
         }
         if (!validation.passwordValid && validation.passwordErrors?.length > 0) {
           setError(validation.passwordErrors.join(' '));
+          funnel.error('password_policy');
           setIsLoading(false);
           return;
         }
@@ -347,6 +362,7 @@ export function TokenRegistrationComponent({
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Registration failed';
         setError(msg);
+        funnel.error(err);
         onRegistrationError?.(msg);
       } finally {
         setIsLoading(false);
@@ -371,6 +387,7 @@ export function TokenRegistrationComponent({
       onRegistrationSuccess,
       onRegistrationError,
       onAutoLoginSuccess,
+      funnel,
     ],
   );
 
@@ -383,7 +400,14 @@ export function TokenRegistrationComponent({
   };
 
   return (
-    <div className={`ww-token-registration ${className ?? ''}`}>
+    <div
+      className={`ww-token-registration ${className ?? ''}`}
+      onFocusCapture={(e) => {
+        // signup_start: the first focus on any of the form's fields (buttons do not count).
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') funnel.start();
+      }}
+    >
       {/* Step Indicator */}
       {!hideStepIndicator && currentStep !== 'success' && (
         <div className="ww-step-indicator">

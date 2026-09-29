@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AuthenticationResponse, AuthenticationConfiguration, RegistrationFormData } from '@wildwood/core';
+import { useSignupFunnel } from '@wildwood/react-shared';
 import { useWildwood } from '../hooks/useWildwood';
 // The form is driven by automated suites that run against every stack, so its inputs are located by
 // the web's `data-ww-field` names rather than by their placeholder copy - copy is translated, and a
@@ -70,6 +71,9 @@ export function TokenRegistrationComponent({
   style,
 }: TokenRegistrationComponentProps) {
   const client = useWildwood();
+  // Registration funnel events (signup_view on mount, then start / submit / error). Core gates them on
+  // the app's funnel settings and never lets them throw.
+  const funnel = useSignupFunnel();
 
   // Step management
   const tokenIsRequired = requireToken && !allowOpenRegistration;
@@ -157,13 +161,15 @@ export function TokenRegistrationComponent({
         setCurrentStep('account');
       } else {
         setTokenError('Invalid or expired registration token');
+        funnel.error('invalid_token');
       }
-    } catch {
+    } catch (err) {
       setTokenError('Failed to validate token. Please try again.');
+      funnel.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [token, client.auth]);
+  }, [token, client.auth, funnel]);
 
   // Validate optional token
   const handleValidateOptionalToken = useCallback(async () => {
@@ -177,13 +183,15 @@ export function TokenRegistrationComponent({
         setTokenValidated(true);
       } else {
         setTokenError('Invalid or expired registration token');
+        funnel.error('invalid_token');
       }
-    } catch {
+    } catch (err) {
       setTokenError('Failed to validate token');
+      funnel.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [token, client.auth]);
+  }, [token, client.auth, funnel]);
 
   const clearToken = () => {
     setToken('');
@@ -219,37 +227,45 @@ export function TokenRegistrationComponent({
   // Submit registration
   const handleSubmit = useCallback(async () => {
     setError('');
+    funnel.submit();
 
     // Validation
     if (!firstName.trim()) {
       setError('First name is required');
+      funnel.error('validation');
       return;
     }
     if (!lastName.trim()) {
       setError('Last name is required');
+      funnel.error('validation');
       return;
     }
     if (!email.trim()) {
       setError('Email is required');
+      funnel.error('validation');
       return;
     }
     if (!password.trim()) {
       setError('Password is required');
+      funnel.error('validation');
       return;
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      funnel.error('validation');
       return;
     }
 
     const pwdError = validatePassword(password);
     if (pwdError) {
       setError(pwdError);
+      funnel.error('password_policy');
       return;
     }
 
     if (useToken && !token.trim()) {
       setError('Registration token is required');
+      funnel.error('validation');
       return;
     }
 
@@ -266,16 +282,19 @@ export function TokenRegistrationComponent({
 
       if (!validation.usernameAvailable) {
         setError('This username is already taken. Please choose a different one.');
+        funnel.error('username_taken');
         setIsLoading(false);
         return;
       }
       if (!validation.emailAvailable) {
         setError('An account with this email address already exists.');
+        funnel.error('email_taken');
         setIsLoading(false);
         return;
       }
       if (!validation.passwordValid && validation.passwordErrors?.length > 0) {
         setError(validation.passwordErrors.join(' '));
+        funnel.error('password_policy');
         setIsLoading(false);
         return;
       }
@@ -364,6 +383,7 @@ export function TokenRegistrationComponent({
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Registration failed';
       setError(msg);
+      funnel.error(err);
       onRegistrationError?.(msg);
     } finally {
       setIsLoading(false);
@@ -386,6 +406,7 @@ export function TokenRegistrationComponent({
     onRegistrationSuccess,
     onRegistrationError,
     onAutoLoginSuccess,
+    funnel,
   ]);
 
   const resetForm = () => {
@@ -462,6 +483,7 @@ export function TokenRegistrationComponent({
                 placements, and the two steps they sit in are mutually exclusive, so only ever one
                 of them is mounted. */}
             <TextInput
+              onFocus={funnel.start}
               testID={wwFieldTestId('registrationToken')}
               style={[styles.input, tokenError ? styles.inputError : undefined]}
               value={token}
@@ -514,6 +536,7 @@ export function TokenRegistrationComponent({
                 </Text>
                 <View style={styles.optionalTokenRow}>
                   <TextInput
+                    onFocus={funnel.start}
                     testID={wwFieldTestId('registrationToken')}
                     style={[
                       styles.input,
@@ -575,6 +598,7 @@ export function TokenRegistrationComponent({
                   First Name <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
+                  onFocus={funnel.start}
                   testID={wwFieldTestId('firstName')}
                   style={styles.input}
                   value={firstName}
@@ -593,6 +617,7 @@ export function TokenRegistrationComponent({
                   Last Name <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
+                  onFocus={funnel.start}
                   testID={wwFieldTestId('lastName')}
                   style={styles.input}
                   value={lastName}
@@ -611,6 +636,7 @@ export function TokenRegistrationComponent({
             {/* Username */}
             <Text style={styles.label}>Username</Text>
             <TextInput
+              onFocus={funnel.start}
               testID={wwFieldTestId('username')}
               style={styles.input}
               value={username}
@@ -630,6 +656,7 @@ export function TokenRegistrationComponent({
               Email Address <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
+              onFocus={funnel.start}
               testID={wwFieldTestId('email')}
               style={styles.input}
               value={email}
@@ -650,6 +677,7 @@ export function TokenRegistrationComponent({
             </Text>
             <View style={styles.passwordRow}>
               <TextInput
+                onFocus={funnel.start}
                 testID={wwFieldTestId('password')}
                 style={[styles.input, styles.passwordInput]}
                 value={password}
@@ -674,6 +702,7 @@ export function TokenRegistrationComponent({
             </Text>
             <View style={styles.passwordRow}>
               <TextInput
+                onFocus={funnel.start}
                 testID={wwFieldTestId('confirmPassword')}
                 style={[styles.input, styles.passwordInput]}
                 value={confirmPassword}

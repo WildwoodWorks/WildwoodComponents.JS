@@ -35,6 +35,15 @@ describe('@wildwood/react exports', () => {
   it('exports useFeedback', () => {
     expect(WildwoodReact.useFeedback).toBeDefined();
   });
+  it('exports the registration funnel helpers', () => {
+    expect(typeof WildwoodReact.useSignupFunnel).toBe('function');
+    expect(typeof WildwoodReact.signupErrorCategory).toBe('function');
+    expect(typeof WildwoodReact.signupErrorCategoryFromCode).toBe('function');
+    expect(typeof WildwoodReact.signupPlanKey).toBe('function');
+    expect(typeof WildwoodReact.trackSignupFunnel).toBe('function');
+    expect(WildwoodReact.SIGNUP_ERROR_CATEGORIES).toContain('email_taken');
+  });
+
   it('exports useAttribution', () => {
     expect(WildwoodReact.useAttribution).toBeDefined();
   });

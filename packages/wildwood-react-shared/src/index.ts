@@ -196,6 +196,15 @@ export type {
 export type { PaymentActionAdapter, PaymentActionOutcome } from './registrationSubscription/paymentActions.js';
 
 // The drivers: the half of each flow that touches the world, shared by every React stack.
+export {
+  useSignupFunnel,
+  signupErrorCategory,
+  signupErrorCategoryFromCode,
+  signupPlanKey,
+  trackSignupFunnel,
+  SIGNUP_ERROR_CATEGORIES,
+} from './registrationSubscription/signupFunnel.js';
+export type { SignupFunnel, SignupErrorCategory } from './registrationSubscription/signupFunnel.js';
 export { useSignupFlow } from './registrationSubscription/useSignupFlow.js';
 export type { SignupFlow, SignupFlowOptions, ResolvedPlan } from './registrationSubscription/useSignupFlow.js';
 export { usePlanChangeFlow, COMPLETE_RETRY_DELAY_MS } from './registrationSubscription/usePlanChangeFlow.js';
