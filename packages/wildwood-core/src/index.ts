@@ -253,9 +253,12 @@ export type {
 export { AttributionService } from './attribution/attributionService.js';
 export {
   ATTRIBUTION_STORAGE_KEY,
+  ATTRIBUTION_SESSION_STORAGE_KEY,
   ATTRIBUTION_SCHEMA_VERSION,
   UTM_PARAMS,
   CLICK_ID_PARAMS,
+  FUNNEL_CLIENT_EVENTS,
+  FUNNEL_SERVER_ONLY_EVENTS,
 } from './attribution/types.js';
 export type {
   AttributionTouch,
@@ -273,6 +276,12 @@ export type {
   AttributionClaimReason,
   AttributionClaimResponse,
   AttributionRegistrationSource,
+  AttributionSessionMirror,
+  AttributionDeviceClass,
+  AttributionEventsRequest,
+  FunnelEvent,
+  FunnelTrackOptions,
+  FunnelClientEventName,
 } from './attribution/types.js';
 export {
   CURRENCY_SYMBOLS,

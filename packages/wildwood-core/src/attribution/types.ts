@@ -12,6 +12,32 @@ export const ATTRIBUTION_STORAGE_KEY = 'ww_attribution';
 /** Schema version of the persisted blob and of the registration payload. */
 export const ATTRIBUTION_SCHEMA_VERSION = 1;
 
+/**
+ * sessionStorage key of the pre-consent mirror (the touch, visitor key and session key), written only
+ * while the visitor is undecided and the app turns `sessionStoragePersistenceBeforeConsent` on.
+ */
+export const ATTRIBUTION_SESSION_STORAGE_KEY = 'ww_attribution_session';
+
+/** Funnel events a client may send. Configured custom names are allowed on top of these. */
+export const FUNNEL_CLIENT_EVENTS = [
+  'page_view',
+  'engaged',
+  'scroll_depth',
+  'time_on_page',
+  'cta_click',
+  'signup_view',
+  'signup_start',
+  'signup_submit',
+  'signup_error',
+  'plan_selected',
+  'checkout_start',
+] as const;
+
+/** Funnel events only the server records. A client request carrying one is refused, so they are dropped. */
+export const FUNNEL_SERVER_ONLY_EVENTS = ['signup_complete', 'trial_started', 'purchase'] as const;
+
+export type FunnelClientEventName = (typeof FUNNEL_CLIENT_EVENTS)[number];
+
 /** The standard UTM parameters, read from the landing URL. */
 export const UTM_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
 
@@ -70,6 +96,23 @@ export interface PublicAttributionConfig {
   captureReferrer: boolean;
   extraAllowedParamNames: string[];
   beaconEnabled: boolean;
+  /** Funnel event tracking. Always false when `isEnabled` is false. */
+  funnelTrackingEnabled: boolean;
+  /** Auto-track scroll_depth milestones (25/50/75/100) per page. */
+  trackScrollDepth: boolean;
+  /** Auto-track `engaged` (once per session) and `time_on_page`. */
+  trackEngagement: boolean;
+  /** Auto-track clicks on elements carrying `data-ww-cta` as cta_click. */
+  autoTrackCtaClicks: boolean;
+  /** Accept the signup_view / signup_start / signup_submit / signup_error steps. */
+  trackSignupSteps: boolean;
+  /** Extra event names (^[a-z0-9_]{1,40}$) the app allows on top of the standard client events. */
+  customEventNames: string[];
+  /**
+   * Before consent, mirror the touch, visitor key and session key to sessionStorage so a reload in the
+   * same tab keeps them; the mirror moves to localStorage once consent is granted.
+   */
+  sessionStoragePersistenceBeforeConsent: boolean;
 }
 
 /** The persisted blob under {@link ATTRIBUTION_STORAGE_KEY}. */
@@ -79,7 +122,27 @@ export interface StoredAttribution {
   first: AttributionTouch | null;
   last: AttributionTouch | null;
   updatedAt: string;
+  /** Funnel session key; continues while the last tracked activity is under 30 minutes old. */
+  sessionKey?: string | null;
+  /** Epoch milliseconds of the session's last tracked activity. */
+  lastActivityAt?: number | null;
+  /** Sessions this visitor has started, counting the current one. */
+  sessionCount?: number | null;
 }
+
+/** The pre-consent sessionStorage mirror under {@link ATTRIBUTION_SESSION_STORAGE_KEY}. */
+export interface AttributionSessionMirror {
+  v: 1;
+  visitorKey: string;
+  sessionKey: string | null;
+  lastActivityAt: number | null;
+  sessionCount: number | null;
+  first: AttributionTouch | null;
+  last: AttributionTouch | null;
+  updatedAt: string;
+}
+
+export type AttributionDeviceClass = 'mobile' | 'tablet' | 'desktop';
 
 /** The service's current state. A new object is produced on every change, so it is safe as a snapshot. */
 export interface AttributionState {
@@ -100,6 +163,10 @@ export interface AttributionPayload {
   lastTouch: AttributionTouch | null;
   platform: AttributionPlatform;
   sdk: AttributionSdk;
+  /** The funnel session the registration happened in, joining it to the session's funnel events. */
+  sessionKey?: string | null;
+  deviceClass?: AttributionDeviceClass | null;
+  sessionCount?: number | null;
 }
 
 /** Posted to POST api/attribution/touch?appId= (the anonymous landing beacon). */
@@ -108,6 +175,38 @@ export interface AttributionTouchRequest {
   visitorKey: string;
   touch: AttributionTouch;
   platform: AttributionPlatform;
+}
+
+/** Options for a funnel event. */
+export interface FunnelTrackOptions {
+  /** CTA name, plan, error category... Trimmed and capped at 100 characters. */
+  label?: string | null;
+  value?: number | null;
+}
+
+/** One funnel event inside {@link AttributionEventsRequest}. */
+export interface FunnelEvent {
+  name: string;
+  label?: string;
+  value?: number;
+  path?: string;
+  /** ISO-8601 time the event happened on the client. */
+  clientTimestamp?: string;
+}
+
+/**
+ * Posted to POST api/attribution/events?appId= (anonymous; text/plain or JSON; at most 25 events).
+ * `touch` is the visitor's current last touch, or null for a direct visit.
+ */
+export interface AttributionEventsRequest {
+  appId: string;
+  visitorKey: string;
+  sessionKey: string;
+  isReturning: boolean;
+  deviceClass: AttributionDeviceClass;
+  platform: AttributionPlatform;
+  touch: AttributionTouch | null;
+  events: FunnelEvent[];
 }
 
 /** Posted to POST api/attribution/claim?appId= (authenticated) after a provider signup. */
@@ -146,6 +245,11 @@ export interface AttributionServiceOptions {
   defaultWindowDays?: number;
   /** Platform reported with payloads and beacons. Defaults to "web" when a DOM exists, else "unknown". */
   platform?: AttributionPlatform;
+  /**
+   * Device class reported with funnel events and registration. Defaults to a viewport/pointer reading
+   * on the web; a native host (React Native) supplies its own from the screen dimensions.
+   */
+  getDeviceClass?: () => AttributionDeviceClass;
 }
 
 export type AttributionChangeListener = (state: AttributionState) => void;

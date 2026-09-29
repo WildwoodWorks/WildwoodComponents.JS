@@ -7,7 +7,13 @@
 // cannot be trusted is dropped rather than cleaned, and nothing here throws.
 
 import type { ConsentCategory } from '../consent/types.js';
-import { CLICK_ID_PARAMS, type AttributionTouch, type PublicAttributionConfig } from './types.js';
+import {
+  CLICK_ID_PARAMS,
+  FUNNEL_CLIENT_EVENTS,
+  FUNNEL_SERVER_ONLY_EVENTS,
+  type AttributionTouch,
+  type PublicAttributionConfig,
+} from './types.js';
 
 export const SOURCE_MEDIUM_MAX_LENGTH = 100;
 export const CAMPAIGN_TERM_CONTENT_MAX_LENGTH = 200;
@@ -15,6 +21,7 @@ export const HOST_MAX_LENGTH = 253;
 export const PATH_MAX_LENGTH = 500;
 export const EXTRA_PARAMS_JSON_MAX_LENGTH = 2000;
 export const MAX_EXTRA_PARAM_NAMES = 10;
+export const MAX_CUSTOM_EVENT_NAMES = 50;
 export const MIN_WINDOW_DAYS = 1;
 export const MAX_WINDOW_DAYS = 365;
 
@@ -25,6 +32,8 @@ const CONTROL_OR_FORMAT = /[\p{Cc}\p{Cf}]/u;
 const PARAM_NAME = /^[a-z0-9_]{1,32}$/;
 const CLICK_ID_VALUE = /^[A-Za-z0-9._~-]{1,200}$/;
 const VISITOR_KEY = /^[A-Za-z0-9_-]{8,100}$/;
+/** A funnel event name (standard or custom), and the signup_error category label. */
+export const FUNNEL_EVENT_NAME = /^[a-z0-9_]{1,40}$/;
 
 const CONSENT_CATEGORIES: readonly ConsentCategory[] = [
   'StrictlyNecessary',
@@ -181,7 +190,29 @@ export function normalizeConfig(
           .slice(0, MAX_EXTRA_PARAM_NAMES)
       : [],
     beaconEnabled: isEnabled && d.beaconEnabled === true,
+    // Funnel tracking is opt-in: every flag defaults off when the server does not send it.
+    funnelTrackingEnabled: isEnabled && d.funnelTrackingEnabled === true,
+    trackScrollDepth: d.trackScrollDepth === true,
+    trackEngagement: d.trackEngagement === true,
+    autoTrackCtaClicks: d.autoTrackCtaClicks === true,
+    trackSignupSteps: d.trackSignupSteps === true,
+    customEventNames: normalizeCustomEventNames(d.customEventNames),
+    sessionStoragePersistenceBeforeConsent: d.sessionStoragePersistenceBeforeConsent === true,
   };
+}
+
+/** Custom names that are well-formed, not a standard client event and not a server-only one. */
+function normalizeCustomEventNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const reserved = new Set<string>([...FUNNEL_CLIENT_EVENTS, ...FUNNEL_SERVER_ONLY_EVENTS]);
+  const names = new Set<string>();
+  for (const raw of value) {
+    if (typeof raw !== 'string') continue;
+    const name = raw.trim().toLowerCase();
+    if (FUNNEL_EVENT_NAME.test(name) && !reserved.has(name)) names.add(name);
+    if (names.size >= MAX_CUSTOM_EVENT_NAMES) break;
+  }
+  return [...names];
 }
 
 /** A stored touch, rebuilt field by field; null when it is not a touch or its capture time is unreadable. */
