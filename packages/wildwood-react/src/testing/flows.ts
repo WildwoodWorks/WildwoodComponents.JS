@@ -229,7 +229,11 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
       // Before the click, not after a hang: where Accept is gated on checkboxes, an unticked gate
       // leaves it `disabled` and `click()` waits for actionability until the test's own timeout.
       await tickDisclaimerGate(scope);
-      await accept.click();
+      // Bounded: an in-flight accept leaves the button disabled and then REMOVES it when the flow
+      // moves on, and an unbounded click() re-resolves that vanished locator until the test's own
+      // timeout. A click that could not land is not an error here — the loop re-reads the panel,
+      // and a button that really is stuck disabled still fails through the click budget below.
+      await accept.click({ timeout: 5_000 }).catch(() => undefined);
       await sleep(400);
       if (isDone && (await isDone())) return;
 
