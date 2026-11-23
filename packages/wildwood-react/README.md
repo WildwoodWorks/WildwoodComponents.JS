@@ -462,8 +462,8 @@ sitting next to *this* package. Playwright changes those types between minors �
 minor gets `Argument of type 'Page' is not assignable to parameter of type 'Page'`, naming two
 identical-looking types from two paths.
 
-So: **use the same exact Playwright version this package pins.** A caret range will not do it —
-`^1.61.1` silently resolves to 1.63 and breaks the same way. If you cannot match the version, copy
+So: **use the same exact Playwright version this package pins** (currently `1.65.1`). A caret range will not do it —
+`^1.65.1` silently resolves to the next minor and breaks the same way. If you cannot match the version, copy
 the helpers rather than importing them, and say in a comment that you did.
 
 Four things these encode that are easy to get wrong, and that only show up against a deployed

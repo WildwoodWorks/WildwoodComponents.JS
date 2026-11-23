@@ -476,7 +476,7 @@ export function AIChatComponent({
                 <Text style={[styles.assistantText, { marginLeft: 8 }]}>Thinking...</Text>
               </View>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

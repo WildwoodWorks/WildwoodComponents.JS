@@ -17,18 +17,25 @@
       "import": "./dist/testing/index.js",
       "require": "./dist/testing/index.cjs"
     },
-    "./styles": "./dist/wildwood-themes.css",
+    "./styles": {
+      "types": "./styles.d.ts",
+      "default": "./dist/wildwood-themes.css"
+    },
     "./dist/wildwood-themes.css": "./dist/wildwood-themes.css"
   },
   "typesVersions": {
     "*": {
       "testing": [
         "./dist/testing/index.d.ts"
+      ],
+      "styles": [
+        "./styles.d.ts"
       ]
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "styles.d.ts"
   ],
   "scripts": {
     "build": "tsup",
@@ -41,24 +48,24 @@
     "build-storybook": "storybook build"
   },
   "devDependencies": {
-    "@playwright/test": "1.61.1",
-    "@storybook/addon-docs": "^10.2.15",
-    "@storybook/react-vite": "^10.2.15",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.2.3",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@playwright/test": "1.65.1",
+    "@storybook/addon-docs": "^10.6.8",
+    "@storybook/react-vite": "^10.6.8",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "@wildwood/react-shared": "workspace:*",
-    "jsdom": "^28.1.0",
-    "react": "^19.0.0",
-    "storybook": "^10.2.15",
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.0.0"
+    "jsdom": "^31.0.1",
+    "react": "^19.3.1",
+    "storybook": "^10.6.8",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
   },
   "peerDependencies": {
-    "@playwright/test": "1.61.1",
+    "@playwright/test": "1.65.1",
     "@wildwood/core": "workspace:*",
     "@wildwood/react-shared": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"

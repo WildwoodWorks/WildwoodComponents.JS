@@ -25,12 +25,12 @@
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^25.3.5",
-    "@vitest/coverage-v8": "^4.0.18",
-    "msw": "^2.12.10",
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.0.0"
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.1",
+    "msw": "^3.0.7",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
   },
   "peerDependencies": {
     "@microsoft/signalr": "^8.0.0 || ^9.0.0 || ^10.0.0"

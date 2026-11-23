@@ -20,7 +20,11 @@ jobs:
       matrix:
         # Node 18 dropped July 2026: EOL since April 2025, and the jsdom 28 test
         # chain (html-encoding-sniffer → ESM-only @exodus/bytes) can't load on it.
-        node-version: [20, 22]
+        # Node 20 dropped November 2026: EOL since April 2026, and the test
+        # toolchain no longer runs on it (vitest 5 and msw 3 need >= 22.12,
+        # jsdom 31 needs >= 22.22.2). Branch protection's required checks name
+        # the matrix values, so they move with this list.
+        node-version: [22, 24]
 
     steps:
       - uses: actions/checkout@v5
