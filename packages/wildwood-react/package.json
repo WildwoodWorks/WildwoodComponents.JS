@@ -44,18 +44,18 @@
     "@playwright/test": "1.65.1",
     "@storybook/addon-docs": "^10.6.8",
     "@storybook/react-vite": "^10.6.8",
-    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/jest-dom": "^8.0.0",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/coverage-v8": "^5.1.1",
     "@wildwood/react-shared": "workspace:*",
-    "jsdom": "^28.1.0",
+    "jsdom": "^31.0.1",
     "react": "^19.3.1",
     "storybook": "^10.6.8",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^5.1.1"
   },
   "peerDependencies": {
     "@playwright/test": "1.65.1",
