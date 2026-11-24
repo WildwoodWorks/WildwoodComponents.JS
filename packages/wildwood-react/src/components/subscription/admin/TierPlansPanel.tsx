@@ -1,7 +1,7 @@
 // TierPlansPanel - ported from WildwoodComponents.Blazor Subscription/Admin/TierPlansPanel.razor
 
 import { useState, useCallback } from 'react';
-import type { AppTierModel } from '@wildwood/core';
+import { isTierChangeAllowed, type AppTierModel } from '@wildwood/core';
 import type { TierSelectedEventArgs } from '@wildwood/react-shared';
 import { TierCard } from '../../tier/TierCard.js';
 import { getSelectedPricing, hasAnnualPricing } from '../../tier/tierUtils.js';
@@ -35,6 +35,9 @@ export function TierPlansPanel({
   const [processingTierId, setProcessingTierId] = useState<string | null>(null);
 
   const hasAnnual = hasAnnualPricing(tiers);
+  const currentTier = currentTierId
+    ? tiers.find((t) => t.id?.toLowerCase() === currentTierId.toLowerCase())
+    : undefined;
 
   const handleSelect = useCallback(
     async (tier: AppTierModel) => {
@@ -99,6 +102,8 @@ export function TierPlansPanel({
         {tiers.map((tier) => {
           const isCurrent = currentTierId?.toLowerCase() === tier.id?.toLowerCase();
           const pricing = getSelectedPricing(tier, billingAnnual);
+          // The server refuses a move the current plan does not allow, admins included; offer none.
+          const unavailable = !isCurrent && !isTierChangeAllowed(currentTier, tier);
 
           return (
             <TierCard
@@ -111,6 +116,7 @@ export function TierPlansPanel({
               enterpriseContactUrl={enterpriseContactUrl}
               disabled={processingTierId === tier.id}
               processingText={processingTierId === tier.id ? 'Processing...' : undefined}
+              unavailable={unavailable}
               onSelect={handleSelect}
             />
           );

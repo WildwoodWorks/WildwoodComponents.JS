@@ -93,3 +93,18 @@ export function computeAnnualDiscount(tier: AppTierModel): number | null {
   }
   return null;
 }
+
+/**
+ * Whether a subscriber on `current` may move to `target`, by the same rule the server applies in
+ * `ChangeTierAsync`: a move to a higher `displayOrder` is an upgrade and needs the CURRENT tier's
+ * `allowUpgrades`; any other move is a downgrade and needs its `allowDowngrades`. The server applies
+ * it to admins too, so a grid that offers a switch this refuses offers a button that can only fail.
+ *
+ * No current tier (a first subscription) is always allowed, and so is staying where you are.
+ */
+export function isTierChangeAllowed(current: AppTierModel | null | undefined, target: AppTierModel): boolean {
+  if (!current) return true;
+  if (current.id?.toLowerCase() === target.id?.toLowerCase()) return true;
+  const isUpgrade = target.displayOrder > current.displayOrder;
+  return isUpgrade ? current.allowUpgrades !== false : current.allowDowngrades !== false;
+}

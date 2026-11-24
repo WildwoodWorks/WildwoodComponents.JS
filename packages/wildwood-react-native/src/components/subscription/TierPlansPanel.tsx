@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AppTierModel } from '@wildwood/core';
-import { hasAnnualPricing, getSelectedPricing } from '@wildwood/core';
+import { hasAnnualPricing, getSelectedPricing, isTierChangeAllowed } from '@wildwood/core';
 import { TierCard } from '../tier/TierCard';
 import type { TierSelectedEventArgs } from '@wildwood/react-shared';
 
@@ -35,6 +35,9 @@ export function TierPlansPanel({
   const [processingTierId, setProcessingTierId] = useState<string | null>(null);
 
   const hasAnnual = hasAnnualPricing(tiers);
+  const currentTier = currentTierId
+    ? tiers.find((t) => t.id?.toLowerCase() === currentTierId.toLowerCase())
+    : undefined;
 
   const handleSelect = useCallback(
     async (tier: AppTierModel) => {
@@ -98,6 +101,8 @@ export function TierPlansPanel({
         {tiers.map((tier) => {
           const isCurrent = currentTierId?.toLowerCase() === tier.id?.toLowerCase();
           const pricing = getSelectedPricing(tier, billingAnnual);
+          // The server refuses a move the current plan does not allow, admins included; offer none.
+          const unavailable = !isCurrent && !isTierChangeAllowed(currentTier, tier);
 
           return (
             <TierCard
@@ -110,6 +115,7 @@ export function TierPlansPanel({
               enterpriseContactUrl={enterpriseContactUrl}
               disabled={processingTierId === tier.id}
               processingText={processingTierId === tier.id ? 'Processing...' : undefined}
+              unavailable={unavailable}
               onSelect={handleSelect}
             />
           );

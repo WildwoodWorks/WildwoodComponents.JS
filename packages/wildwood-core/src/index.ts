@@ -294,6 +294,7 @@ export {
   shouldShowTierStatusBadge,
   getSelectedPricing,
   computeAnnualDiscount,
+  isTierChangeAllowed,
 } from './features/tierUtils.js';
 export type {
   DisclaimerAcceptanceResult,
