@@ -149,6 +149,8 @@ export function signupClient(options: SignupClientOptions = {}) {
   let userId: string | null = signedIn ? 'existing-user' : null;
   Object.defineProperty(client.session, 'isAuthenticated', { get: () => userId != null, configurable: true });
   Object.defineProperty(client.session, 'userId', { get: () => userId, configurable: true });
+  // Restored already, as it is once the provider has initialized it; the view waits for this.
+  Object.defineProperty(client.session, 'isInitialized', { get: () => true, configurable: true });
   const sessionLogin = vi.spyOn(client.session, 'login').mockImplementation(async (response) => {
     userId = response.userId;
     return true;
