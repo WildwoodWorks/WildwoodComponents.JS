@@ -134,6 +134,28 @@ describe('signup view - the way in', () => {
     expect(onAlreadySignedIn).toHaveBeenCalledTimes(1);
   });
 
+  it('waits for a cold session to restore before deciding the visitor is signed out', async () => {
+    // A full page load: the session is still reading storage when the view first renders, so it
+    // reads signed-out. Latching that showed a signed-in visitor the form for a second account.
+    const onAlreadySignedIn = vi.fn();
+    const stubs = signupClient({ signedIn: false });
+    let restored = false;
+    Object.defineProperty(stubs.client.session, 'isInitialized', { get: () => restored, configurable: true });
+    renderSignup({ onAlreadySignedIn }, stubs);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      stubs.session.setUserId('existing-user');
+      restored = true;
+      stubs.client.events.emit('sessionInitialized', true);
+    });
+
+    await waitFor(() => expect(onAlreadySignedIn).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Create Your Account')).toBeNull();
+  });
+
   it('backs out through the host', async () => {
     const onCancel = vi.fn();
     renderSignup({ onCancel });

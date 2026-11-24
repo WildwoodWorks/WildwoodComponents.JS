@@ -363,10 +363,22 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
 
   // ── Loading: the mode, the catalog, and what the link already chose ──────────
 
+  // The session restores itself from storage asynchronously. Until it has, `isAuthenticated` reads
+  // false for a visitor who IS signed in, so latching it on the first render showed a cold-loaded
+  // signed-in visitor the form for a second account. Wait for the session before latching.
+  const [sessionReady, setSessionReady] = useState(client.session.isInitialized);
+  useEffect(() => {
+    if (sessionReady) return;
+    const unsubscribe = client.events.on('sessionInitialized', () => setSessionReady(true));
+    // It may have finished between the render and this subscription.
+    if (client.session.isInitialized) setSessionReady(true);
+    return unsubscribe;
+  }, [client, sessionReady]);
+
   useEffect(() => {
     // Latched on the first pass only: a login later in this very flow must not look like "you were
     // already signed in".
-    dispatch({ type: 'INIT', signedIn: client.session.isAuthenticated });
+    if (sessionReady) dispatch({ type: 'INIT', signedIn: client.session.isAuthenticated });
     if (state.step !== 'loading') return;
 
     if (!modeLoading && !state.modeReady) dispatch({ type: 'MODE_LOADED', mode });
@@ -385,7 +397,19 @@ export function useSignupFlow(props: SignupFlowOptions): SignupFlow {
     } else if (catalogError && !catalogLoading) {
       dispatch({ type: 'LOAD_FAILED', message: catalogError });
     }
-  }, [state, client, mode, modeLoading, catalog, catalogError, catalogLoading, names, presetPlan, presetPackIds]);
+  }, [
+    state,
+    client,
+    sessionReady,
+    mode,
+    modeLoading,
+    catalog,
+    catalogError,
+    catalogLoading,
+    names,
+    presetPlan,
+    presetPackIds,
+  ]);
 
   // The plan the machine is carrying, named from the catalog.
   const plan = useMemo<ResolvedPlan | null>(() => {

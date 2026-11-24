@@ -133,6 +133,18 @@ async function tickDisclaimerGate(scope: Locator): Promise<void> {
   }
 }
 
+/** One retry click; long enough for a slow paint, short enough to re-check the flow. */
+const CLICK_TIMEOUT_MS = 10_000;
+/**
+ * WildwoodAPI's per-IP auth limiter refills over a 60s window, so the waits below are sized to
+ * outlast one window with margin: 4 × 30s for refused acceptances, 12 × 6s for a list that would
+ * not load.
+ */
+const RATE_LIMIT_WAITS = 4;
+const RATE_LIMIT_PAUSE_MS = 30_000;
+const RETRY_LIMIT = 12;
+const RETRY_PAUSE_MS = 6_000;
+
 export interface AcceptDisclaimersOptions {
   /**
    * Returns true once the caller considers the flow finished (e.g. the success panel is up), so
@@ -144,6 +156,12 @@ export interface AcceptDisclaimersOptions {
    * Default 15s. Only matters on entry — once a control is on screen the loop drives itself.
    */
   settleMs?: number;
+  /**
+   * Pause between clicks of the component's own "load failed, try again" button. Default 6s, so the
+   * dozen retries span a deployed server's one-minute auth rate-limit window rather than burning out
+   * inside it. Lower it where nothing is rate-limited and a stuck panel should fail fast.
+   */
+  retryPauseMs?: number;
   /**
    * Which response URLs to read as the acceptance call, for the 429 back-off and the "refused by
    * the server" diagnostic. Defaults to `ACCEPT_RESPONSE_PATTERN`, which covers both the direct API
@@ -176,7 +194,12 @@ export interface AcceptDisclaimersOptions {
  * checkboxes, they are ticked before the click. See `tickDisclaimerGate`.
  */
 export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaimersOptions = {}): Promise<void> {
-  const { isDone, settleMs = 15_000, acceptResponsePattern = ACCEPT_RESPONSE_PATTERN } = options;
+  const {
+    isDone,
+    settleMs = 15_000,
+    retryPauseMs = RETRY_PAUSE_MS,
+    acceptResponsePattern = ACCEPT_RESPONSE_PATTERN,
+  } = options;
   const page = scope.page();
   let lastStatus = 0;
   const watchAccept = (res: Response) => {
@@ -201,17 +224,26 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
         .catch(() => undefined);
     }
 
+    let retries = 0;
     for (;;) {
+      // Before anything else: the flow may have finished on its own (the last acceptance landed, or
+      // the step found nothing pending and moved on). Clicking into a step that has just unmounted is
+      // the hang this guards against — see the bounded click below.
+      if (isDone && (await isDone())) return;
+
       const retry = scope.locator(RETRY).first();
       const accept = scope.locator(ACCEPT).first();
 
       if (await retry.isVisible().catch(() => false)) {
-        if (rateLimitWaits + clicks >= 10) {
+        // The list failed to load — on a deployed API almost always the per-IP auth limiter, whose
+        // window is a minute. Paced so a dozen retries span that window instead of burning out in
+        // ten seconds against the same refusal.
+        if (retries >= RETRY_LIMIT) {
           throw new Error('The disclaimers never loaded — the component’s own retry stayed on screen.');
         }
-        await retry.click();
-        await sleep(1_000);
-        clicks++;
+        await retry.click({ timeout: CLICK_TIMEOUT_MS }).catch(() => undefined);
+        await sleep(retryPauseMs);
+        retries++;
         continue;
       }
 
@@ -240,7 +272,7 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
       // A 429 is the server pacing us, not a defect: wait for the window to replenish instead of
       // spending the click budget on refusals.
       if (lastStatus === 429) {
-        if (rateLimitWaits >= 3) {
+        if (rateLimitWaits >= RATE_LIMIT_WAITS) {
           throw new Error(
             'Disclaimer accept kept returning HTTP 429. Acceptance shares the API’s per-IP auth ' +
               'rate limit with login and register — enroll fewer users per minute from one address, ' +
@@ -248,7 +280,7 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
           );
         }
         rateLimitWaits++;
-        await sleep(20_000);
+        await sleep(RATE_LIMIT_PAUSE_MS);
         continue; // a refused attempt proved nothing, so it must not spend the click budget
       }
       clicks++;
@@ -291,6 +323,7 @@ export interface FinishSignupOptions {
 export async function finishSignup(page: Page, options: FinishSignupOptions = {}): Promise<void> {
   const { retries = 2, acceptResponsePattern } = options;
 
+  let rateLimitWaits = 0;
   for (let attempt = 0; ; attempt++) {
     // Generous: this window covers registering the account, signing it in, linking the payment and
     // activating the plan — several server round-trips.
@@ -307,7 +340,16 @@ export async function finishSignup(page: Page, options: FinishSignupOptions = {}
     // the `creating` step's "please wait", which sits EARLIER in the document than the real error.
     const errorText = await firstPresent(page, SIGNUP_FAILURE_MESSAGE_SELECTORS);
     const message = (await errorText?.textContent().catch(() => null)) ?? '';
-    if (attempt >= retries) throw new Error(`Signup processing failed: ${message}`);
+    // A deployed server's per-IP auth limiter refuses the register/login burst of a busy suite. That
+    // says nothing about the flow, so wait the window out without spending one of the real retries.
+    const rateLimited = /too many requests/i.test(message) && rateLimitWaits < RATE_LIMIT_WAITS;
+    if (rateLimited) {
+      rateLimitWaits++;
+      attempt--;
+      await page.waitForTimeout(RATE_LIMIT_PAUSE_MS);
+    } else if (attempt >= retries) {
+      throw new Error(`Signup processing failed: ${message}`);
+    }
     // The flow tracks completed sub-steps, so its retry resumes where it failed rather than
     // registering the user a second time.
     await page.locator(SIGNUP_RETRY_SELECTOR).first().click();
@@ -337,7 +379,9 @@ export async function finishSignup(page: Page, options: FinishSignupOptions = {}
     });
   }
 
-  await waitForSignupStep(page, 'success', 60_000);
+  // Longer than one rate-limit pause: acceptDisclaimers can return while a refused accept is still
+  // waiting out the server's auth limiter, and the step only moves on once that retry lands.
+  await waitForSignupStep(page, 'success', RATE_LIMIT_PAUSE_MS + 60_000);
   if (options.expectSuccessText !== undefined) {
     const text = options.expectSuccessText;
     await page
