@@ -571,7 +571,9 @@ test.describe('@wildwood/react/testing against a staged DOM', () => {
   test('a disclaimer panel that never settles fails with its own diagnosis, not a timeout', async ({ page }) => {
     // A panel whose retry is all it ever offers. The loop is bounded on purpose: letting it spin
     // until the test's own timeout would leave whoever reads the CI log with no idea what was stuck,
-    // so it gives up after ten attempts and names what it was looking at.
+    // so it gives up after a fixed number of attempts and names what it was looking at. The default
+    // pause between attempts is sized for a deployed server's rate-limit window; nothing here is
+    // rate-limited, so a short one keeps the bounded loop inside this test's timeout.
     await stage(
       page,
       `
@@ -582,7 +584,7 @@ test.describe('@wildwood/react/testing against a staged DOM', () => {
       </div>`,
     );
 
-    const stuck = await rejection(acceptDisclaimers(page.locator('.ww-signup-disclaimers')));
+    const stuck = await rejection(acceptDisclaimers(page.locator('.ww-signup-disclaimers'), { retryPauseMs: 200 }));
     expect(stuck?.message).toBe('The disclaimers never loaded — the component’s own retry stayed on screen.');
   });
 

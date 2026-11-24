@@ -157,6 +157,12 @@ export interface AcceptDisclaimersOptions {
    */
   settleMs?: number;
   /**
+   * Pause between clicks of the component's own "load failed, try again" button. Default 6s, so the
+   * dozen retries span a deployed server's one-minute auth rate-limit window rather than burning out
+   * inside it. Lower it where nothing is rate-limited and a stuck panel should fail fast.
+   */
+  retryPauseMs?: number;
+  /**
    * Which response URLs to read as the acceptance call, for the 429 back-off and the "refused by
    * the server" diagnostic. Defaults to `ACCEPT_RESPONSE_PATTERN`, which covers both the direct API
    * path and the proxied one a server-rendered host uses.
@@ -188,7 +194,12 @@ export interface AcceptDisclaimersOptions {
  * checkboxes, they are ticked before the click. See `tickDisclaimerGate`.
  */
 export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaimersOptions = {}): Promise<void> {
-  const { isDone, settleMs = 15_000, acceptResponsePattern = ACCEPT_RESPONSE_PATTERN } = options;
+  const {
+    isDone,
+    settleMs = 15_000,
+    retryPauseMs = RETRY_PAUSE_MS,
+    acceptResponsePattern = ACCEPT_RESPONSE_PATTERN,
+  } = options;
   const page = scope.page();
   let lastStatus = 0;
   const watchAccept = (res: Response) => {
@@ -231,7 +242,7 @@ export async function acceptDisclaimers(scope: Locator, options: AcceptDisclaime
           throw new Error('The disclaimers never loaded — the component’s own retry stayed on screen.');
         }
         await retry.click({ timeout: CLICK_TIMEOUT_MS }).catch(() => undefined);
-        await sleep(RETRY_PAUSE_MS);
+        await sleep(retryPauseMs);
         retries++;
         continue;
       }
