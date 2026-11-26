@@ -23,7 +23,21 @@ export interface AuthMiddlewareOptions {
    * Set to `false` to disable signature verification entirely (decode-only mode).
    */
   jwksClient?: JwksClient | false;
+  /**
+   * Accept tokens restricted to two-factor enrollment (claim `tfa_enroll_pending`). The Wildwood API
+   * issues one when the app requires two-factor and the user has not set it up yet, and refuses every
+   * call but enrollment with it. By default this middleware refuses it the same way (403,
+   * errorCode TWO_FACTOR_ENROLLMENT_REQUIRED), so your backend cannot become the way around that
+   * policy. Set true only for routes that help the user enroll; the user object then carries
+   * `twoFactorEnrollmentPending: true`.
+   */
+  allowTwoFactorEnrollmentPending?: boolean;
 }
+
+/** JWT claim marking a token restricted to two-factor enrollment. */
+export const TWO_FACTOR_ENROLLMENT_PENDING_CLAIM = 'tfa_enroll_pending';
+/** errorCode the API (and this middleware) answers with when refusing such a token. */
+export const TWO_FACTOR_ENROLLMENT_REQUIRED = 'TWO_FACTOR_ENROLLMENT_REQUIRED';
 
 export interface WildwoodUser {
   userId: string;
@@ -34,6 +48,8 @@ export interface WildwoodUser {
   companyId: string;
   roles: string[];
   claims: Record<string, string>;
+  /** The token is restricted to two-factor enrollment (only reachable with allowTwoFactorEnrollmentPending). */
+  twoFactorEnrollmentPending: boolean;
 }
 
 declare global {
@@ -53,6 +69,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
     excludePaths = [],
     onError,
     tokenValidation,
+    allowTwoFactorEnrollmentPending = false,
   } = options;
 
   // Auto-create JWKS client from baseUrl unless explicitly disabled
@@ -120,6 +137,17 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
         }
       }
 
+      const twoFactorEnrollmentPending =
+        payload[TWO_FACTOR_ENROLLMENT_PENDING_CLAIM] === 'true' ||
+        payload[TWO_FACTOR_ENROLLMENT_PENDING_CLAIM] === true;
+      if (twoFactorEnrollmentPending && !allowTwoFactorEnrollmentPending) {
+        const message = 'Two-factor authentication must be set up before continuing.';
+        if (onError) {
+          return onError(new Error(message), req, res);
+        }
+        return res.status(403).json({ error: message, errorCode: TWO_FACTOR_ENROLLMENT_REQUIRED });
+      }
+
       const user: WildwoodUser = {
         userId: payload.sub,
         email: payload.email ?? '',
@@ -129,6 +157,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
         companyId: (payload.company_id as string) ?? '',
         roles: extractRoles(payload),
         claims,
+        twoFactorEnrollmentPending,
       };
 
       (req as unknown as Record<string, unknown>)[userProperty] = user;

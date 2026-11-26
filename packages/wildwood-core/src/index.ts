@@ -32,6 +32,8 @@ export {
   getTokenRemainingMs,
   getRefreshTimeMs,
   extractUserFromToken,
+  isTwoFactorEnrollmentPending,
+  TWO_FACTOR_ENROLLMENT_PENDING_CLAIM,
 } from './auth/tokenUtils.js';
 export type { JwtPayload } from './auth/tokenUtils.js';
 export { openOAuthPopup, isPopupSupported } from './auth/oauthPopup.js';

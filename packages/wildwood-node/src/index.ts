@@ -1,5 +1,9 @@
 // Middleware
-export { createAuthMiddleware } from './middleware/authMiddleware.js';
+export {
+  createAuthMiddleware,
+  TWO_FACTOR_ENROLLMENT_PENDING_CLAIM,
+  TWO_FACTOR_ENROLLMENT_REQUIRED,
+} from './middleware/authMiddleware.js';
 export type { AuthMiddlewareOptions, WildwoodUser } from './middleware/authMiddleware.js';
 
 export { createProxyMiddleware } from './middleware/proxyMiddleware.js';

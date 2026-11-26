@@ -38,6 +38,8 @@ export { usePayment } from './hooks/usePayment.js';
 export type { UsePaymentReturn } from './hooks/usePayment.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
+export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired.js';
+export type { UseTwoFactorEnrollmentRequiredReturn } from './hooks/useTwoFactorEnrollmentRequired.js';
 export { useDisclaimer } from './hooks/useDisclaimer.js';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer.js';
 export { useConsent } from './hooks/useConsent.js';

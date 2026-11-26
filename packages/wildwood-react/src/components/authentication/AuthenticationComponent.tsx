@@ -1,5 +1,6 @@
 // AuthenticationComponent - ported from WildwoodComponents.Blazor AuthenticationComponent
-// Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers
+// Multi-view auth: login, registration, 2FA, password reset, forgot password, disclaimers,
+// required two-factor enrollment
 
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -11,6 +12,7 @@ import {
   type PendingDisclaimerModel,
 } from '@wildwood/core';
 import { useAuthenticationLogic, resolveRegistrationAccess } from '@wildwood/react-shared';
+import { TwoFactorSettingsComponent } from '../twofactor/TwoFactorSettingsComponent.js';
 
 /**
  * ButtonText is the full label; DisplayName is just the provider's name. Some
@@ -176,6 +178,7 @@ export function AuthenticationComponent({
     handlePasswordReset,
     handleForgotPasswordSubmit,
     handleAcceptDisclaimers,
+    handleTwoFactorEnrollmentComplete,
     toggleMode,
     resolveTitle,
 
@@ -767,6 +770,32 @@ export function AuthenticationComponent({
                 </button>
               </div>
             </form>
+          )}
+
+          {/* ============================================================ */}
+          {/* REQUIRED TWO-FACTOR ENROLLMENT VIEW                           */}
+          {/* ============================================================ */}
+          {view === 'twoFactorEnrollment' && (
+            <div className="ww-twofactor-enrollment-required" data-ww-2fa-notice="enrollment-required">
+              <p className="ww-text-muted">
+                This app requires two-factor authentication. Add a method below to finish signing in.
+              </p>
+              <TwoFactorSettingsComponent
+                onStatusChange={(enabled) => {
+                  if (enabled) void handleTwoFactorEnrollmentComplete();
+                }}
+              />
+              <div className="ww-form-group">
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-primary ww-btn-block"
+                  disabled={isLoading}
+                  onClick={() => void handleTwoFactorEnrollmentComplete()}
+                >
+                  {isLoading ? 'Checking...' : 'Continue'}
+                </button>
+              </div>
+            </div>
           )}
 
           {/* ============================================================ */}

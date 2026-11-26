@@ -37,6 +37,7 @@ export class HttpClient {
   private responseInterceptors: ResponseInterceptor[] = [];
   private getAccessToken: (() => Promise<string | null>) | null = null;
   private on401Refresh: (() => Promise<boolean>) | null = null;
+  private onTwoFactorEnrollmentRequired: (() => void) | null = null;
 
   constructor(private config: WildwoodConfig) {}
 
@@ -48,6 +49,15 @@ export class HttpClient {
   /** Set the function that handles 401 retry (refreshes token, returns true if refreshed) */
   setOn401Refresh(handler: () => Promise<boolean>): void {
     this.on401Refresh = handler;
+  }
+
+  /**
+   * Set the function told when the API refuses a call because the signed-in user must enroll in
+   * two-factor authentication first (403, errorCode TWO_FACTOR_ENROLLMENT_REQUIRED). The request
+   * still fails with that error; this only lets the session raise `twoFactorEnrollmentRequired`.
+   */
+  setOnTwoFactorEnrollmentRequired(handler: () => void): void {
+    this.onTwoFactorEnrollmentRequired = handler;
   }
 
   /** Add a request interceptor (returns unsubscribe function) */
@@ -138,6 +148,17 @@ export class HttpClient {
             // Retry with new token - go to next loop iteration
             continue;
           }
+        }
+
+        // Not an auth failure to refresh away: the token is valid but restricted until the user
+        // enrolls in two-factor. Tell the session (so the app can route to enrollment) and fail.
+        if (lastError.code === 'TwoFactorEnrollmentRequired') {
+          try {
+            this.onTwoFactorEnrollmentRequired?.();
+          } catch {
+            // A listener failure must not replace the API's error.
+          }
+          throw lastError;
         }
 
         // Never retried, for any method. A cancel was the caller's explicit instruction, and a

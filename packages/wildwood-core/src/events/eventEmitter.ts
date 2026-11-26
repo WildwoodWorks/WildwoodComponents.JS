@@ -8,6 +8,15 @@ export interface WildwoodEvents {
   sessionInitialized: boolean; // true if authenticated, false otherwise
   sessionExpired: void;
   tokenRefreshed: string;
+  /**
+   * The app requires two-factor authentication and the signed-in user has not set it up. Raised when
+   * the session enters that state: from an auth response carrying `requiresTwoFactorEnrollment` (or a
+   * restricted token), or from the API refusing a call with 403 TWO_FACTOR_ENROLLMENT_REQUIRED.
+   * Route the user to two-factor enrollment, then call `session.completeTwoFactorEnrollment()`.
+   */
+  twoFactorEnrollmentRequired: { source: 'authResponse' | 'apiRefusal' };
+  /** The restriction above was lifted: a refreshed token no longer carries it. */
+  twoFactorEnrollmentCompleted: void;
   themeChanged: string;
   error: { service: string; message: string; details?: unknown };
   /** Campaign Attribution captured a campaign touch from the landing URL. */

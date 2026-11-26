@@ -8,6 +8,11 @@ export type WildwoodErrorCode =
   | 'NotFound'
   | 'ValidationError'
   | 'TwoFactorRequired'
+  /**
+   * The app requires two-factor authentication and the signed-in user has not enrolled. The API
+   * answers 403 with errorCode TWO_FACTOR_ENROLLMENT_REQUIRED for everything but enrollment.
+   */
+  | 'TwoFactorEnrollmentRequired'
   | 'SessionExpired'
   | 'RateLimited'
   | 'ServerError'
@@ -80,6 +85,7 @@ export class WildwoodError extends Error {
       NotFound: 'NotFound',
       ValidationError: 'ValidationError',
       RateLimited: 'RateLimited',
+      TWO_FACTOR_ENROLLMENT_REQUIRED: 'TwoFactorEnrollmentRequired',
     };
     return map[apiError];
   }

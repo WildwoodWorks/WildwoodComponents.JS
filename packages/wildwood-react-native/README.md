@@ -48,7 +48,7 @@ function MyApp() {
 
 ## Hooks
 
-Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessaging`, `usePayment`, `useNotifications`, `useTheme`, `useTwoFactor`, `useDisclaimer`, `useAppTier`, and more.
+Same API as `@wildwood/react` — hooks including `useAuth`, `useAI`, `useMessaging`, `usePayment`, `useNotifications`, `useTheme`, `useTwoFactor`, `useTwoFactorEnrollmentRequired`, `useDisclaimer`, `useAppTier`, and more.
 
 ## Components
 
@@ -58,6 +58,7 @@ All components render using React Native primitives (`View`, `Text`, `TextInput`
 - `PaymentComponent`, `PaymentFormComponent`
 - `NotificationComponent`, `NotificationToastComponent`
 - `TwoFactorSettingsComponent`, `TokenRegistrationComponent`
+- `AuthenticationComponent` holds a user on two-factor setup when the app requires 2FA and they have none (same flow as `@wildwood/react`)
 - `AppTierComponent`, `DisclaimerComponent`, `FeedbackComponent`
 
 ### Cross-platform parity

@@ -55,7 +55,7 @@ const theme = client.theme.theme;
 | `client.disclaimer` | Pending disclaimers, acceptance |
 | `client.appTier` | Tier browsing, feature gating, limits, add-ons |
 | `client.theme` | Theme persistence, CSS variable application |
-| `client.events` | Typed event emitter (authChanged, sessionExpired, themeChanged) |
+| `client.events` | Typed event emitter (authChanged, sessionExpired, themeChanged, twoFactorEnrollmentRequired) |
 
 ## Storage Adapters
 
@@ -100,6 +100,29 @@ client.events.on('entitlementsChanged', ({ appId, reason }) => {
   // Entitlements sit behind several caches, so this says "re-read", not "the new state is live".
 });
 ```
+
+## Required Two-Factor Enrollment
+
+When an app requires two-factor authentication and the user has not set it up, the API still signs
+them in but with a **restricted** session: the auth response carries `requiresTwoFactorEnrollment:
+true`, the token carries the claim `tfa_enroll_pending`, and every call except two-factor enrollment,
+auth (refresh/sign-out) and disclaimer acceptance is refused with **403** `errorCode:
+"TWO_FACTOR_ENROLLMENT_REQUIRED"` (a `WildwoodError` with `code: 'TwoFactorEnrollmentRequired'`).
+
+```typescript
+client.events.on('twoFactorEnrollmentRequired', ({ source }) => {
+  // source: 'authResponse' (signed in restricted) or 'apiRefusal' (a call was refused)
+  showTwoFactorSetup();
+});
+
+client.session.isTwoFactorEnrollmentPending; // current state
+
+// After the user enrolls (client.twoFactor.completeAuthenticatorEnrollment / verifyEmailEnrollment):
+const lifted = await client.session.completeTwoFactorEnrollment(); // refreshes now; true when unrestricted
+```
+
+`twoFactorEnrollmentCompleted` fires when a refreshed token no longer carries the restriction. The
+403 is not treated as an expired session, so it never triggers a token refresh or a sign-out.
 
 ## Public Catalog
 

@@ -8,7 +8,7 @@ import type { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type { HttpClient } from '../client/httpClient.js';
 import type { AuthService } from './authService.js';
 import type { AuthenticationResponse } from './types.js';
-import { getRefreshTimeMs } from './tokenUtils.js';
+import { getRefreshTimeMs, isTwoFactorEnrollmentPending } from './tokenUtils.js';
 
 const SESSION_KEYS = {
   authData: 'ww_session_auth',
@@ -25,6 +25,7 @@ export class SessionManager {
   private disposed = false;
   private lastRefreshTime = 0;
   private refreshInProgress: Promise<boolean> | null = null;
+  private enrollmentPending = false;
 
   get isAuthenticated(): boolean {
     return this.currentUser != null && !!this.currentUser.jwtToken && !this.isSessionExpired();
@@ -51,6 +52,15 @@ export class SessionManager {
     return this.currentUser;
   }
 
+  /**
+   * The app requires two-factor authentication and this user has not enrolled: the current token is
+   * restricted to enrollment. Becomes false once `completeTwoFactorEnrollment()` (or any refresh)
+   * brings back an unrestricted token.
+   */
+  get isTwoFactorEnrollmentPending(): boolean {
+    return this.enrollmentPending;
+  }
+
   constructor(
     private config: WildwoodConfig,
     private authService: AuthService,
@@ -67,6 +77,11 @@ export class SessionManager {
 
     // Wire up reactive 401 handling (Blazor parity: on 401, refresh token and retry)
     this.http.setOn401Refresh(() => this.refreshToken());
+
+    // A restricted (enrollment-pending) token that the API refused: raise the event if this is news.
+    this.http.setOnTwoFactorEnrollmentRequired(() => {
+      if (this.currentUser) this.setEnrollmentPending(true, 'apiRefusal');
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -95,6 +110,7 @@ export class SessionManager {
       const storedAuth = await this.authService.getStoredUser();
       if (storedAuth?.jwtToken) {
         this.currentUser = storedAuth;
+        this.updateEnrollmentState(storedAuth);
 
         if (this.sessionExpiry == null) {
           await this.extendSession();
@@ -137,6 +153,7 @@ export class SessionManager {
 
       // Notify consumers of auth state change
       this.events.emit('authChanged', authResponse);
+      this.updateEnrollmentState(authResponse);
 
       return true;
     } catch (err) {
@@ -162,12 +179,35 @@ export class SessionManager {
     const timeSinceLast = Date.now() - this.lastRefreshTime;
     if (timeSinceLast < RECENT_REFRESH_WINDOW_MS) return true;
 
+    return this.runRefresh(false);
+  }
+
+  /**
+   * Call after the user finishes enrolling in two-factor authentication. Refreshes the session now,
+   * deliberately ignoring the recent-refresh window and the auto-refresh setting (the user very
+   * likely signed in seconds ago), so the restricted token is replaced by an unrestricted one.
+   *
+   * @returns true when the session is no longer restricted (also true if it never was); false when
+   * the refresh failed or the API still reports enrollment pending.
+   */
+  async completeTwoFactorEnrollment(): Promise<boolean> {
+    if (!this.currentUser?.jwtToken) return false;
+    if (!this.enrollmentPending) return true;
+    // A refresh already in flight may have been sent before enrollment finished; let it land, then
+    // ask again with a refresh that certainly started afterwards.
+    if (this.refreshInProgress) await this.refreshInProgress.catch(() => false);
+    if (!this.enrollmentPending) return true;
+    await this.runRefresh(true);
+    return !this.enrollmentPending;
+  }
+
+  private async runRefresh(force: boolean): Promise<boolean> {
     // Concurrent refresh protection - reuse in-flight promise
     if (this.refreshInProgress) {
       return this.refreshInProgress;
     }
 
-    this.refreshInProgress = this.doRefresh();
+    this.refreshInProgress = this.doRefresh(force);
     try {
       return await this.refreshInProgress;
     } finally {
@@ -255,10 +295,10 @@ export class SessionManager {
   // Private Methods
   // ---------------------------------------------------------------------------
 
-  private async doRefresh(): Promise<boolean> {
+  private async doRefresh(force = false): Promise<boolean> {
     // Double-check after acquiring "lock"
     const timeSinceLast = Date.now() - this.lastRefreshTime;
-    if (timeSinceLast < RECENT_REFRESH_WINDOW_MS) return true;
+    if (!force && timeSinceLast < RECENT_REFRESH_WINDOW_MS) return true;
 
     try {
       const refreshed = await this.authService.refreshToken();
@@ -288,9 +328,31 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Track whether the current token is restricted to two-factor enrollment. The response flag and
+   * the token claim are both read: the flag is what every auth endpoint returns, and the claim is
+   * what the API actually enforces, so either one means restricted.
+   */
+  private updateEnrollmentState(authResponse: AuthenticationResponse): void {
+    const pending =
+      authResponse.requiresTwoFactorEnrollment === true || isTwoFactorEnrollmentPending(authResponse.jwtToken);
+    this.setEnrollmentPending(pending, 'authResponse');
+  }
+
+  private setEnrollmentPending(pending: boolean, source: 'authResponse' | 'apiRefusal'): void {
+    if (pending === this.enrollmentPending) return;
+    this.enrollmentPending = pending;
+    if (pending) {
+      this.events.emit('twoFactorEnrollmentRequired', { source });
+    } else {
+      this.events.emit('twoFactorEnrollmentCompleted');
+    }
+  }
+
   private async clearStorage(): Promise<void> {
     this.currentUser = null;
     this.sessionExpiry = null;
+    this.enrollmentPending = false;
     try {
       await this.storage.removeItem(SESSION_KEYS.authData);
       await this.storage.removeItem(SESSION_KEYS.sessionExpiry);
@@ -327,11 +389,13 @@ export class SessionManager {
 
     // Notify consumers
     this.events.emit('tokenRefreshed', authResponse.jwtToken);
+    this.updateEnrollmentState(authResponse);
   }
 
   private onAuthLogout(): void {
     this.stopRefreshTimer();
     this.currentUser = null;
     this.sessionExpiry = null;
+    this.enrollmentPending = false;
   }
 }

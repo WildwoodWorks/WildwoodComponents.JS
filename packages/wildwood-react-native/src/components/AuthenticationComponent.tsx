@@ -22,6 +22,7 @@ import {
 } from '@wildwood/core';
 import { useAuthenticationLogic, resolveRegistrationAccess } from '@wildwood/react-shared';
 import { useWildwoodTheme } from '../styles/ThemeContext';
+import { TwoFactorSettingsComponent } from './TwoFactorSettingsComponent';
 import type { WildwoodTheme } from '../styles/theme';
 
 export interface AuthenticationComponentProps {
@@ -134,6 +135,7 @@ export function AuthenticationComponent({
     handlePasswordReset,
     handleForgotPasswordSubmit,
     handleAcceptDisclaimers,
+    handleTwoFactorEnrollmentComplete,
     resolveTitle,
 
     // Computed
@@ -565,6 +567,23 @@ export function AuthenticationComponent({
   );
 
   // ---------------------------------------------------------------------------
+  // REQUIRED TWO-FACTOR ENROLLMENT VIEW
+  // ---------------------------------------------------------------------------
+  const renderTwoFactorEnrollment = () => (
+    <View>
+      <Text style={styles.subtitle}>
+        This app requires two-factor authentication. Add a method below to finish signing in.
+      </Text>
+      <TwoFactorSettingsComponent
+        onStatusChange={(enabled) => {
+          if (enabled) void handleTwoFactorEnrollmentComplete();
+        }}
+      />
+      {renderSubmitButton('Continue', 'Checking...', handleTwoFactorEnrollmentComplete)}
+    </View>
+  );
+
+  // ---------------------------------------------------------------------------
   // DISCLAIMERS VIEW
   // ---------------------------------------------------------------------------
   const renderDisclaimers = () => {
@@ -608,6 +627,7 @@ export function AuthenticationComponent({
           {view === 'passwordReset' && renderPasswordReset()}
           {view === 'forgotPassword' && renderForgotPassword()}
           {view === 'disclaimers' && renderDisclaimers()}
+          {view === 'twoFactorEnrollment' && renderTwoFactorEnrollment()}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
