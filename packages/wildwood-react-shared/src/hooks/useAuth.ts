@@ -36,7 +36,11 @@ export interface UseAuthReturn {
   hasRegistrationTokens: (appId: string) => Promise<boolean>;
   validateRegistrationToken: (token: string) => Promise<boolean>;
   getPasskeyAuthenticationOptions: (appId: string) => Promise<unknown>;
-  verifyPasskeyAuthentication: (appId: string, credential: unknown) => Promise<AuthenticationResponse>;
+  verifyPasskeyAuthentication: (
+    appId: string,
+    credential: unknown,
+    sessionId?: string,
+  ) => Promise<AuthenticationResponse>;
   getPasskeyRegistrationOptions: (appId: string) => Promise<unknown>;
   completePasskeyRegistration: (appId: string, credential: unknown) => Promise<void>;
   sendTwoFactorCode: (sessionId: string) => Promise<TwoFactorSendCodeResponse>;
@@ -194,8 +198,8 @@ export function useAuth(): UseAuthReturn {
   );
 
   const verifyPasskeyAuthentication = useCallback(
-    async (appId: string, credential: unknown) => {
-      return client.auth.verifyPasskeyAuthentication(appId, credential);
+    async (appId: string, credential: unknown, sessionId?: string) => {
+      return client.auth.verifyPasskeyAuthentication(appId, credential, sessionId);
     },
     [client],
   );

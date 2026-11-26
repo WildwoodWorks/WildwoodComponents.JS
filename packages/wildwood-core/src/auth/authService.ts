@@ -596,16 +596,32 @@ export class AuthService {
   // Passkey / WebAuthn
   // ---------------------------------------------------------------------------
 
+  /** The challenge session from the last authentication-options call; the API verifies against it. */
+  private pendingPasskeySessionId: string | null = null;
+
   async getPasskeyAuthenticationOptions(appId: string): Promise<unknown> {
     const { data } = await this.http.post<unknown>('api/webauthn/authenticate/options', { AppId: appId });
+    const sessionId = (data as { sessionId?: unknown } | null)?.sessionId;
+    this.pendingPasskeySessionId = typeof sessionId === 'string' ? sessionId : null;
     return data;
   }
 
-  async verifyPasskeyAuthentication(appId: string, credential: unknown): Promise<AuthenticationResponse> {
+  /**
+   * Verifies a passkey assertion. The API accepts it only against the challenge it issued, identified by the
+   * options' `sessionId`: pass it explicitly, or it is taken from the last `getPasskeyAuthenticationOptions` call.
+   */
+  async verifyPasskeyAuthentication(
+    appId: string,
+    credential: unknown,
+    sessionId?: string,
+  ): Promise<AuthenticationResponse> {
     const cred = credential as Record<string, unknown>;
     const credResponse = cred.response as Record<string, unknown>;
+    const challengeSessionId = sessionId ?? this.pendingPasskeySessionId;
+    this.pendingPasskeySessionId = null;
     const request = {
       AppId: appId,
+      SessionId: challengeSessionId,
       Id: cred.id,
       RawId: cred.rawId,
       Type: cred.type,
