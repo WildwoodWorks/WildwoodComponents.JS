@@ -48,6 +48,46 @@ describe('passkey sign-in', () => {
     expect(bodies[0]?.SessionId).toBe('session-42');
   });
 
+  it('concurrent sign-ins on one client each send their own session', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    let issued = 0;
+    server.use(
+      http.post(`${BASE}/api/webauthn/authenticate/options`, () => {
+        issued++;
+        return HttpResponse.json({ challenge: `challenge-${issued}`, sessionId: `session-${issued}` });
+      }),
+      http.post(`${BASE}/api/webauthn/authenticate`, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({
+          id: 'r',
+          userId: 'u',
+          jwtToken: createFakeJwt(),
+          refreshToken: 'rt',
+          roles: [],
+          permissions: [],
+        });
+      }),
+    );
+    const client = createWildwoodClient({ baseUrl: BASE, appId: 'test-app-id', storage: 'memory' });
+    const clientData = (challenge: string) =>
+      Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge, origin: 'https://example.com' }))
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    const assertion = (challenge: string) => ({
+      ...credential,
+      response: { ...credential.response, clientDataJSON: clientData(challenge) },
+    });
+
+    await client.auth.getPasskeyAuthenticationOptions('test-app-id'); // challenge-1 / session-1
+    await client.auth.getPasskeyAuthenticationOptions('test-app-id'); // challenge-2 / session-2
+    await client.auth.verifyPasskeyAuthentication('test-app-id', assertion('challenge-1'));
+    await client.auth.verifyPasskeyAuthentication('test-app-id', assertion('challenge-2'));
+
+    expect(bodies.map((b) => b.SessionId)).toEqual(['session-1', 'session-2']);
+  });
+
   it('prefers an explicitly passed session id', async () => {
     const { client, bodies } = setup();
     await client.auth.getPasskeyAuthenticationOptions('test-app-id');

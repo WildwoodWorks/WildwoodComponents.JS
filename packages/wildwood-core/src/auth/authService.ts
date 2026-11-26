@@ -2,6 +2,7 @@
 // Handles login, registration, password reset, passkeys, 2FA, and provider configuration
 
 import type { HttpClient } from '../client/httpClient.js';
+import { PasskeyChallengeSessions } from './passkeyChallengeSessions.js';
 import type { StorageAdapter } from '../platform/types.js';
 import type { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type {
@@ -596,19 +597,19 @@ export class AuthService {
   // Passkey / WebAuthn
   // ---------------------------------------------------------------------------
 
-  /** The challenge session from the last authentication-options call; the API verifies against it. */
-  private pendingPasskeySessionId: string | null = null;
+  /** Issued passkey challenge sessions; the API verifies an assertion only against its own challenge. */
+  private readonly passkeySessions = new PasskeyChallengeSessions();
 
   async getPasskeyAuthenticationOptions(appId: string): Promise<unknown> {
     const { data } = await this.http.post<unknown>('api/webauthn/authenticate/options', { AppId: appId });
-    const sessionId = (data as { sessionId?: unknown } | null)?.sessionId;
-    this.pendingPasskeySessionId = typeof sessionId === 'string' ? sessionId : null;
+    this.passkeySessions.remember(data);
     return data;
   }
 
   /**
    * Verifies a passkey assertion. The API accepts it only against the challenge it issued, identified by the
-   * options' `sessionId`: pass it explicitly, or it is taken from the last `getPasskeyAuthenticationOptions` call.
+   * options' `sessionId`: pass it explicitly, or it is found from the challenge in the credential's client data
+   * (falling back to the last `getPasskeyAuthenticationOptions` call).
    */
   async verifyPasskeyAuthentication(
     appId: string,
@@ -617,8 +618,9 @@ export class AuthService {
   ): Promise<AuthenticationResponse> {
     const cred = credential as Record<string, unknown>;
     const credResponse = cred.response as Record<string, unknown>;
-    const challengeSessionId = sessionId ?? this.pendingPasskeySessionId;
-    this.pendingPasskeySessionId = null;
+    // Found from the challenge in the signed client data, so concurrent sign-ins never cross.
+    const remembered = this.passkeySessions.take(credResponse.clientDataJSON);
+    const challengeSessionId = sessionId ?? remembered;
     const request = {
       AppId: appId,
       SessionId: challengeSessionId,
