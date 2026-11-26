@@ -36,6 +36,8 @@ export { usePayment } from './hooks/usePayment';
 export type { UsePaymentReturn } from './hooks/usePayment';
 export { useTwoFactor } from './hooks/useTwoFactor';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor';
+export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired';
+export type { UseTwoFactorEnrollmentRequiredReturn } from './hooks/useTwoFactorEnrollmentRequired';
 export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
 export { useConsent } from './hooks/useConsent';

@@ -62,6 +62,13 @@ export interface AuthenticationResponse {
   jwtToken: string;
   refreshToken: string;
   requiresTwoFactor: boolean;
+  /**
+   * The app requires two-factor authentication and this user has not set it up yet. The token that
+   * came with this response is restricted (claim `tfa_enroll_pending`): the API refuses everything
+   * except two-factor enrollment, auth (refresh/sign-out) and disclaimer acceptance until the user
+   * enrolls and the session is refreshed. See `SessionManager.completeTwoFactorEnrollment`.
+   */
+  requiresTwoFactorEnrollment?: boolean;
   requiresPasswordReset: boolean;
   roles: string[];
   companyId?: string;

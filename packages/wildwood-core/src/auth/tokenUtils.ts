@@ -27,9 +27,7 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
 
-    const decoded = typeof atob === 'function'
-      ? atob(padded)
-      : Buffer.from(padded, 'base64').toString('utf-8');
+    const decoded = typeof atob === 'function' ? atob(padded) : Buffer.from(padded, 'base64').toString('utf-8');
 
     return JSON.parse(decoded) as JwtPayload;
   } catch {
@@ -85,11 +83,7 @@ export function extractUserFromToken(token: string): {
   const payload = decodeJwtPayload(token);
   if (!payload) return null;
 
-  const roles = Array.isArray(payload.role)
-    ? payload.role
-    : payload.role
-      ? [payload.role]
-      : [];
+  const roles = Array.isArray(payload.role) ? payload.role : payload.role ? [payload.role] : [];
 
   return {
     userId: payload.sub,
@@ -99,4 +93,18 @@ export function extractUserFromToken(token: string): {
     companyId: payload.company_id as string | undefined,
     appId: payload.app_id as string | undefined,
   };
+}
+
+/** JWT claim the API sets on a token restricted to two-factor enrollment ("true" when present). */
+export const TWO_FACTOR_ENROLLMENT_PENDING_CLAIM = 'tfa_enroll_pending';
+
+/**
+ * Whether this token is restricted to two-factor enrollment: the app requires 2FA and the user has
+ * not enrolled. Client-side decode only — the API is what enforces the restriction.
+ */
+export function isTwoFactorEnrollmentPending(token: string | null | undefined): boolean {
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  const value = payload?.[TWO_FACTOR_ENROLLMENT_PENDING_CLAIM];
+  return value === 'true' || value === true;
 }

@@ -51,6 +51,8 @@ export type { EntitlementsChangedReason } from './subscription/entitlements.js';
 export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useTwoFactorLogic } from './hooks/useTwoFactorLogic.js';
+export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired.js';
+export type { UseTwoFactorEnrollmentRequiredReturn } from './hooks/useTwoFactorEnrollmentRequired.js';
 export type {
   UseTwoFactorLogicOptions,
   UseTwoFactorLogicReturn,

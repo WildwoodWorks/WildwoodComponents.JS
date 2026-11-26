@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useWildwood } from './useWildwood.js';
 import type { TwoFactorUserStatus, TwoFactorCredential, TrustedDevice } from '@wildwood/core';
 import { useTwoFactor } from './useTwoFactor.js';
 
 export type TwoFactorSettingsView =
-  | 'overview'
-  | 'enrollEmail'
-  | 'enrollAuthenticator'
-  | 'recoveryCodes'
-  | 'trustedDevices';
+  'overview' | 'enrollEmail' | 'enrollAuthenticator' | 'recoveryCodes' | 'trustedDevices';
 
 export interface UseTwoFactorLogicOptions {
   onStatusChange?: (enabled: boolean) => void;
@@ -56,6 +53,16 @@ export interface UseTwoFactorLogicReturn {
 
 export function useTwoFactorLogic(options: UseTwoFactorLogicOptions = {}): UseTwoFactorLogicReturn {
   const { onStatusChange, confirmAction } = options;
+  const client = useWildwood();
+
+  // If the session was restricted until the user enrolled (the app requires two-factor), enrolling
+  // is what lifts it: refresh now so the rest of the app works without waiting for a timed refresh.
+  // Failure is not fatal here; the auth flow's own completion step reports it.
+  const liftEnrollmentRestriction = useCallback(async () => {
+    if (client.session.isTwoFactorEnrollmentPending) {
+      await client.session.completeTwoFactorEnrollment().catch(() => false);
+    }
+  }, [client]);
 
   const {
     status,
@@ -115,11 +122,12 @@ export function useTwoFactorLogic(options: UseTwoFactorLogicOptions = {}): UseTw
       setView('overview');
       setSuccessMessage('Email 2FA enrolled successfully');
       await getStatus();
+      await liftEnrollmentRestriction();
       onStatusChange?.(true);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to verify email');
     }
-  }, [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, onStatusChange]);
+  }, [emailCredentialId, emailCode, verifyEmailEnrollment, getStatus, liftEnrollmentRestriction, onStatusChange]);
 
   const handleBeginAuthenticator = useCallback(async () => {
     setSuccessMessage('');
@@ -142,11 +150,19 @@ export function useTwoFactorLogic(options: UseTwoFactorLogicOptions = {}): UseTw
       setView('overview');
       setSuccessMessage('Authenticator enrolled successfully');
       await getStatus();
+      await liftEnrollmentRestriction();
       onStatusChange?.(true);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to complete authenticator enrollment');
     }
-  }, [authenticatorCredentialId, authenticatorCode, completeAuthenticatorEnrollment, getStatus, onStatusChange]);
+  }, [
+    authenticatorCredentialId,
+    authenticatorCode,
+    completeAuthenticatorEnrollment,
+    getStatus,
+    liftEnrollmentRestriction,
+    onStatusChange,
+  ]);
 
   const handleRemoveCredential = useCallback(
     async (credentialId: string) => {

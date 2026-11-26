@@ -2,6 +2,7 @@
 // Handles login, registration, password reset, passkeys, 2FA, and provider configuration
 
 import type { HttpClient } from '../client/httpClient.js';
+import { PasskeyChallengeSessions } from './passkeyChallengeSessions.js';
 import type { StorageAdapter } from '../platform/types.js';
 import type { WildwoodEventEmitter } from '../events/eventEmitter.js';
 import type {
@@ -596,16 +597,33 @@ export class AuthService {
   // Passkey / WebAuthn
   // ---------------------------------------------------------------------------
 
+  /** Issued passkey challenge sessions; the API verifies an assertion only against its own challenge. */
+  private readonly passkeySessions = new PasskeyChallengeSessions();
+
   async getPasskeyAuthenticationOptions(appId: string): Promise<unknown> {
     const { data } = await this.http.post<unknown>('api/webauthn/authenticate/options', { AppId: appId });
+    this.passkeySessions.remember(data);
     return data;
   }
 
-  async verifyPasskeyAuthentication(appId: string, credential: unknown): Promise<AuthenticationResponse> {
+  /**
+   * Verifies a passkey assertion. The API accepts it only against the challenge it issued, identified by the
+   * options' `sessionId`: pass it explicitly, or it is found from the challenge in the credential's client data
+   * (falling back to the last `getPasskeyAuthenticationOptions` call).
+   */
+  async verifyPasskeyAuthentication(
+    appId: string,
+    credential: unknown,
+    sessionId?: string,
+  ): Promise<AuthenticationResponse> {
     const cred = credential as Record<string, unknown>;
     const credResponse = cred.response as Record<string, unknown>;
+    // Found from the challenge in the signed client data, so concurrent sign-ins never cross.
+    const remembered = this.passkeySessions.take(credResponse.clientDataJSON);
+    const challengeSessionId = sessionId ?? remembered;
     const request = {
       AppId: appId,
+      SessionId: challengeSessionId,
       Id: cred.id,
       RawId: cred.rawId,
       Type: cred.type,

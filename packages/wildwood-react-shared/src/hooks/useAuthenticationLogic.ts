@@ -17,7 +17,15 @@ import { useWildwood } from './useWildwood.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type AuthView = 'login' | 'register' | 'twoFactor' | 'passwordReset' | 'forgotPassword' | 'disclaimers';
+export type AuthView =
+  | 'login'
+  | 'register'
+  | 'twoFactor'
+  | 'passwordReset'
+  | 'forgotPassword'
+  | 'disclaimers'
+  /** Signed in, but the app requires two-factor and the user has none: set it up before continuing. */
+  | 'twoFactorEnrollment';
 
 export interface UseAuthenticationLogicOptions {
   appId?: string;
@@ -117,6 +125,12 @@ export interface UseAuthenticationLogicReturn {
   handlePasswordReset: () => Promise<void>;
   handleForgotPasswordSubmit: () => Promise<void>;
   handleAcceptDisclaimers: () => Promise<void>;
+  /**
+   * Call once the user has enrolled a two-factor method on the 'twoFactorEnrollment' view (for
+   * example from TwoFactorSettingsComponent's onStatusChange). Refreshes the restricted session and,
+   * when the restriction is lifted, completes sign-in.
+   */
+  handleTwoFactorEnrollmentComplete: () => Promise<void>;
   toggleMode: () => void;
   resolveTitle: () => string;
 
@@ -250,12 +264,26 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
   // ---------------------------------------------------------------------------
   // Complete auth flow (called after all checks pass)
   // ---------------------------------------------------------------------------
-  const completeAuth = useCallback(
-    async (response: AuthenticationResponse) => {
-      await client.session.login(response);
+  // Signed in. If the app requires two-factor and the user has none, the session is restricted to
+  // enrollment: hold them on the enrollment view instead of reporting success.
+  const finishSignIn = useCallback(
+    (response: AuthenticationResponse) => {
+      if (response.requiresTwoFactorEnrollment || client.session.isTwoFactorEnrollmentPending) {
+        setPendingAuth(response);
+        setViewInternal('twoFactorEnrollment');
+        return;
+      }
       onAuthenticationSuccess?.(response);
     },
     [client, onAuthenticationSuccess],
+  );
+
+  const completeAuth = useCallback(
+    async (response: AuthenticationResponse) => {
+      await client.session.login(response);
+      finishSignIn(response);
+    },
+    [client, finishSignIn],
   );
 
   // ---------------------------------------------------------------------------
@@ -534,14 +562,36 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
         appId,
       );
 
-      // Session already stored above, just fire the success callback
-      onAuthenticationSuccess?.(pendingAuth);
+      // Session already stored above; finish (or move on to required two-factor setup)
+      finishSignIn(pendingAuth);
     } catch (err) {
       handleError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [pendingAuth, client, appId, onAuthenticationSuccess, clearMessages, handleError]);
+  }, [pendingAuth, client, appId, finishSignIn, clearMessages, handleError]);
+
+  // ---------------------------------------------------------------------------
+  // Required two-factor enrollment
+  // ---------------------------------------------------------------------------
+  const handleTwoFactorEnrollmentComplete = useCallback(async () => {
+    clearMessages();
+    setIsLoading(true);
+    try {
+      const lifted = await client.session.completeTwoFactorEnrollment();
+      if (!lifted) {
+        setErrorMessage('Two-factor authentication is not set up yet. Add a method to continue.');
+        return;
+      }
+      const user = client.session.user ?? pendingAuth;
+      setPendingAuth(null);
+      if (user) onAuthenticationSuccess?.(user);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [client, pendingAuth, onAuthenticationSuccess, clearMessages, handleError]);
 
   // ---------------------------------------------------------------------------
   // View helpers
@@ -580,6 +630,8 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
         return 'Forgot Password';
       case 'disclaimers':
         return 'Accept Disclaimers';
+      case 'twoFactorEnrollment':
+        return 'Set Up Two-Factor Authentication';
       default:
         return 'Sign In';
     }
@@ -679,6 +731,7 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
     handlePasswordReset,
     handleForgotPasswordSubmit,
     handleAcceptDisclaimers,
+    handleTwoFactorEnrollmentComplete,
     toggleMode,
     resolveTitle,
 

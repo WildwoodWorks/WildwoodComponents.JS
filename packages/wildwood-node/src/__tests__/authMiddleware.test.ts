@@ -121,3 +121,43 @@ describe('createAuthMiddleware (decode-only)', () => {
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
   });
 });
+
+describe('createAuthMiddleware: two-factor enrollment pending tokens', () => {
+  const pendingToken = () => validToken({ tfa_enroll_pending: 'true' });
+
+  it('refuses a restricted token with 403 TWO_FACTOR_ENROLLMENT_REQUIRED by default', async () => {
+    const req = makeReq({ authorization: `Bearer ${pendingToken()}` });
+    const res = makeRes();
+    const next = vi.fn();
+
+    await mw()(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ errorCode: 'TWO_FACTOR_ENROLLMENT_REQUIRED' });
+  });
+
+  it('accepts it when allowed, and marks the user as pending', async () => {
+    const middleware = createAuthMiddleware({
+      baseUrl: 'https://api.test',
+      jwksClient: false,
+      allowTwoFactorEnrollmentPending: true,
+    });
+    const req = makeReq({ authorization: `Bearer ${pendingToken()}` });
+    const next = vi.fn();
+
+    await middleware(req, makeRes(), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.wildwoodUser?.twoFactorEnrollmentPending).toBe(true);
+  });
+
+  it('marks an ordinary token as not pending', async () => {
+    const req = makeReq({ authorization: `Bearer ${validToken()}` });
+    const next = vi.fn();
+
+    await mw()(req, makeRes(), next);
+
+    expect(req.wildwoodUser?.twoFactorEnrollmentPending).toBe(false);
+  });
+});

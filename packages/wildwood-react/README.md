@@ -59,6 +59,7 @@ function MyApp() {
 | `useNotifications()` | Toast notification queue |
 | `useTheme()` | Theme switching and persistence |
 | `useTwoFactor()` | 2FA settings and credentials |
+| `useTwoFactorEnrollmentRequired()` | `{ isRequired, complete }` — the session is restricted until the user sets up 2FA (app requires it) |
 | `useCaptcha()` | CAPTCHA script lifecycle |
 | `useDisclaimer()` | Disclaimer fetch and acceptance |
 | `useAppTier()` | Tier browsing, feature gating |
@@ -78,7 +79,7 @@ function MyApp() {
   on their own as `RegistrationSubscriptionPricing`, `RegistrationSubscriptionSignup` and
   `RegistrationSubscriptionManage`, so a landing page can import the pricing view without dragging
   the admin surfaces along. See [Registration & Subscription](#registration--subscription).
-- `AuthenticationComponent` — Login/register with OAuth, passkeys, 2FA
+- `AuthenticationComponent` — Login/register with OAuth, passkeys, 2FA. When the app requires 2FA and the user has none, it shows two-factor setup (view `twoFactorEnrollment`) and calls `onAuthenticationSuccess` only after the user enrolls and the session is refreshed
 - `AIChatComponent` — Chat UI with sessions, messages, TTS and voice input
   ([details](#voice-input-in-aichatcomponent))
 - `AIProxyComponent` — Direct AI model interaction
@@ -87,7 +88,7 @@ function MyApp() {
 - `PaymentFormComponent` — Payment form with validation
 - `NotificationComponent` — Notification list
 - `NotificationToastComponent` — Animated toast popups
-- `TwoFactorSettingsComponent` — 2FA setup wizard
+- `TwoFactorSettingsComponent` — 2FA setup wizard (enrolling lifts a required-enrollment restriction by refreshing the session)
 - `TokenRegistrationComponent` — Token-based registration (the signup view renders it for the form
   and the registration-token card)
 - `SubscriptionAdminComponent` — Subscription, plans, features, packs, usage and overrides

@@ -35,6 +35,14 @@ app.get('/api/profile', (req, res) => {
 });
 ```
 
+### Two-factor enrollment pending tokens
+
+When an app requires two-factor authentication and the user has not enrolled, the Wildwood API issues
+a token restricted to enrollment (claim `tfa_enroll_pending`). `createAuthMiddleware` refuses it the
+same way the API does, with **403** `{ error, errorCode: 'TWO_FACTOR_ENROLLMENT_REQUIRED' }`, so your
+backend does not become a way around the policy. For a route that helps the user enroll, pass
+`allowTwoFactorEnrollmentPending: true`; `req.wildwoodUser.twoFactorEnrollmentPending` is then `true`.
+
 ## Proxy Middleware
 
 Proxies API requests with server-side API key injection (keeps keys off the client):
