@@ -197,3 +197,37 @@ describe('TokenRegistrationComponent funnel events', () => {
     await waitFor(() => expect(sent()).toContain('signup_error:invalid_token'));
   });
 });
+
+describe('TokenRegistrationComponent password policy', () => {
+  it('checks the policy even when the form is submitted before it has loaded', async () => {
+    const client = createTestClient();
+    stubCommon(client);
+    // The mount-time fetch never lands; only the one the submit makes itself does.
+    const policy = {
+      passwordMinimumLength: 8,
+      passwordRequireUppercase: true,
+      passwordRequireLowercase: true,
+      passwordRequireDigit: true,
+      passwordRequireSpecialChar: true,
+    };
+    client.auth.getAuthenticationConfiguration = vi
+      .fn()
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(policy);
+    client.auth.registerWithToken = vi.fn();
+
+    render(<TokenRegistrationComponent appId="test-app-id" registrationToken="tok-123" />, {
+      wrapper: createWrapper(client),
+    });
+
+    fillAccountForm();
+    fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    expect(await screen.findByText('Password must be at least 8 characters.')).toBeTruthy();
+    // Refused on the form: the server never sees the weak password.
+    expect(client.auth.validateRegistration).not.toHaveBeenCalled();
+    expect(client.auth.registerWithToken).not.toHaveBeenCalled();
+  });
+});
