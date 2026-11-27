@@ -20,6 +20,9 @@ export interface TierCardProps {
   enterpriseContactUrl?: string;
   disabled?: boolean;
   processingText?: string;
+  /** See `TierCardFooterProps.unavailable`. */
+  unavailable?: boolean;
+  unavailableText?: string;
   onSelect?: (tier: AppTierModel) => void;
   style?: ViewStyle;
 }
@@ -37,6 +40,8 @@ export function TierCard({
   enterpriseContactUrl,
   disabled,
   processingText,
+  unavailable,
+  unavailableText,
   onSelect,
   style,
 }: TierCardProps) {
@@ -81,6 +86,8 @@ export function TierCard({
         enterpriseContactUrl={enterpriseContactUrl}
         disabled={disabled}
         processingText={processingText}
+        unavailable={unavailable}
+        unavailableText={unavailableText}
         onSelect={onSelect}
       />
     </View>

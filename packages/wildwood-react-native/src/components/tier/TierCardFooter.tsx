@@ -11,6 +11,13 @@ export interface TierCardFooterProps {
   enterpriseContactUrl?: string;
   disabled?: boolean;
   processingText?: string;
+  /**
+   * The subscriber's current plan does not allow a move to this one (`isTierChangeAllowed`). The
+   * footer then shows a marker instead of a switch button the server would only refuse.
+   */
+  unavailable?: boolean;
+  /** The marker's text. Default "Not available on your plan". */
+  unavailableText?: string;
   onSelect?: (tier: AppTierModel) => void;
   style?: ViewStyle;
 }
@@ -24,6 +31,8 @@ export function TierCardFooter({
   enterpriseContactUrl,
   disabled,
   processingText,
+  unavailable,
+  unavailableText = 'Not available on your plan',
   onSelect,
   style,
 }: TierCardFooterProps) {
@@ -90,6 +99,17 @@ export function TierCardFooter({
     );
   }
 
+  // A switch the current plan does not allow: a marker, not a pressable, like "Current Plan".
+  if (unavailable && tier.showSubscribeButton !== false) {
+    return (
+      <View style={[styles.footer, style]}>
+        <View style={styles.unavailableBadge} accessibilityState={{ disabled: true }}>
+          <Text style={styles.unavailableBadgeText}>{unavailableText}</Text>
+        </View>
+      </View>
+    );
+  }
+
   // Normal subscribe/select button
   if (tier.showSubscribeButton !== false) {
     const buttonText = processingText
@@ -132,6 +152,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currentBadgeText: { color: '#166534', fontSize: 14, fontWeight: '600' },
+  unavailableBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  unavailableBadgeText: { color: '#6B7280', fontSize: 14, fontWeight: '600' },
   primaryButton: {
     backgroundColor: '#007AFF',
     borderRadius: 8,

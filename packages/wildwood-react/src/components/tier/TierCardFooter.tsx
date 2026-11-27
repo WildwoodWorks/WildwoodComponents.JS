@@ -9,6 +9,13 @@ export interface TierCardFooterProps {
   enterpriseContactUrl?: string;
   disabled?: boolean;
   processingText?: string;
+  /**
+   * The subscriber's current plan does not allow a move to this one (`isTierChangeAllowed`). The
+   * footer then shows a marker instead of a switch button the server would only refuse.
+   */
+  unavailable?: boolean;
+  /** The marker's text. Default "Not available on your plan". */
+  unavailableText?: string;
   onSelect?: (tier: AppTierModel) => void;
 }
 
@@ -21,6 +28,8 @@ export function TierCardFooter({
   enterpriseContactUrl,
   disabled,
   processingText,
+  unavailable,
+  unavailableText = 'Not available on your plan',
   onSelect,
 }: TierCardFooterProps) {
   if (isCurrent) {
@@ -73,6 +82,18 @@ export function TierCardFooter({
         >
           {processingText ?? 'Contact Sales'}
         </button>
+      </div>
+    );
+  }
+
+  // A switch the current plan does not allow. A marker, not a disabled button: like "Current Plan" it
+  // is not an action, so nothing (a screen reader, a test locating switch buttons) offers it as one.
+  if (unavailable && tier.showSubscribeButton !== false) {
+    return (
+      <div className="ww-tier-footer">
+        <span className="ww-btn ww-btn-outline ww-btn-block ww-tier-unavailable" aria-disabled="true">
+          {unavailableText}
+        </span>
       </div>
     );
   }

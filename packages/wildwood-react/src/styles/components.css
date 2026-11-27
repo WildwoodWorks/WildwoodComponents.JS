@@ -2133,6 +2133,17 @@
     background: var(--ww-bg-secondary, #f8f9fa);
 }
 
+/* A switch the current plan does not allow: shaped like the button it replaces, read as inert. */
+.ww-tier-unavailable,
+.ww-tier-unavailable:hover {
+    cursor: default;
+    color: var(--ww-text-muted, #6c757d);
+    border-color: var(--ww-border-color, #dee2e6);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
 .ww-tier-default-badge,
 .ww-tier-preselected-badge {
     position: absolute;
