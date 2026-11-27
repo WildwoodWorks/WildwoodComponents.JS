@@ -340,7 +340,9 @@ export function AuthenticationComponent({
                           const result = await openOAuthPopup(authUrl);
                           if (result.success && result.response) {
                             const authResponse = result.response as AuthenticationResponse;
-                            if (authResponse.jwtToken) {
+                            // A response that still owes a second factor carries no tokens; it goes
+                            // through processAuthResponse too, which shows the code step.
+                            if (authResponse.jwtToken || authResponse.requiresTwoFactor) {
                               // The popup handed back a session directly, so auth.login() never ran to queue
                               // the campaign-attribution claim. Queue it before processAuthResponse: two-factor,
                               // a forced reset or pending disclaimers can defer the session, and the claim goes
