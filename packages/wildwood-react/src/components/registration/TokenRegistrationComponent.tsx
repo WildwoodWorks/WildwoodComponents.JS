@@ -194,27 +194,42 @@ export function TokenRegistrationComponent({
 
   // Client-side password validation
   const validatePassword = useCallback(
-    (pwd: string): string | null => {
-      if (!authConfig) return null;
-      if (pwd.length < authConfig.passwordMinimumLength) {
-        return `Password must be at least ${authConfig.passwordMinimumLength} characters.`;
+    (pwd: string, config: AuthenticationConfiguration | null = authConfig): string | null => {
+      if (!config) return null;
+      if (pwd.length < config.passwordMinimumLength) {
+        return `Password must be at least ${config.passwordMinimumLength} characters.`;
       }
-      if (authConfig.passwordRequireUppercase && !/[A-Z]/.test(pwd)) {
+      if (config.passwordRequireUppercase && !/[A-Z]/.test(pwd)) {
         return 'Password must contain at least one uppercase letter (A-Z).';
       }
-      if (authConfig.passwordRequireLowercase && !/[a-z]/.test(pwd)) {
+      if (config.passwordRequireLowercase && !/[a-z]/.test(pwd)) {
         return 'Password must contain at least one lowercase letter (a-z).';
       }
-      if (authConfig.passwordRequireDigit && !/\d/.test(pwd)) {
+      if (config.passwordRequireDigit && !/\d/.test(pwd)) {
         return 'Password must contain at least one number (0-9).';
       }
-      if (authConfig.passwordRequireSpecialChar && !/[^a-zA-Z0-9]/.test(pwd)) {
+      if (config.passwordRequireSpecialChar && !/[^a-zA-Z0-9]/.test(pwd)) {
         return 'Password must contain at least one special character.';
       }
       return null;
     },
     [authConfig],
   );
+
+  /**
+   * The policy, loading it now if the mount-time fetch has not landed yet. A form submitted before
+   * then used to skip the check entirely and send a weak password on to the server, which refuses
+   * it later with a generic "One or more validation errors occurred." instead of saying why.
+   */
+  const policyForSubmit = useCallback(async (): Promise<AuthenticationConfiguration | null> => {
+    if (authConfig || !appId) return authConfig;
+    const config = await client.auth.getAuthenticationConfiguration(appId).catch(() => null);
+    if (config) {
+      setAuthConfig(config);
+      setPasswordRequirements(client.auth.getPasswordRequirementsText(config));
+    }
+    return config;
+  }, [authConfig, appId, client.auth]);
 
   // Submit registration
   const handleSubmit = useCallback(
@@ -230,7 +245,7 @@ export function TokenRegistrationComponent({
         return;
       }
 
-      const pwdError = validatePassword(password);
+      const pwdError = validatePassword(password, await policyForSubmit());
       if (pwdError) {
         setError(pwdError);
         funnel.error('password_policy');
@@ -383,6 +398,7 @@ export function TokenRegistrationComponent({
       deferSubmission,
       client,
       validatePassword,
+      policyForSubmit,
       onFormDataCollected,
       onRegistrationSuccess,
       onRegistrationError,
