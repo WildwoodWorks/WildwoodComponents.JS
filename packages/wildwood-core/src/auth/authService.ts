@@ -20,6 +20,7 @@ import type {
   ValidateRegistrationResponse,
   OpenRegistrationResult,
   RegistrationTokenDetails,
+  UserPasskey,
 } from './types.js';
 import type {
   AttributionClaimRequest,
@@ -642,9 +643,57 @@ export class AuthService {
     return data;
   }
 
-  async getPasskeyRegistrationOptions(appId: string): Promise<unknown> {
-    const { data } = await this.http.post<unknown>('api/webauthn/register/options', { AppId: appId });
+  /**
+   * Registration options to hand to `navigator.credentials.create`. `friendlyName` is the user's own
+   * name for the new passkey; blank is sent as null so the server falls back to the authenticator kind.
+   */
+  async getPasskeyRegistrationOptions(appId: string, friendlyName?: string): Promise<unknown> {
+    const name = friendlyName?.trim();
+    const { data } = await this.http.post<unknown>('api/webauthn/register/options', {
+      AppId: appId,
+      FriendlyName: name ? name : null,
+    });
     return data;
+  }
+
+  /**
+   * Whether passkeys are enabled for the app at all (an anonymous endpoint). Any failure answers
+   * false, so a host can hide passkey UI rather than show a control that cannot work.
+   */
+  async isPasskeyEnabled(appId: string): Promise<boolean> {
+    try {
+      const { data } = await this.http.get<unknown>(`api/webauthn/enabled/${encodeURIComponent(appId)}`, {
+        skipAuth: true,
+      });
+      if (data === true) return true;
+      if (data && typeof data === 'object') {
+        for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+          if (key.toLowerCase() === 'enabled' && typeof value === 'boolean') return value;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The signed-in user's passkeys for this app. */
+  async listPasskeys(appId: string): Promise<UserPasskey[]> {
+    const { data } = await this.http.get<UserPasskey[]>(`api/webauthn/credentials?appId=${encodeURIComponent(appId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  /** Renames one of the signed-in user's passkeys; resolves to the updated passkey. */
+  async renamePasskey(passkeyId: string, friendlyName: string): Promise<UserPasskey | null> {
+    const { data } = await this.http.patch<UserPasskey>(`api/webauthn/credentials/${encodeURIComponent(passkeyId)}`, {
+      FriendlyName: friendlyName.trim(),
+    });
+    return data ?? null;
+  }
+
+  /** Removes one of the signed-in user's passkeys. */
+  async deletePasskey(passkeyId: string): Promise<void> {
+    await this.http.delete(`api/webauthn/credentials/${encodeURIComponent(passkeyId)}`);
   }
 
   async completePasskeyRegistration(appId: string, credential: unknown): Promise<void> {

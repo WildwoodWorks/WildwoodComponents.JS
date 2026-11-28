@@ -64,6 +64,7 @@ export type {
   OpenRegistrationResult,
   RegistrationTokenAppGrant,
   RegistrationTokenDetails,
+  UserPasskey,
 } from './auth/types.js';
 
 // AI
