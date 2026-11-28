@@ -150,7 +150,7 @@ export function usePasskeyManagement(options: UsePasskeyManagementOptions = {}):
   const register = useCallback(
     (friendlyName?: string) => {
       if (!createCredential) {
-        setError('Passkeys cannot be created here.');
+        setError('Passkeys cannot be added on this device.');
         return Promise.resolve(false);
       }
       return run('The passkey could not be registered.', async () => {
