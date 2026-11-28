@@ -68,6 +68,11 @@ export interface AuthenticationComponentProps {
   showDetailedErrors?: boolean;
   onAuthenticationSuccess?: (response: AuthenticationResponse) => void;
   onAuthenticationError?: (error: string) => void;
+  /**
+   * The app requires two-factor and this user has none. When supplied, the host takes over and the
+   * built-in enrollment view is not shown; the session stays restricted until the user enrolls.
+   */
+  onTwoFactorEnrollmentRequired?: (response: AuthenticationResponse) => void;
   className?: string;
   /**
    * Overrides the server configuration's registration gate. `false` hides the sign-up link and
@@ -92,6 +97,7 @@ export function AuthenticationComponent({
   showDetailedErrors = true,
   onAuthenticationSuccess,
   onAuthenticationError,
+  onTwoFactorEnrollmentRequired,
   className,
   allowRegistration: allowRegistrationProp,
   onRegisterClick,
@@ -198,6 +204,7 @@ export function AuthenticationComponent({
     deviceName: 'Web Browser',
     onAuthenticationSuccess,
     onAuthenticationError,
+    onTwoFactorEnrollmentRequired,
   });
 
   // The prop overrides the server config in both directions; when registration is off the register

@@ -37,6 +37,14 @@ export interface UseAuthenticationLogicOptions {
   deviceName?: string; // 'Web Browser' or `${Platform.OS} Device`
   onAuthenticationSuccess?: (response: AuthenticationResponse) => void;
   onAuthenticationError?: (error: string) => void;
+  /**
+   * The app requires two-factor and this user has none, so the session is restricted to enrollment.
+   * When supplied, the host takes over (e.g. routes to its own security page) and the built-in
+   * enrollment view is NOT shown; the session stays restricted until the user enrolls and
+   * `client.session.completeTwoFactorEnrollment()` lifts it. Same contract as .NET's
+   * `OnTwoFactorEnrollmentRequired`.
+   */
+  onTwoFactorEnrollmentRequired?: (response: AuthenticationResponse) => void;
 }
 
 export interface UseAuthenticationLogicReturn {
@@ -157,6 +165,7 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
     deviceName,
     onAuthenticationSuccess,
     onAuthenticationError,
+    onTwoFactorEnrollmentRequired,
   } = options;
 
   const client = useWildwood();
@@ -269,13 +278,17 @@ export function useAuthenticationLogic(options: UseAuthenticationLogicOptions): 
   const finishSignIn = useCallback(
     (response: AuthenticationResponse) => {
       if (response.requiresTwoFactorEnrollment || client.session.isTwoFactorEnrollmentPending) {
+        if (onTwoFactorEnrollmentRequired) {
+          onTwoFactorEnrollmentRequired(response);
+          return;
+        }
         setPendingAuth(response);
         setViewInternal('twoFactorEnrollment');
         return;
       }
       onAuthenticationSuccess?.(response);
     },
-    [client, onAuthenticationSuccess],
+    [client, onAuthenticationSuccess, onTwoFactorEnrollmentRequired],
   );
 
   const completeAuth = useCallback(

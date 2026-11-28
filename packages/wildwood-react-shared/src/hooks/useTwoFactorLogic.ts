@@ -12,6 +12,12 @@ export interface UseTwoFactorLogicOptions {
   onStatusChange?: (enabled: boolean) => void;
   /** Platform-specific confirmation - return a Promise<boolean> that resolves true if user confirms */
   confirmAction?: (title: string, message: string) => Promise<boolean>;
+  /**
+   * The host's app. When given, the app's 2FA configuration is read so the screen can say when
+   * the app does not enforce two-factor (sign-in would never ask for a code). Omitted → no check,
+   * as in .NET, where the notice only appears when the host names its app.
+   */
+  appId?: string;
 }
 
 export interface UseTwoFactorLogicReturn {
@@ -26,6 +32,13 @@ export interface UseTwoFactorLogicReturn {
   recoveryCodes: string[];
   recoveryCodeCount: number;
   successMessage: string;
+  /**
+   * The named app has no 2FA provider enabled, so its sign-in never asks for a second factor.
+   * Screens show the "app-not-enforcing" notice and offer no new enrollment (only removal of
+   * methods the user already has) — offering it would display "Enabled" for protection that does
+   * not exist. Port of .NET TwoFactorSettingsComponent `_appDoesNotEnforce`.
+   */
+  appDoesNotEnforce: boolean;
 
   // From useTwoFactor
   status: TwoFactorUserStatus | null;
@@ -52,8 +65,25 @@ export interface UseTwoFactorLogicReturn {
 }
 
 export function useTwoFactorLogic(options: UseTwoFactorLogicOptions = {}): UseTwoFactorLogicReturn {
-  const { onStatusChange, confirmAction } = options;
+  const { onStatusChange, confirmAction, appId } = options;
   const client = useWildwood();
+
+  const [appDoesNotEnforce, setAppDoesNotEnforce] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setAppDoesNotEnforce(false);
+    if (!appId) return;
+    // getConfiguration answers null on any failure, which leaves the screen as it always was.
+    client.twoFactor
+      .getConfiguration(appId)
+      .catch(() => null)
+      .then((config) => {
+        if (!cancelled) setAppDoesNotEnforce(config?.isEnabled === false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appId, client]);
 
   // If the session was restricted until the user enrolled (the app requires two-factor), enrolling
   // is what lifts it: refresh now so the rest of the app works without waiting for a timed refresh.
@@ -276,6 +306,7 @@ export function useTwoFactorLogic(options: UseTwoFactorLogicOptions = {}): UseTw
     recoveryCodes,
     recoveryCodeCount,
     successMessage,
+    appDoesNotEnforce,
 
     // From useTwoFactor
     status,

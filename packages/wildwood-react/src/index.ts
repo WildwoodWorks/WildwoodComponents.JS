@@ -40,6 +40,12 @@ export { useTwoFactor } from './hooks/useTwoFactor.js';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired.js';
 export type { UseTwoFactorEnrollmentRequiredReturn } from './hooks/useTwoFactorEnrollmentRequired.js';
+export { usePasskeyManagement, passkeyDisplayName } from './hooks/usePasskeyManagement.js';
+export type {
+  PasskeyCredentialCreator,
+  UsePasskeyManagementOptions,
+  UsePasskeyManagementReturn,
+} from './hooks/usePasskeyManagement.js';
 export { useDisclaimer } from './hooks/useDisclaimer.js';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer.js';
 export { useConsent } from './hooks/useConsent.js';
@@ -110,6 +116,8 @@ export { NotificationPreferences } from './components/notifications/Notification
 export type { NotificationPreferencesProps } from './components/notifications/NotificationPreferences.js';
 export { TwoFactorSettingsComponent } from './components/twofactor/TwoFactorSettingsComponent.js';
 export type { TwoFactorSettingsComponentProps } from './components/twofactor/TwoFactorSettingsComponent.js';
+export { PasskeyManagementComponent } from './components/security/PasskeyManagementComponent.js';
+export type { PasskeyManagementComponentProps } from './components/security/PasskeyManagementComponent.js';
 export { DisclaimerComponent } from './components/disclaimer/DisclaimerComponent.js';
 export type { DisclaimerComponentProps } from './components/disclaimer/DisclaimerComponent.js';
 export { ConsentBanner } from './components/consent/ConsentBanner.js';

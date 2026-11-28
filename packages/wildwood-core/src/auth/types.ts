@@ -115,6 +115,21 @@ export interface TwoFactorSendCodeResponse {
   errorMessage?: string;
 }
 
+/**
+ * A passkey registered to the signed-in user (`api/webauthn/credentials`). Mirrors the backend
+ * UserPasskeyDto and .NET `WildwoodComponents.Shared.Models.UserPasskey`.
+ */
+export interface UserPasskey {
+  id: string;
+  friendlyName?: string | null;
+  deviceInfo?: string | null;
+  isPlatformAuthenticator: boolean;
+  isActive: boolean;
+  lastUsedAt?: string | null;
+  usageCount: number;
+  createdAt: string;
+}
+
 export interface AuthProvider {
   name: string;
   /** The provider's name as shown to users (e.g. "Microsoft"). Not a full button label. */
