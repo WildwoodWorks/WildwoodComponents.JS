@@ -33,6 +33,11 @@ export interface AuthenticationComponentProps {
   onAuthenticationSuccess?: (response: AuthenticationResponse) => void;
   onAuthenticationError?: (error: string) => void;
   /**
+   * The app requires two-factor and this user has none. When supplied, the host takes over and the
+   * built-in enrollment view is not shown; the session stays restricted until the user enrolls.
+   */
+  onTwoFactorEnrollmentRequired?: (response: AuthenticationResponse) => void;
+  /**
    * Enables OAuth provider buttons. React Native has no popup window, so the consumer
    * supplies the browser/auth-session step (e.g. expo-auth-session or expo-web-browser):
    * open `authorizationUrl` and resolve with the provider token/authorization code from
@@ -63,6 +68,7 @@ export function AuthenticationComponent({
   showDetailedErrors = true,
   onAuthenticationSuccess,
   onAuthenticationError,
+  onTwoFactorEnrollmentRequired,
   onProviderSignIn,
   allowRegistration: allowRegistrationProp,
   onRegisterClick,
@@ -154,6 +160,7 @@ export function AuthenticationComponent({
     deviceName: `${Platform.OS} Device`,
     onAuthenticationSuccess,
     onAuthenticationError,
+    onTwoFactorEnrollmentRequired,
   });
 
   // The prop overrides the server config in both directions; when registration is off the register

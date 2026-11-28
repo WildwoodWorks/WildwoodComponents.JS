@@ -4,9 +4,14 @@ import { useTwoFactorLogic } from '@wildwood/react-shared';
 export interface TwoFactorSettingsComponentProps {
   className?: string;
   onStatusChange?: (enabled: boolean) => void;
+  /**
+   * The host's app. When given and the app does not enforce two-factor, the screen says so and
+   * offers no new enrollment (existing methods can still be removed).
+   */
+  appId?: string;
 }
 
-export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ className, onStatusChange, appId }: TwoFactorSettingsComponentProps) {
   const {
     view,
     emailCode,
@@ -16,6 +21,7 @@ export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFac
     recoveryCodes,
     recoveryCodeCount,
     successMessage,
+    appDoesNotEnforce,
     status,
     credentials,
     trustedDevices,
@@ -35,6 +41,7 @@ export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFac
     setEmailCode,
     setAuthenticatorCode,
   } = useTwoFactorLogic({
+    appId,
     onStatusChange,
     confirmAction: (_title, msg) => Promise.resolve(window.confirm(msg)),
   });
@@ -45,6 +52,13 @@ export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFac
       {successMessage && <div className="ww-alert ww-alert-success">{successMessage}</div>}
 
       {/* OVERVIEW */}
+      {view === 'overview' && appDoesNotEnforce && (
+        <div className="ww-alert ww-alert-warning" data-ww-2fa-notice="app-not-enforcing">
+          Two-factor authentication is not enabled for this application, so signing in will not ask for a code.
+          {status?.isEnabled && <span> Your existing methods are listed below and can be removed.</span>}
+        </div>
+      )}
+
       {view === 'overview' && (
         <div className="ww-twofactor-overview">
           <div className="ww-twofactor-status">
@@ -78,17 +92,21 @@ export function TwoFactorSettingsComponent({ className, onStatusChange }: TwoFac
           )}
 
           <div className="ww-twofactor-actions">
-            <button type="button" className="ww-btn ww-btn-outline" onClick={handleEnrollEmail} disabled={loading}>
-              Add Email
-            </button>
-            <button
-              type="button"
-              className="ww-btn ww-btn-outline"
-              onClick={handleBeginAuthenticator}
-              disabled={loading}
-            >
-              Add Authenticator
-            </button>
+            {!appDoesNotEnforce && (
+              <>
+                <button type="button" className="ww-btn ww-btn-outline" onClick={handleEnrollEmail} disabled={loading}>
+                  Add Email
+                </button>
+                <button
+                  type="button"
+                  className="ww-btn ww-btn-outline"
+                  onClick={handleBeginAuthenticator}
+                  disabled={loading}
+                >
+                  Add Authenticator
+                </button>
+              </>
+            )}
             {status?.isEnabled && (
               <>
                 <button

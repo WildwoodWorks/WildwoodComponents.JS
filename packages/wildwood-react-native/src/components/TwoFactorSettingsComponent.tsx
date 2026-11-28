@@ -17,9 +17,14 @@ import { useTwoFactorLogic } from '@wildwood/react-shared';
 export interface TwoFactorSettingsComponentProps {
   onStatusChange?: (enabled: boolean) => void;
   style?: ViewStyle;
+  /**
+   * The host's app. When given and the app does not enforce two-factor, the screen says so and
+   * offers no new enrollment (existing methods can still be removed).
+   */
+  appId?: string;
 }
 
-export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorSettingsComponentProps) {
+export function TwoFactorSettingsComponent({ onStatusChange, style, appId }: TwoFactorSettingsComponentProps) {
   const {
     // State
     view,
@@ -30,6 +35,7 @@ export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorS
     recoveryCodes,
     recoveryCodeCount,
     successMessage,
+    appDoesNotEnforce,
 
     // From useTwoFactor
     status,
@@ -54,6 +60,7 @@ export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorS
     setEmailCode,
     setAuthenticatorCode,
   } = useTwoFactorLogic({
+    appId,
     onStatusChange,
     confirmAction: (title, message) =>
       new Promise((resolve) =>
@@ -99,6 +106,15 @@ export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorS
 
   const renderOverview = () => (
     <View>
+      {appDoesNotEnforce && (
+        <View style={styles.alertWarning}>
+          <Text style={styles.alertWarningText}>
+            Two-factor authentication is not enabled for this application, so signing in will not ask for a code.
+            {status?.isEnabled ? ' Your existing methods are listed below and can be removed.' : ''}
+          </Text>
+        </View>
+      )}
+
       {/* Status badge */}
       <View style={styles.statusRow}>
         <Text style={styles.sectionTitle}>Two-Factor Authentication</Text>
@@ -153,24 +169,28 @@ export function TwoFactorSettingsComponent({ onStatusChange, style }: TwoFactorS
 
       {/* Action buttons */}
       <View style={styles.actionsRow}>
-        <Pressable
-          style={[styles.buttonOutline, loading && styles.buttonDisabled]}
-          onPress={handleEnrollEmail}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#007AFF" size="small" />
-          ) : (
-            <Text style={styles.buttonOutlineText}>Add Email</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={[styles.buttonOutline, loading && styles.buttonDisabled]}
-          onPress={handleBeginAuthenticator}
-          disabled={loading}
-        >
-          <Text style={styles.buttonOutlineText}>Add Authenticator</Text>
-        </Pressable>
+        {!appDoesNotEnforce && (
+          <>
+            <Pressable
+              style={[styles.buttonOutline, loading && styles.buttonDisabled]}
+              onPress={handleEnrollEmail}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#007AFF" size="small" />
+              ) : (
+                <Text style={styles.buttonOutlineText}>Add Email</Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={[styles.buttonOutline, loading && styles.buttonDisabled]}
+              onPress={handleBeginAuthenticator}
+              disabled={loading}
+            >
+              <Text style={styles.buttonOutlineText}>Add Authenticator</Text>
+            </Pressable>
+          </>
+        )}
         {status?.isEnabled && (
           <>
             <Pressable
