@@ -58,6 +58,7 @@ All components render using React Native primitives (`View`, `Text`, `TextInput`
 - `PaymentComponent`, `PaymentFormComponent`
 - `NotificationComponent`, `NotificationToastComponent`
 - `TwoFactorSettingsComponent`, `TokenRegistrationComponent`
+- `PasskeyManagementComponent` — list, rename and remove the user's passkeys; adding one needs a host-supplied `createCredential` ceremony (the package takes no passkey native module), otherwise the add control is replaced by a notice
 - `AuthenticationComponent` holds a user on two-factor setup when the app requires 2FA and they have none (same flow as `@wildwood/react`)
 - `AppTierComponent`, `DisclaimerComponent`, `FeedbackComponent`
 

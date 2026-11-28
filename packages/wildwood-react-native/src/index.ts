@@ -38,6 +38,12 @@ export { useTwoFactor } from './hooks/useTwoFactor';
 export type { UseTwoFactorReturn } from './hooks/useTwoFactor';
 export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired';
 export type { UseTwoFactorEnrollmentRequiredReturn } from './hooks/useTwoFactorEnrollmentRequired';
+export { usePasskeyManagement, passkeyDisplayName } from './hooks/usePasskeyManagement';
+export type {
+  PasskeyCredentialCreator,
+  UsePasskeyManagementOptions,
+  UsePasskeyManagementReturn,
+} from './hooks/usePasskeyManagement';
 export { useDisclaimer } from './hooks/useDisclaimer';
 export type { UseDisclaimerReturn } from './hooks/useDisclaimer';
 export { useConsent } from './hooks/useConsent';
@@ -203,6 +209,8 @@ export { NotificationPreferences } from './components/NotificationPreferences';
 export type { NotificationPreferencesProps } from './components/NotificationPreferences';
 export { TwoFactorSettingsComponent } from './components/TwoFactorSettingsComponent';
 export type { TwoFactorSettingsComponentProps } from './components/TwoFactorSettingsComponent';
+export { PasskeyManagementComponent } from './components/security/PasskeyManagementComponent';
+export type { PasskeyManagementComponentProps } from './components/security/PasskeyManagementComponent';
 export { DisclaimerComponent } from './components/DisclaimerComponent';
 export type { DisclaimerComponentProps } from './components/DisclaimerComponent';
 export { ConsentComponent } from './components/ConsentComponent';
