@@ -53,6 +53,7 @@ export type { UseTwoFactorReturn } from './hooks/useTwoFactor.js';
 export { useTwoFactorLogic } from './hooks/useTwoFactorLogic.js';
 export { useTwoFactorEnrollmentRequired } from './hooks/useTwoFactorEnrollmentRequired.js';
 export { usePasskeyManagement, passkeyDisplayName } from './hooks/usePasskeyManagement.js';
+export { chatSessionToAdopt } from './hooks/chatSession.js';
 export type {
   PasskeyCredentialCreator,
   UsePasskeyManagementOptions,

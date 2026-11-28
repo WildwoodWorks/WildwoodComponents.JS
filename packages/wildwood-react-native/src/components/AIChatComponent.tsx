@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import type { AIChatResponse, AIChatRequest, AISessionSummary, AIConfiguration } from '@wildwood/core';
+import { chatSessionToAdopt } from '@wildwood/react-shared';
 import { useAI } from '../hooks/useAI';
 
 /** Result from file picker callback. Provide either `file` (Blob) or `uri` + `base64` for RN asset access. */
@@ -213,9 +214,11 @@ export function AIChatComponent({
         response = await sendMessage(request);
       }
 
-      if (response.sessionId && !currentSessionId) {
-        setCurrentSessionId(response.sessionId);
-        onSessionCreated?.(response.sessionId);
+      // The server decides which session the message landed in; follow it whenever it differs.
+      const adopt = chatSessionToAdopt(currentSessionId, response.sessionId);
+      if (adopt) {
+        setCurrentSessionId(adopt);
+        onSessionCreated?.(adopt);
       }
 
       setMessages((prev) => [

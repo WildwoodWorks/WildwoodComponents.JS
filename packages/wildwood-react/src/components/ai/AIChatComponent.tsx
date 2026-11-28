@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import type { AIChatResponse, AISessionSummary, AIConfiguration, TTSVoice } from '@wildwood/core';
+import { chatSessionToAdopt } from '@wildwood/react-shared';
 import { useAI } from '../../hooks/useAI.js';
 import { useSpeechInput } from './useSpeechInput.js';
 
@@ -236,9 +237,11 @@ export function AIChatComponent({
           : await sendMessage(chatRequest);
         setPendingFile(null);
 
-        if (response.sessionId && !currentSessionId) {
-          setCurrentSessionId(response.sessionId);
-          onSessionCreated?.(response.sessionId);
+        // The server decides which session the message landed in; follow it whenever it differs.
+        const adopt = chatSessionToAdopt(currentSessionId, response.sessionId);
+        if (adopt) {
+          setCurrentSessionId(adopt);
+          onSessionCreated?.(adopt);
         }
 
         const assistantContent = response.response ?? '';

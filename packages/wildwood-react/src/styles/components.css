@@ -1203,6 +1203,26 @@
 
 .ww-aichat-input::placeholder {
     color: var(--ww-text-muted, #6c757d);
+    /* The textarea is one row tall: a long placeholder that wraps on a narrow screen shows only
+       its first line. Keep it on one line and end it with an ellipsis instead. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Where the browser can size a textarea to its placeholder, show the whole placeholder instead:
+   it wraps and the empty input grows to fit it (max-height still caps it; once the user types,
+   the component's own auto-resize sets the height). Browsers without field-sizing keep the
+   one-line ellipsis above. Same rule as the Blazor AIChatComponent. */
+@supports (field-sizing: content) {
+    .ww-aichat-input {
+        field-sizing: content;
+        min-width: 0;
+    }
+
+    .ww-aichat-input::placeholder {
+        white-space: normal;
+    }
 }
 
 .ww-aichat-input-actions {
@@ -1510,6 +1530,15 @@
 
 /* AI Chat Responsive */
 @media (max-width: 768px) {
+    /* The floating sidebar toggle sits over the scrolling messages, so text scrolls underneath it.
+       Give it its own row above the messages instead (.ww-aichat-main is a flex column). */
+    .ww-aichat-sidebar-toggle {
+        position: static;
+        align-self: flex-start;
+        flex-shrink: 0;
+        margin: 0.5rem 0 0.25rem 0.5rem;
+    }
+
     .ww-aichat-sidebar {
         position: absolute;
         left: 0;
