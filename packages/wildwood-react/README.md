@@ -89,6 +89,7 @@ function MyApp() {
 - `NotificationComponent` — Notification list
 - `NotificationToastComponent` — Animated toast popups
 - `TwoFactorSettingsComponent` — 2FA setup wizard (enrolling lifts a required-enrollment restriction by refreshing the session)
+- `PasskeyManagementComponent` — the signed-in user's passkeys: add (browser WebAuthn ceremony), rename, remove; `usePasskeyManagement` is the headless hook
 - `TokenRegistrationComponent` — Token-based registration (the signup view renders it for the form
   and the registration-token card)
 - `SubscriptionAdminComponent` — Subscription, plans, features, packs, usage and overrides
